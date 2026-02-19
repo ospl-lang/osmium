@@ -1,0 +1,13 @@
+Done:
+- if statements
+- optimize instructions
+- loops
+- arena allocator
+- refcounting
+
+To-Do:
+- GC cycle detection (stop leaking memory of refcycles)
+- binary ops
+- comparisons
+- assign ops
+- optimize some stuff

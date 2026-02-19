@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "crates/ospl-common",
+    "crates/ospl-parser",
+    "crates/ospl-vm",
+    "crates/ospl-compiler",
+]
+resolver = "3"

@@ -1,0 +1,14 @@
+[package]
+name = "ospl-vm"
+version = "0.1.0"
+edition = "2024"
+
+[lints.clippy]
+needless_return = "allow"
+
+[features]
+serde = ["dep:serde", "dep:serde_yaml"]
+
+[dependencies]
+serde = { version = "1.0.228", optional = true, features = ["serde_derive"] }
+serde_yaml = { version = "0.9.34", optional = true }
