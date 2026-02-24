@@ -16,7 +16,6 @@ mod tests;
 // TODO: experement with this alignment attribute
 //#[repr(align(1))]
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Represents any OSPL value. **PLEASE READ THE THING BELOW!!**
 /// 
 /// # **THE PartialEq IMPLEMENTATION SHOULD ONLY BE USED IN TESTS!!!**

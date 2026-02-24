@@ -16,8 +16,7 @@
 
 use crate::{Value, arena::ArenaIndex};
 
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Opc {
     /// Does nothing
     NullOp,
@@ -68,8 +67,8 @@ pub enum Opc {
     Unbind,
 }
 
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Inst {
     pub opcode: Opc,
 
@@ -89,7 +88,7 @@ pub struct Inst {
 }
 
 pub struct InstBuilder {
-    pub inner: Inst
+    inner: Inst
 }
 
 impl InstBuilder {

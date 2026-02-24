@@ -1,30 +1,31 @@
+use crate::base::CompilerError;
 use crate::Compiler;
-use ospl_common::ast::repr::{Expr, LValue, StaticValue, Stmt};
-use ospl_common::inst::VMInstruction;
+use ospl_common::ast::repr::{Expr, LValue, StaticValue};
+use ospl_common::inst::unoptimized::VMInstruction;
 
 impl Compiler {
-    pub fn declare_lvalue_uninit(&mut self, lvalue: LValue) -> usize {
-        return self.declare_lvalue_init(lvalue, Expr::StaticLiteral(StaticValue::Nul));
+    pub fn declare_lvalue_uninit(&mut self, lvalue: LValue, out: &mut Vec<VMInstruction>) -> Result<usize, CompilerError> {
+        return self.declare_lvalue_init(lvalue, Expr::StaticLiteral(StaticValue::Nul), out);
     }
 
-    pub fn declare_lvalue_init(&mut self, lvalue: LValue, rvalue: Expr) -> usize {
+    pub fn declare_lvalue_init(&mut self, lvalue: LValue, rvalue: Expr, out: &mut Vec<VMInstruction>) -> Result<usize, CompilerError> {
         match lvalue {
             LValue::Var(v) => {
                 // evaluate the rvalue
-                let eval = self.eval(&rvalue);
+                let eval = self.eval(&rvalue, out)?;
 
-                let decl_idx = self.scope.declare(v, eval.ty.data);
+                let decl_idx = self.top_mut().declare(v, eval.ty.data);
 
                 assert_eq!(eval.index, decl_idx);
 
                 // already declared in this `eval`
-                return eval.index;
+                return Ok(eval.index);
             }
         }
     }
 
-    pub fn assign_lvalue(&mut self, lvalue: LValue, rvalue: &Expr) {
-        let left_index = self.get_lvalue_index(&lvalue);
+    pub fn assign_lvalue(&mut self, lvalue: LValue, rvalue: &Expr, out: &mut Vec<VMInstruction>) -> Result<(), CompilerError> {
+        let left_index = self.get_lvalue_reg(&lvalue);
 
         // OPTIMIZE: can be optimized.
         // 
@@ -34,21 +35,13 @@ impl Compiler {
         // Two routes can be taken to optimize this:
         //  a. Detect when new data is pushed and optimize accordingly.
         //  b. Guarantee `eval(...)` doesn't push new data. (likely infeasable)
-        let eval = self.eval(rvalue);
+        let eval = self.eval(rvalue, out)?;
         
-        self.code.push(VMInstruction::AssignCopy {
+        out.push(VMInstruction::AssignCopy {
             reg: left_index,
             new: eval.index
         });
-    }
 
-    pub fn compile_stmt(&mut self, stmt: Stmt) {
-        match stmt {
-            Stmt::Declare { lhs, rhs } => { match rhs {
-                Some(e) => self.declare_lvalue_init(lhs, e),
-                None => self.declare_lvalue_uninit(lhs),
-            }; },
-            _ => {}
-        };
+        return Ok(())
     }
 }

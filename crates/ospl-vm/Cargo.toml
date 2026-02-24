@@ -12,3 +12,4 @@ serde = ["dep:serde", "dep:serde_yaml"]
 [dependencies]
 serde = { version = "1.0.228", optional = true, features = ["serde_derive"] }
 serde_yaml = { version = "0.9.34", optional = true }
+ospl-common = { path = "../ospl-common" }

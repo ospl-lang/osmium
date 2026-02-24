@@ -2,6 +2,7 @@ pub mod tests;
 mod expr;
 mod stmt;
 mod literal;
+mod file;
 
 pub struct Parser<'a> {
     pub input: &'a str,

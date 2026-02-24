@@ -12,6 +12,9 @@ pub enum GcEvent<'a> {
     NewReference {
         to: ArenaIndex,
     },
+    EndReference {
+        to: ArenaIndex,
+    },
     DetectCyclesPlease,
 }
 
@@ -51,6 +54,9 @@ impl Arena {
             GcEvent::NewReference { to } => {
                 self.inc_refcount(to);
             },
+            GcEvent::EndReference { to } => {
+                self.dec_refcount(to);
+            }
             _ => unimplemented!(),
         }
     }

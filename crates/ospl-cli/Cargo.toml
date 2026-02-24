@@ -1,0 +1,11 @@
+[package]
+name = "ospl-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap            = { version = "4.5.60", features = ["derive"] }
+ospl-common     = { path = "../ospl-common" }
+ospl-compiler   = { path = "../ospl-compiler" }
+ospl-parser     = { path = "../ospl-parser" }
+ospl-vm         = { path = "../ospl-vm" }

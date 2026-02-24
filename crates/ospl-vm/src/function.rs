@@ -3,7 +3,6 @@ use crate::{Control, inst::optimized::Inst};
 use super::{Frame, VM, arena::ArenaIndex};
 
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Fn {
     /// The indexes into the arena that this thing can thingy agghgh idk
     pub lexical_indexes: Vec<ArenaIndex>,

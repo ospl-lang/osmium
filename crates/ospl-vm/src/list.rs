@@ -1,4 +1,4 @@
-use crate::{arena::{Arena, ArenaIndex}, gc::GcEvent};
+use crate::{Value, arena::{Arena, ArenaIndex}, gc::GcEvent};
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -12,5 +12,14 @@ impl List {
         arena.gc_event(GcEvent::NewReference {
             to: idx
         });
+    }
+
+    pub fn pop_mut<'a>(&mut self, arena: &'a mut Arena) -> Option<&'a mut Value> {
+        let idx = self.inner.pop()?;
+
+        arena.gc_event(GcEvent::EndReference { to: idx });
+        let item = arena.get_mut(idx);
+
+        return Some(item);
     }
 }
