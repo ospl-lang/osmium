@@ -1,57 +1,62 @@
-use ospl_common::{ast::repr::{Expr, FunctionData}, inst::{RuntimeFunctionData, RuntimeStaticValue, unoptimized::VMInstruction}};
+use ospl_common::{
+    ast::repr::{Expr, FunctionData, Type},
+    inst::{RuntimeFunctionData, unoptimized::VMInstruction},
+};
 
-use crate::{Compiler, Eval, base::{CompilerError, EvalError, TypeData}};
+use crate::{Compiler, base::{CompilerError, Eval, Res}};
 
 impl Compiler {
-    pub fn compile_fn(&mut self, fd: FunctionData) -> Result<RuntimeStaticValue, CompilerError> {
-        let mut out = Vec::new();
-        for stmt in fd.code {
-            self.compile_stmt(stmt, &mut out)?;
-        };
+    pub fn compile_fn(&mut self, fd: &FunctionData) -> Res<RuntimeFunctionData> {
+        let mut translated = Vec::with_capacity(fd.code.len());
 
-        return Ok(RuntimeStaticValue::Function(RuntimeFunctionData {
-            code: out
-        }))
+        self.new_scope_parent()?;
+        for line in &fd.code {
+            self.compile_stmt(line, &mut translated)?;
+        }
+        self.pop_scope()?;
+
+        return Ok(RuntimeFunctionData {
+            code: translated
+        })
     }
 
-    pub fn fn_call(&mut self, left: &Expr, args: &Vec<Expr>, out: &mut Vec<VMInstruction>) -> Result<Eval, CompilerError> {
-        // a bunch of type correctness checks
-        let left = self.eval(left, out)?;
-        let TypeData::Function { params, return_type, .. } = left.ty.data
-            else { return Err(CompilerError::Eval(EvalError::CalledUncallable)) };
+    pub fn call_fn(
+        &mut self,
+        func: &Expr,
+        args: &[Expr],
+        out: &mut Vec<VMInstruction>
+    ) -> Res<Eval> {
+        // PersonP -- do not want to do this clone. But I think we have to
+        let store = self.eval(func, out)?;
 
-        // ensure right arg number
-        if args.len() != params.len() {
-            return Err(CompilerError::Eval(EvalError::WrongArgCount {
-                expected: params.len(),
-                got: args.len()
-            }))
+        let Type::Function(fd) = &store.ty
+            else { return Err(CompilerError::TypeNotCallable) };
+
+        // validate
+        let mut indexes = Vec::new();
+        for arg in args {
+            let e = self.eval(arg, out)?;
+            indexes.push(e.index);
         }
 
-        // ensure correct arg types, and convert
-        let mut args_indexes = Vec::new();
-        for (arg, param) in args.iter().zip(params) {
-            let ev = self.eval(arg, out)?;
+        // preform call
+        self.new_scope_parent()?;
+        out.push(VMInstruction::Call(store.index, indexes));
 
-            if ev.ty != param {
-                return Err(CompilerError::Eval(EvalError::WrongArgType {
-                    expected: param,
-                    found: ev.ty
-                }));
-            }
+        return Ok(Eval {
+            index: self.top_mut()?.next_pre(),
+            ty: (*fd.ret).clone(),
+        })
+    }
 
-            args_indexes.push(ev.index);
-        }
+    pub fn ret(
+        &mut self,
+        e: &Expr,
+        out: &mut Vec<VMInstruction>
+    ) -> Res<()> {
+        let data = self.eval(e, out)?;
+        out.push(VMInstruction::Ret(data.index));
 
-        // emit actual call
-        out.push(VMInstruction::Call(left.index, args_indexes));
-
-        // we'll get a return on the next slot, so let's just declare this
-        let eval = Eval::new(
-            self.top_mut().declarations.next_reg_post(),
-            *return_type,
-        );
-
-        return Ok(eval)
+        return Ok(())
     }
 }

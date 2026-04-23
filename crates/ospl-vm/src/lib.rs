@@ -1,17 +1,18 @@
 use arena::{ArenaIndex, Arena};
 use crate::{arena::ArenaItem, gc::GcEvent, inst::optimized::{Inst, Opc}, oop::Instance};
 
-pub mod cond;
+mod ffi;
+mod cond;
+mod binaryops;
+mod pushes;
 pub mod arena;
 pub mod function;
-pub mod binaryops;
 pub mod oop;
 pub mod gc;
 pub mod list;
-pub mod pushes;
 pub mod inst;
 
-mod tests;
+pub mod tests;
 
 // TODO: experement with this alignment attribute
 //#[repr(align(1))]

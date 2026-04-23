@@ -3,6 +3,7 @@ mod expr;
 mod stmt;
 mod literal;
 mod file;
+mod types;
 
 pub struct Parser<'a> {
     pub input: &'a str,
@@ -15,21 +16,24 @@ pub struct Parser<'a> {
 pub enum Keyword {
     Return,
     Def,
+    Fn,
 }
 
-static ALL_KWS: &[Keyword] = &[Keyword::Def, Keyword::Return];
+pub static ALL_KWS: &[Keyword] = &[Keyword::Def, Keyword::Return];
 
 impl Keyword {
     pub fn as_str(&self) -> &'static str {
         return match self {
+            // remember: add a space at the end!
             Self::Return => "return ",
             Self::Def => "def ",
+            Self::Fn => "fn ",
         }
     }
 
     pub fn str_is_keyword(s: &str) -> bool {
         return match s {
-            "def" | "return" => true,
+            "def" | "return" | "fn" => true,
             _ => false
         }
     }

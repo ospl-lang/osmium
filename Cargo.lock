@@ -158,6 +158,9 @@ dependencies = [
 [[package]]
 name = "ospl-common"
 version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "ospl-compiler"

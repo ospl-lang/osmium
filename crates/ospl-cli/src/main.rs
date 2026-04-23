@@ -12,11 +12,15 @@ pub enum Command {
     ScratchRun {
         filepath: String
     },
+    TestLoop,
 }
 
 fn main() {
     let cli = CLI::parse();
     match cli.cmd {
+        Command::TestLoop => {
+            ospl_vm::tests::loops::t_loops();
+        },
         Command::ScratchRun { filepath } => {
             println!("parsing...");
             use ospl_parser::Parser;
@@ -24,15 +28,19 @@ fn main() {
             let mut parser = Parser::new(&input);
             let file = parser.parse_file();
 
+            // println!("file = {:?}", &file);
+
             println!("compiling...");
             use ospl_compiler::Compiler;
-            let mut compiler = Compiler::default();
+            let mut compiler = Compiler::new();
             let mut root = Vec::new();
-            compiler.compile_stmt_list(file.statements, &mut root).expect("compiler stmt list should succeed");
+            compiler.compile_stmt_list(&file.statements, &mut root).unwrap();
 
             println!("translating...");
             use ospl_vm::inst::translator;
             let translated = translator::vm_instructions_to_optimized(root);
+
+            // println!("test: {:?}", &translated);
 
             println!("executing...");
             use ospl_vm::VM;
@@ -40,6 +48,6 @@ fn main() {
             vm.run_all(&translated);
 
             println!("execution ended");
-        }
+        },
     }
 }

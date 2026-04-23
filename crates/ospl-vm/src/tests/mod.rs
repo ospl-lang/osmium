@@ -75,42 +75,7 @@ pub fn ifs() {
     assert_eq!(vm.get_value_top(3).as_bool(), Some(false), "9 != 10");
 }
 
-#[test]
-fn loops() {
-    let mut vm = VM::new();
-    let code = vec![
-        InstBuilder::new().opcode(Opc::PushLiteral).value(Value::Int(0)).build(),  // 0
-        InstBuilder::new().opcode(Opc::PushLiteral).value(Value::Int(1)).build(),  // 1
-        InstBuilder::new().opcode(Opc::PushLiteral).value(Value::Int(10)).build(),  // 2
-        InstBuilder::new()
-            .opcode(Opc::Loop)
-            .child(vec![
-                InstBuilder::new()
-                    .opcode(Opc::Addl)
-                    .index(0)
-                    .index(1)
-                    .build(),
-
-                InstBuilder::new()
-                    .opcode(Opc::Eq)
-                    .index(0)
-                    .index(2)
-                    .build(),  // 3
-
-                InstBuilder::new()
-                    .opcode(Opc::If)
-                    .index(3)
-                    .child(vec![
-                        InstBuilder::new().opcode(Opc::Break).build()
-                    ])
-                    .child(Vec::new())
-                    .build()
-            ])
-            .build()
-    ];
-
-    run_ast("loops", &code);
-}
+pub mod loops;
 
 pub fn run_ast(f: &str, insts: &[Inst]) {
     let mut vm: VM = VM::new();

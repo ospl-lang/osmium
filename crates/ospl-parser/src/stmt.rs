@@ -40,7 +40,7 @@ impl<'a> Parser<'a> {
             rvalue = Some(self.parse_expr()?);
         }
 
-        return Some(Stmt::Declare {
+        return Some(Stmt::DeclareReal {
             lhs: lvalue,
             rhs: rvalue,
         })
@@ -61,7 +61,7 @@ impl<'a> Parser<'a> {
         let Some(rhs) = self.parse_expr()
             else { return None; };  
 
-        return Some(Stmt::Assign { lhs, rhs })
+        return Some(Stmt::AssignReal { lhs, rhs })
     }
 
     pub fn parse_stmt(&mut self) -> Option<Stmt> {
@@ -71,10 +71,16 @@ impl<'a> Parser<'a> {
         }
 
         let kw = self.keywords_comsume(ALL_KWS);
-        return match kw {
+        let stmt = match kw {
             Some(Keyword::Def) => self.parse_define_stmt(),
             Some(Keyword::Return) => self.parse_return_stmt(),
             _ => None
-        }
-    }
+        };
+
+        if stmt.is_some() {
+            self.skip_ws();
+            self.expect_char(';')?;
+            return stmt
+        } else { return None }
+}
 }

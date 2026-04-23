@@ -129,7 +129,7 @@ impl VM {
         return Control::Default
     }
 
-    /// Returns the value to the previous stack frame
+    /// Returns a copy of the value to the previous stack frame
     pub fn ret(&mut self, i: ArenaIndex) {
         let vr = self.arena.get(self.top().indexes[i]).clone();
         self.end_scope();

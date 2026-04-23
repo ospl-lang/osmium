@@ -1,0 +1,45 @@
+***** file
+package:///Class/base.ospl
+*****
+vdef extern("package:///Class/*") Class = cls {
+    def x: DWORD;
+    def y: DWORD;
+};
+
+***** file
+package:///Abstract/main.ospl
+*****
+vdef extern Abstract = cls {
+    vdef foo: fn this() -> DWORD;
+    vdef bar: fn this(x: DWORD) -> DWORD;
+    vdef baz: fn this() = fn this() {
+        # default impl
+        compile_error("Abstract::baz() is illegal for this type!");
+    };
+};
+
+***** file
+package:///Class/implAbstract.ospl
+*****
+destruct { Class } from use "package:///Class/base.ospl";
+destruct { Abstract } from use "package:///Abstract/main.ospl";
+
+vdef extern("package:///Class/*") ImplAbstract = Abstract + Class + cls {
+    vdef foo = fn this() -> DWORD {
+        return this.x;
+    };
+
+    vdef bar = fn this(x: DWORD) -> DWORD {
+        return this.y += x;
+    };
+
+    # baz() is illegal
+}
+
+***** file
+package:///Class/main.ospl
+*****
+destruct { Class } from use "package:///Class/base.ospl";
+destruct { ImplAbstract } from use "package:///Class/implAbstract.ospl";
+
+vdef extern Class = Class + ImplAbstract;
