@@ -12,15 +12,11 @@ pub enum Command {
     ScratchRun {
         filepath: String
     },
-    TestLoop,
 }
 
 fn main() {
     let cli = CLI::parse();
     match cli.cmd {
-        Command::TestLoop => {
-            ospl_vm::tests::loops::t_loops();
-        },
         Command::ScratchRun { filepath } => {
             println!("parsing...");
             use ospl_parser::Parser;

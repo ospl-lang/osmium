@@ -1,5 +1,6 @@
 use arena::{ArenaIndex, Arena};
-use crate::{arena::ArenaItem, gc::GcEvent, inst::optimized::{Inst, Opc}, oop::Instance};
+use ospl_common::inst::{RuntimeFunctionData, RuntimeStaticValue, optimized::{Inst, Opc}};
+use crate::{arena::ArenaItem, gc::GcEvent};
 
 mod ffi;
 mod cond;
@@ -7,10 +8,8 @@ mod binaryops;
 mod pushes;
 pub mod arena;
 pub mod function;
-pub mod oop;
 pub mod gc;
 pub mod list;
-pub mod inst;
 
 pub mod tests;
 
@@ -19,13 +18,10 @@ pub mod tests;
 #[derive(Debug, Clone)]
 /// Represents any OSPL value. **PLEASE READ THE THING BELOW!!**
 /// 
-/// # **THE PartialEq IMPLEMENTATION SHOULD ONLY BE USED IN TESTS!!!**
-/// It ONLY determines if the value is EXACTLY eq/ne
-/// 
 /// # Dev notes
 /// Minimize memory use, even if you have to box a field.
 pub enum Value {
-    /// Represents any illigal interpreter state (e.g. not allocated)
+    /// Represents any illegal interpreter state (e.g. not allocated)
     Nul,
     Undefined,
 
@@ -37,9 +33,15 @@ pub enum Value {
 
     Bool(bool),
 
-    Fn(Box<function::Fn>),
+    Fn(Box<RuntimeFunctionData>),
 
-    Instance(Box<Instance>),
+    Scope(Box<Frame>)
+}
+
+impl From<RuntimeStaticValue> for Value {
+    fn from(value: RuntimeStaticValue) -> Self {
+        
+    }
 }
 
 impl Eq for Value {}
@@ -113,11 +115,11 @@ impl Default for Value {
     }
 }
 
-#[derive(Debug, Default)]
 /// Represents a frame on the callstack.
 /// 
 /// A list of [`ArenaIndex`] is used to translate the local values into
 /// absolute adresses.
+#[derive(Debug, Default, Clone)]
 pub struct Frame {
     /// Stores indexes into the arena
     pub indexes: Vec<usize>
@@ -139,10 +141,12 @@ pub struct VM {
     pub stack: Vec<Frame>,
 }
 
+#[derive(Debug)]
 pub enum Control {
     Break,
     Continue,
     Return(ArenaIndex),
+    ReturnScope,
     Default,
 }
 
@@ -189,11 +193,17 @@ impl VM {
 
     pub fn end_scope(&mut self) {
         let Some(f) = self.stack.pop()
-            else { return };
+            else { panic!("You can't return from the top level of a script, you fucking moron!") };
 
         self.arena.gc_event(GcEvent::FrameDestroyed {
             indexes: f.indexes.as_slice()
         });
+    }
+
+    /// Returns the scope without decrementing the refcount
+    pub fn pop_scope(&mut self) -> Frame {
+        return self.stack.pop()
+            .unwrap_or_else(|| panic!("You can't return from the top level of a script, you fucking moron!"));
     }
 
     #[inline(always)]
@@ -243,7 +253,16 @@ impl VM {
         *b = x;
     }
 
-    pub fn run_one_optimized(&mut self, inst: &Inst) -> Control {
+    pub fn run_one(&mut self, inst: &Inst) -> Control {
+        // you're about to see a lot of unsafe code!
+        //
+        // It's done to improve preformance. Rust adds
+        // a bunch of bounds-checking to Vec<T> indexes,
+        // but we know that it's safe as long as our
+        // instructions are valid. Rust doesn't know
+        // this, so we have to tell it ourselves, which
+        // requires this unsafe code.
+
         match &inst.opcode {
             Opc::PushLiteral => {
                 self.push_copy(
@@ -254,19 +273,20 @@ impl VM {
             },
 
             Opc::If => return self.if_statement(
-                inst.indexes[0],
-                &inst.children[0],
-                &inst.children[1]
+                unsafe { *inst.indexes.get_unchecked(0) },
+                unsafe { inst.children.get_unchecked(1) },
+                unsafe { inst.children.get_unchecked(1) }
             ),
 
             Opc::AssignCopy => self.assign_copy(
-                inst.indexes[0],
-                inst.indexes[1]
+                unsafe { *inst.indexes.get_unchecked(0) },
+                unsafe { *inst.indexes.get_unchecked(1) },
             ),
 
-            Opc::AssignLiteral => {
-                *self.arena.get_mut(self.top().indexes[inst.indexes[0]]) = inst.immediate.as_ref().unwrap().clone_composite();
-            },
+            // Opc::AssignLiteral => {
+            //     // don't even fuck with this one lmao.
+            //     *self.arena.get_mut(self.top().indexes[inst.indexes[0]]) = inst.immediate.as_ref().unwrap().clone_composite();
+            // },
 
             Opc::Add => self.add_regs(inst.indexes[0], inst.indexes[1]),
             Opc::Sub => self.sub_regs(inst.indexes[0], inst.indexes[1]),
@@ -275,17 +295,23 @@ impl VM {
             Opc::Addl => self.add_assign(inst.indexes[0], inst.indexes[1]),
 
             Opc::Call => return self.call_fn(
-                inst.indexes[0],
-                &inst.indexes[1..]
+                unsafe { *inst.indexes.get_unchecked(0) },
+                unsafe { &inst.indexes.get_unchecked(1..) }
             ),
 
-            Opc::Loop => return self.run_loop(&inst.children[0]),
+            Opc::Loop => return self.run_loop(
+                unsafe { &inst.children.get_unchecked(0) }
+            ),
 
-            Opc::Ret => return Control::Return(inst.indexes[0]),
+            Opc::Ret => return Control::Return(
+                unsafe { *inst.indexes.get_unchecked(0) }
+            ),
+
+            Opc::RetScope => return Control::ReturnScope,
             Opc::Continue => return Control::Continue,
             Opc::Break => return Control::Break,
 
-            other => unimplemented!("opcode {:?} is not implement", other)
+            other => unimplemented!("opcode {:?} is not implemented", other)
         };
 
         return Control::Default;
@@ -293,7 +319,8 @@ impl VM {
 
     pub fn run_all(&mut self, insts: &[Inst]) -> Control {
         for inst in insts.iter() {
-            match self.run_one_optimized(inst) {
+            eprintln!("run: {:?}", inst);
+            match self.run_one(inst) {
                 Control::Default => {},
                 other => return other
             }

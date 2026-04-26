@@ -14,7 +14,7 @@
 //! and [`Inst`]). As well as a builder API for this new
 //! representation ([`InstBuilder`])
 
-use crate::{Value, arena::ArenaIndex};
+use crate::inst::RuntimeStaticValue;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Opc {
@@ -52,6 +52,7 @@ pub enum Opc {
 
     Call,
     Ret,
+    RetScope,
 
     If,
     Loop,
@@ -59,15 +60,13 @@ pub enum Opc {
     Break,
     Continue,
 
-    PropertyDyn,
     PropertyStatic,
-    Construct,
 
     Purge,
     Unbind,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 // #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Inst {
     pub opcode: Opc,
@@ -76,10 +75,10 @@ pub struct Inst {
     // although most will contain operand lists
 
     /// Indexes for this operation
-    pub indexes: Vec<ArenaIndex>,
+    pub indexes: Vec<usize>,
 
     /// Immediate value for this operation, if any
-    pub immediate: Option<Value>,
+    pub immediate: Option<RuntimeStaticValue>,
 
     /// Children (child instructions) for this, if any.
     /// 
@@ -108,7 +107,7 @@ impl InstBuilder {
         return self
     }
 
-    pub fn index(mut self, index: ArenaIndex) -> Self {
+    pub fn index(mut self, index: usize) -> Self {
         self.inner.indexes.push(index);
 
         return self
@@ -120,7 +119,7 @@ impl InstBuilder {
         return self
     }
 
-    pub fn value(mut self, x: Value) -> Self {
+    pub fn value(mut self, x: RuntimeStaticValue) -> Self {
         self.inner.immediate = Some(x);
 
         return self

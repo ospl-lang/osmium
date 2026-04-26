@@ -1,4 +1,6 @@
-use crate::inst::unoptimized::VMInstruction;
+// use crate::inst::unoptimized::VMInstruction;
+
+use crate::inst::optimized::Inst;
 
 /// A value in it's static runtime form
 #[derive(Debug, Clone, PartialEq)]
@@ -6,18 +8,14 @@ pub enum RuntimeStaticValue {
     Int(i64),
     Float(f64),
     Function(RuntimeFunctionData),
-    Structure(RuntimeStructureData),
     Nul,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuntimeFunctionData {
-    pub code: Vec<VMInstruction>    
+    pub lexical_indexes: Vec<usize>,
+    pub code: Vec<Inst>    
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct RuntimeStructureData {
-    pub items: Vec<usize>
-}
-
-pub mod unoptimized;
+// pub mod unoptimized;
+pub mod optimized;

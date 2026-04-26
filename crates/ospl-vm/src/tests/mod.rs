@@ -4,46 +4,6 @@
 use crate::{VM, Value, function, inst::optimized::{Inst, InstBuilder, Opc}};
 
 #[test]
-/// Tests that function return values and arguments work
-pub fn functions() {
-    let mut vm = VM::new();
-    vm.run_all(&vec![
-        InstBuilder::new()
-            .opcode(Opc::PushLiteral)
-            .value(Value::Fn(function::Fn::new_literal(Vec::new(), vec![
-                InstBuilder::new()
-                    .opcode(Opc::Add)
-                    .index(0)
-                    .index(1)
-                    .build(),  // 2
-
-                InstBuilder::new()
-                    .opcode(Opc::Ret)
-                    .index(2)
-                    .build()
-            ])))
-            .build(),
-
-        InstBuilder::new().opcode(Opc::PushLiteral)  // 1
-            .value(Value::Int(5))
-            .build(),
-
-        InstBuilder::new().opcode(Opc::PushLiteral)  // 2
-            .value(Value::Int(5))
-            .build(),
-
-        InstBuilder::new().opcode(Opc::Call)  // 3
-            .index(0)
-            .index(1)
-            .index(2)
-            .build(),
-    ]);
-
-    assert_eq!(vm.stack.len(), 1, "should only be one frame after this call");
-    assert_eq!(vm.get_value_top(3).as_bool(), Some(true), "5+5 should be 10");
-}
-
-#[test]
 pub fn ifs() {
     let mut vm = VM::new();
     vm.run_all(&vec![
@@ -75,7 +35,8 @@ pub fn ifs() {
     assert_eq!(vm.get_value_top(3).as_bool(), Some(false), "9 != 10");
 }
 
-pub mod loops;
+mod funcs;
+mod loops;
 
 pub fn run_ast(f: &str, insts: &[Inst]) {
     let mut vm: VM = VM::new();

@@ -1,30 +1,30 @@
-use crate::{Control, inst::optimized::Inst};
+use crate::{Control, Value};
 
 use super::{Frame, VM, arena::ArenaIndex};
 
-#[derive(Debug, Clone)]
-pub struct Fn {
-    /// The indexes into the arena that this thing can thingy agghgh idk
-    pub lexical_indexes: Vec<ArenaIndex>,
+// #[derive(Debug, Clone)]
+// pub struct Fn {
+//     /// The indexes into the arena that this thing can thingy agghgh idk
+//     pub lexical_indexes: Vec<ArenaIndex>,
 
-    /// The code of this function
-    pub code: Vec<Inst>,
-}
+//     /// The code of this function
+//     pub code: Vec<Inst>,
+// }
 
-impl Fn {
-    /// Creates a new function given lexical indexes and code.
-    pub fn new(lexical_indexes: Vec<ArenaIndex>, code: Vec<Inst>) -> Self {
-        return Fn {
-            lexical_indexes,
-            code,
-        }
-    }
+// impl Fn {
+//     /// Creates a new function given lexical indexes and code.
+//     pub fn new(lexical_indexes: Vec<ArenaIndex>, code: Vec<Inst>) -> Self {
+//         return Fn {
+//             lexical_indexes,
+//             code,
+//         }
+//     }
 
-    /// Creates a new instance that can be used for literals. Whatever that may mean
-    pub fn new_literal(lexical_indexes: Vec<ArenaIndex>, code: Vec<Inst>) -> Box<Self> {
-        return Box::new(Self::new(lexical_indexes, code))
-    }
-}
+//     /// Creates a new instance that can be used for literals. Whatever that may mean
+//     pub fn new_literal(lexical_indexes: Vec<ArenaIndex>, code: Vec<Inst>) -> Box<Self> {
+//         return Box::new(Self::new(lexical_indexes, code))
+//     }
+// }
 
 impl VM {
     /// Calls a function with the OSPL calling convention.
@@ -118,9 +118,10 @@ impl VM {
             self.push_frame(frame);  // needs to be in unsafe because of course it does..
 
             for inst in &*very_good_safe {
-                let run = self.run_one_optimized(inst);
+                let run = self.run_one(inst);
                 match run {
                     Control::Return(i) => self.ret(i),
+                    Control::ReturnScope => self.retscope(),
                     _ => {},
                 }
             }
@@ -135,5 +136,12 @@ impl VM {
         self.end_scope();
 
         self.push_literal(vr);
+    }
+
+    /// Returns the current frame as a value
+    pub fn retscope(&mut self) {
+        // may or may not work...
+        let s = self.pop_scope();
+        self.push_literal(Value::Scope(Box::new(s)));
     }
 }

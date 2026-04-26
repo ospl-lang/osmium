@@ -1,5 +1,7 @@
 //! PersonP -- I basically vibe-coded this whole module.
 //!            It's 8 PM and I'm FUCKING TIRED
+//! 
+//! temporarily disabled
 
 use std::collections::HashMap;
 

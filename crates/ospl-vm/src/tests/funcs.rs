@@ -1,0 +1,46 @@
+use crate::{VM, Value, function, };
+use ospl_common::inst::{RuntimeFunctionData, RuntimeStaticValue};
+use ::ospl_common::inst::optimized::{Inst, InstBuilder, Opc};
+
+#[test]
+/// Tests that function return values and arguments work
+pub fn functions() {
+    let mut vm = VM::new();
+    vm.run_all(&vec![
+        InstBuilder::new()
+            .opcode(Opc::PushLiteral)
+            .value(RuntimeStaticValue::Function(RuntimeFunctionData {
+                lexical_indexes: Vec::new(),
+                code: vec![
+                    InstBuilder::new()
+                        .opcode(Opc::Add)
+                        .index(0)
+                        .index(1)
+                        .build(),  // 2
+
+                    InstBuilder::new()
+                        .opcode(Opc::Ret)
+                        .index(2)
+                        .build()
+                ]
+            }))
+            .build(),
+
+        InstBuilder::new().opcode(Opc::PushLiteral)  // 1
+            .value(RuntimeStaticValue::Int(5))
+            .build(),
+
+        InstBuilder::new().opcode(Opc::PushLiteral)  // 2
+            .value(RuntimeStaticValue::Int(5))
+            .build(),
+
+        InstBuilder::new().opcode(Opc::Call)  // 3
+            .index(0)
+            .index(1)
+            .index(2)
+            .build(),
+    ]);
+
+    assert_eq!(vm.stack.len(), 1, "should only be one frame after this call");
+    assert_eq!(vm.get_value_top(3).as_bool(), Some(true), "5+5 should be 10");
+}

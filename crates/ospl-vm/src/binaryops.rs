@@ -60,6 +60,7 @@ impl VM {
             (Value::Float(xa), Value::Float(xb)) => Value::Bool(xa == xb),
             _ => panic!("cannot eq these two!"),
         };
+
         self.push_literal(r);
     }
 }

@@ -93,8 +93,14 @@ pub enum VMInstruction {
     // function and control flow //
     ///////////////////////////////
 
+    /// Calls a function
     Call(usize, Vec<usize>),
+
+    /// Returns the value at the given index
     Ret(usize),
+
+    /// Returns the current scope
+    RetScope,
 
     If {
         cond: usize,
@@ -113,20 +119,10 @@ pub enum VMInstruction {
     // structs and properties //
     ////////////////////////////
 
-    /// Accesses a property dynamically
-    PropertyDyn {
-        lhs: usize,
-        rhs: usize
-    },
-
     /// Accesses a property statically
     PropertyStatic {
         lhs: usize,
         rhs: usize,
-    },
-
-    Construct {
-        props: Vec<usize>
     },
 
     ////////////////////////////

@@ -1,12 +1,13 @@
-[x] assignment
+[X] assignment
 [X] dot-op assignment
 [X] function defs
 [-] binary ops
     [X] with primitives
 
-[-] vscope
-    [ ] classes
-        [ ] class construction
+<!-- [-] vscope
+    [ ] structs
+        [ ] generics
+        [ ] construction
         [ ] syntax
     [?] what keyword?
         [ ] `dsl`: define system level
@@ -27,7 +28,7 @@
             [X] `let` (public) / `hold` (private)
         [?] default to what?
             [ ] public
-            [ ] private
+            [ ] private -->
 
 [ ] list type
     [ ] `list + item`

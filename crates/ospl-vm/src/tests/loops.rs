@@ -1,8 +1,9 @@
 use crate::{VM, Value, inst::optimized::{InstBuilder, Opc}, tests::run_ast};
 
-pub fn t_loops() {
+#[test]
+pub fn loops() {
     let mut vm = VM::new();
-    let code = vec![
+    let insts = vec![
         InstBuilder::new().opcode(Opc::PushLiteral).value(Value::Int(0)).build(),  // 0
         InstBuilder::new().opcode(Opc::PushLiteral).value(Value::Int(1)).build(),  // 1
         InstBuilder::new().opcode(Opc::PushLiteral).value(Value::Int(10)).build(),  // 2
@@ -33,8 +34,5 @@ pub fn t_loops() {
             .build()
     ];
 
-    run_ast("loops", &code);
+    vm.run_all(&insts);
 }
-
-#[test]
-fn loops() { t_loops(); }
