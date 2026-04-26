@@ -1,12 +1,14 @@
-use crate::{VM, Value, inst::optimized::{InstBuilder, Opc}, tests::run_ast};
+use ospl_common::inst::optimized::{InstBuilder, Opc};
+
+use crate::{VM, RuntimeValue};
 
 #[test]
 pub fn loops() {
     let mut vm = VM::new();
     let insts = vec![
-        InstBuilder::new().opcode(Opc::PushLiteral).value(Value::Int(0)).build(),  // 0
-        InstBuilder::new().opcode(Opc::PushLiteral).value(Value::Int(1)).build(),  // 1
-        InstBuilder::new().opcode(Opc::PushLiteral).value(Value::Int(10)).build(),  // 2
+        InstBuilder::new().opcode(Opc::PushLiteral).value(RuntimeValue::Int(0)).build(),  // 0
+        InstBuilder::new().opcode(Opc::PushLiteral).value(RuntimeValue::Int(1)).build(),  // 1
+        InstBuilder::new().opcode(Opc::PushLiteral).value(RuntimeValue::Int(10)).build(),  // 2
         InstBuilder::new()
             .opcode(Opc::Loop)
             .child(vec![

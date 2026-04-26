@@ -3,7 +3,7 @@
 
 use std::fmt::Debug;
 
-use crate::Value;
+use crate::RuntimeValue;
 
 pub type ArenaIndex = usize;
 
@@ -15,7 +15,7 @@ pub const FREE_REFCOUNT: usize = usize::MAX;
 
 #[derive(Default, Clone)]
 pub struct ArenaItem {
-    pub inner: Value,
+    pub inner: RuntimeValue,
     pub refcount: usize,
 }
 
@@ -33,7 +33,7 @@ impl ArenaItem {
     pub const fn const_default() -> Self {
         return Self {
             refcount: FREE_REFCOUNT,
-            inner: Value::Undefined,
+            inner: RuntimeValue::Undefined,
         }
     }
 }
@@ -64,13 +64,13 @@ impl Arena {
 
     #[inline(always)]
     pub fn reclaim(&mut self, i: ArenaIndex) {
-        self.segment[i].inner = Value::Nul;
+        self.segment[i].inner = RuntimeValue::Nul;
         self.segment[i].refcount = FREE_REFCOUNT;
         self.freelist.push(i);
     }
 
     #[inline(always)]
-    pub fn push(&mut self, v: Value) -> ArenaIndex {
+    pub fn push(&mut self, v: RuntimeValue) -> ArenaIndex {
         if let Some(idx) = self.freelist.pop() {
             self.segment[idx] = ArenaItem {
                 refcount: 1,
@@ -83,23 +83,23 @@ impl Arena {
     }
 
     #[inline(always)]
-    pub fn get(&self, index: ArenaIndex) -> &Value {
+    pub fn get(&self, index: ArenaIndex) -> &RuntimeValue {
         return &self.segment[index].inner
     }
     
     #[inline(always)]
-    pub fn get_mut(&mut self, index: ArenaIndex) -> &mut Value {
+    pub fn get_mut(&mut self, index: ArenaIndex) -> &mut RuntimeValue {
         return &mut self.segment[index].inner
     }
 
 
     #[inline(always)]
-    pub unsafe fn raw_get(&self, index: ArenaIndex) -> *const Value {
+    pub unsafe fn raw_get(&self, index: ArenaIndex) -> *const RuntimeValue {
         return &raw const self.segment[index].inner
     }
     
     #[inline(always)]
-    pub unsafe fn raw_get_mut(&mut self, index: ArenaIndex) -> *mut Value {
+    pub unsafe fn raw_get_mut(&mut self, index: ArenaIndex) -> *mut RuntimeValue {
         return &raw mut self.segment[index].inner
     }
 }

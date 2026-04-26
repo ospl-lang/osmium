@@ -1,7 +1,9 @@
 //! This module presents implementations for conditionals and control flow on
 //! [`VM`], such as if statements, loops, selections, checks, and truthiness.
 
-use crate::{Control, VM, Value, arena::ArenaIndex, inst::optimized::Inst};
+use ospl_common::inst::optimized::Inst;
+
+use crate::{Control, VM, RuntimeValue, arena::ArenaIndex};
 
 impl VM {
     /// Returns the truthiness of a given value.
@@ -14,9 +16,9 @@ impl VM {
 
         // this code is slightly more CPU friendly than a match.
         // bool at the top, because it's the most common truth type.
-        if let Value::Bool(b) = value { return *b }
+        if let RuntimeValue::Bool(b) = value { return *b }
 
-        if matches!(value, Value::Int(0) | Value::Float(0.0) | Value::Nul | Value::Undefined) {
+        if matches!(value, RuntimeValue::Int(0) | RuntimeValue::Float(0.0) | RuntimeValue::Nul | RuntimeValue::Undefined) {
             return false
         }
 

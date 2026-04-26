@@ -1,4 +1,4 @@
-use crate::{VM, Value};
+use crate::{VM, RuntimeValue};
 
 macro_rules! op {
     (
@@ -9,8 +9,8 @@ macro_rules! op {
         { $($extra_arms:tt)* }
     ) => {
         match ($a, $b) {
-            (Value::Int(xa), Value::Int(xb)) => Value::Int(xa $op xb),
-            (Value::Float(xa), Value::Float(xb)) => Value::Float(xa $op xb),
+            (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => RuntimeValue::Int(xa $op xb),
+            (RuntimeValue::Float(xa), RuntimeValue::Float(xb)) => RuntimeValue::Float(xa $op xb),
             $($extra_arms)*
             (invalid_a, invalid_b) => panic!(
                 "invalid op (binary): {:?} {} {:?}",
@@ -56,8 +56,8 @@ impl VM {
         let vb = self.get_value_top(b);
 
         let r = match (va, vb) {
-            (Value::Int(xa), Value::Int(xb)) => Value::Bool(xa == xb),
-            (Value::Float(xa), Value::Float(xb)) => Value::Bool(xa == xb),
+            (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => RuntimeValue::Bool(xa == xb),
+            (RuntimeValue::Float(xa), RuntimeValue::Float(xb)) => RuntimeValue::Bool(xa == xb),
             _ => panic!("cannot eq these two!"),
         };
 
@@ -87,11 +87,11 @@ impl VM {
             let vb = &*vb_ptr;
 
             match (va, vb) {
-                (Value::Int(x), Value::Int(y)) => *x += *y,
-                (Value::List(x), all) => {
-                    let idx = self.arena.push(all.clone_composite());
-                    x.push(idx, &mut self.arena);
-                }
+                (RuntimeValue::Int(x), RuntimeValue::Int(y)) => *x += *y,
+                // (RuntimeValue::List(x), all) => {
+                //     let idx = self.arena.push(all.clone_composite());
+                //     x.push(idx, &mut self.arena);
+                // }
 
                 (err_a, err_b) => panic!("can't add-assign {:?} += {:?}", err_a, err_b),
             }

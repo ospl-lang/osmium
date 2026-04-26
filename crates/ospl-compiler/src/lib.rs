@@ -1,4 +1,4 @@
-use ospl_common::{ast::{Statement, repr::Stmt}, inst::optimized::Inst};
+use ospl_common::{ast::{Statement, frame::Scope, repr::Stmt}, inst::optimized::Inst};
 
 pub struct Compiler;
 
@@ -10,7 +10,7 @@ impl Compiler {
     ) {
         match s.inner {
             Stmt::ReturnScope => {
-
+                let x = Scope::default();
             },
             _ => unimplemented!()
         }

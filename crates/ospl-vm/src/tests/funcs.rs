@@ -1,5 +1,5 @@
-use crate::{VM, Value, function, };
-use ospl_common::inst::{RuntimeFunctionData, RuntimeStaticValue};
+use crate::{VM, function};
+use ospl_common::inst::{RuntimeFunction, RuntimeValue};
 use ::ospl_common::inst::optimized::{Inst, InstBuilder, Opc};
 
 #[test]
@@ -9,7 +9,7 @@ pub fn functions() {
     vm.run_all(&vec![
         InstBuilder::new()
             .opcode(Opc::PushLiteral)
-            .value(RuntimeStaticValue::Function(RuntimeFunctionData {
+            .value(RuntimeValue::Function(RuntimeFunction {
                 lexical_indexes: Vec::new(),
                 code: vec![
                     InstBuilder::new()
@@ -27,11 +27,11 @@ pub fn functions() {
             .build(),
 
         InstBuilder::new().opcode(Opc::PushLiteral)  // 1
-            .value(RuntimeStaticValue::Int(5))
+            .value(RuntimeValue::Int(5))
             .build(),
 
         InstBuilder::new().opcode(Opc::PushLiteral)  // 2
-            .value(RuntimeStaticValue::Int(5))
+            .value(RuntimeValue::Int(5))
             .build(),
 
         InstBuilder::new().opcode(Opc::Call)  // 3

@@ -14,7 +14,7 @@
 //! and [`Inst`]). As well as a builder API for this new
 //! representation ([`InstBuilder`])
 
-use crate::inst::RuntimeStaticValue;
+use crate::inst::RuntimeValue;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Opc {
@@ -78,7 +78,7 @@ pub struct Inst {
     pub indexes: Vec<usize>,
 
     /// Immediate value for this operation, if any
-    pub immediate: Option<RuntimeStaticValue>,
+    pub immediate: Option<RuntimeValue>,
 
     /// Children (child instructions) for this, if any.
     /// 
@@ -119,7 +119,7 @@ impl InstBuilder {
         return self
     }
 
-    pub fn value(mut self, x: RuntimeStaticValue) -> Self {
+    pub fn value(mut self, x: RuntimeValue) -> Self {
         self.inner.immediate = Some(x);
 
         return self

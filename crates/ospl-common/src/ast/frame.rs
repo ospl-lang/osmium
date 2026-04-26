@@ -8,29 +8,6 @@ pub enum ScopeError {
         id: String,
     }
 }
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Default, Debug, PartialEq, Clone)]
-pub struct ScopeType {
-    names: HashMap<String, Store>,
-}
-
-impl ScopeType {
-    pub fn get(&self, k: &str) -> Result<&Store, ScopeError> {
-        return self.names
-            .get(k)
-            .ok_or_else(|| ScopeError::NotFound {
-                id: k.to_owned()
-            })
-    }
-
-    pub fn get_mut(&mut self, k: &str) -> Result<&mut Store, ScopeError>{
-        return self.names
-            .get_mut(k)
-            .ok_or_else(|| ScopeError::NotFound {
-                id: k.to_owned()
-            })
-    }
-}
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Default, Debug, PartialEq, Clone)]
@@ -48,7 +25,7 @@ impl Scope {
             })
     }
 
-    pub fn get_mut(&mut self, k: &str) -> Result<&mut Store, ScopeError>{
+    pub fn get_mut(&mut self, k: &str) -> Result<&mut Store, ScopeError> {
         return self.names
             .get_mut(k)
             .ok_or_else(|| ScopeError::NotFound {
@@ -64,5 +41,18 @@ impl Scope {
         let i = self.nextreg;
         self.nextreg += 1;
         return i
+    }
+}
+
+/// Represents a frame on the callstack.
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct RuntimeFrame {
+    /// Stores indexes into the arena
+    pub indexes: Vec<usize>
+}
+
+impl RuntimeFrame {
+    pub fn new(indexes: Vec<usize>) -> Self {
+        return Self { indexes };
     }
 }
