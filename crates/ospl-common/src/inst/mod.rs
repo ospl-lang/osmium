@@ -1,5 +1,4 @@
 // use crate::inst::unoptimized::VMInstruction;
-
 use crate::{ast::frame::RuntimeFrame, inst::optimized::Inst};
 
 /// A value in it's static runtime form
@@ -19,7 +18,8 @@ pub enum RuntimeValue {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuntimeFunction {
-    pub lexical_indexes: Vec<usize>,
+    /// Absolute address
+    pub lexical_indexes: Vec<crate::types::AbsAddress>,
     pub code: Vec<Inst>    
 }
 

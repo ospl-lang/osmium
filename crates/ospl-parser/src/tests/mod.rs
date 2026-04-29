@@ -8,7 +8,7 @@ pub fn definitions() {
     let mut p = Parser::new(instr);
     let x = p.parse_stmt();
 
-    assert_eq!(x, Some(Stmt::DeclareReal {
+    assert_eq!(x, Some(Stmt::Declare {
         lhs: LValue::Var("xyz".to_string()),
         rhs: Some(Expr::StaticLiteral(StaticValue::Int(10))),
     }));
@@ -20,7 +20,7 @@ pub fn assignments() {
     let mut p = Parser::new(instr);
     let x = p.parse_stmt();
 
-    assert_eq!(x, Some(Stmt::AssignReal {
+    assert_eq!(x, Some(Stmt::Assign {
         lhs: LValue::Var("xyz".to_string()),
         rhs: Expr::StaticLiteral(StaticValue::Int(10)),
     }));

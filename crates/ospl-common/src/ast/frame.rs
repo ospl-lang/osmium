@@ -6,7 +6,9 @@ use crate::ast::{Store, repr::Type};
 pub enum ScopeError {
     NotFound {
         id: String,
-    }
+    },
+    NotAScope,
+    DeclaredInScope
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -37,7 +39,15 @@ impl Scope {
         self.names.insert(k, Store::new(reg, ty));
     }
 
-    pub fn next_pre(&mut self) -> usize {
+    pub fn new_declaration(&mut self, k: String, ty: Type) -> usize {
+        self.names.insert(k, Store::new(
+            self.nextreg,
+            ty
+        ));
+        return self.next_post()
+    }
+
+    pub fn next_post(&mut self) -> usize {
         let i = self.nextreg;
         self.nextreg += 1;
         return i

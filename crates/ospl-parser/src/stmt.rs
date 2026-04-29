@@ -40,7 +40,7 @@ impl<'a> Parser<'a> {
             rvalue = Some(self.parse_expr()?);
         }
 
-        return Some(Stmt::DeclareReal {
+        return Some(Stmt::Declare {
             lhs: lvalue,
             rhs: rvalue,
         })
@@ -61,7 +61,7 @@ impl<'a> Parser<'a> {
         let Some(rhs) = self.parse_expr()
             else { return None; };  
 
-        return Some(Stmt::AssignReal { lhs, rhs })
+        return Some(Stmt::Assign { lhs, rhs })
     }
 
     pub fn parse_stmt(&mut self) -> Option<Stmt> {

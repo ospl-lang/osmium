@@ -67,7 +67,7 @@ impl VM {
         frame.indexes.extend_from_slice(f.lexical_indexes.as_slice());
 
         // now, since Rust sucks, we're gonna do unsafe
-        // SAFETY: I PROMISE THAT `f.code` AND IT'S PARENTS WILL NOT BE MUTATED
+        // SAFETY: I PROMISE THAT `f.code` AND ITS PARENTS WILL NOT BE MUTATED
         unsafe {
             let very_good_safe = &raw const f.code;
             self.push_frame(frame);  // needs to be in unsafe because of course it does..

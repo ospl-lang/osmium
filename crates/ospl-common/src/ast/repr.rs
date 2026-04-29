@@ -45,7 +45,7 @@ impl Into<Type> for StaticValue {
             Self::Float(_) => Type::Float,
             Self::Str(_) => Type::Str,
             Self::Function(fd) => Type::Function(fd.ty),
-            Self::Frame(_) => Type::Frame,
+            Self::Frame(f) => Type::Frame(f),
             Self::Nul => Type::Nul,
         }
     }
@@ -59,7 +59,7 @@ pub enum Type {
     Str,
     Function(FunctionType),
     Module(VScope),
-    Frame,
+    Frame(Scope),
     Nul,
 }
 
@@ -100,11 +100,11 @@ pub enum LValue {
 #[derive(Debug, PartialEq, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Stmt {
-    DeclareReal {
+    Declare {
         lhs: LValue,
         rhs: Option<Expr>,
     },
-    AssignReal {
+    Assign {
         lhs: LValue,
         rhs: Expr,
     },

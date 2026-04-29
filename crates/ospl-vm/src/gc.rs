@@ -60,4 +60,18 @@ impl Arena {
             _ => unimplemented!(),
         }
     }
+
+    pub fn gc_frame_destroyed(&mut self, f: &[usize]) {
+        for idx in f {
+            if self.dec_refcount(*idx) {
+                self.reclaim(*idx);
+            }
+        }
+    }
+
+    pub fn gc_frame_added(&mut self, f: &[usize]) {
+        for idx in f {
+            self.inc_refcount(*idx);
+        }
+    }
 }

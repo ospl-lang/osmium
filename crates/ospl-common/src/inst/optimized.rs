@@ -23,6 +23,17 @@ pub enum Opc {
 
     PushLiteral,
 
+    /// Pushes a function, except the captures are specified as
+    /// relative addresses, and are converted to 
+    /// 
+    /// This is the correct way to push a function, it is not
+    /// recommended (and actually a violation of the spec) to
+    /// use PushLiteral to create a function, dear compilers.
+    /// 
+    /// - **Indexes:** the captures of the function
+    /// - **Child #0:** the code of the function
+    PushFunction,
+
     PushCopy,
     AssignCopy,
     AssignLiteral,
@@ -60,7 +71,7 @@ pub enum Opc {
     Break,
     Continue,
 
-    PropertyStatic,
+    Property,
 
     Purge,
     Unbind,
@@ -109,7 +120,11 @@ impl InstBuilder {
 
     pub fn index(mut self, index: usize) -> Self {
         self.inner.indexes.push(index);
+        return self
+    }
 
+    pub fn indexes(mut self, indexes: &[usize]) -> Self {
+        self.inner.indexes.extend_from_slice(indexes);
         return self
     }
 

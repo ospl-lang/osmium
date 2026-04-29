@@ -1,5 +1,5 @@
 use arena::{ArenaIndex, Arena};
-use ospl_common::{ast::frame::RuntimeFrame, inst::{RuntimeValue, optimized::{Inst, Opc}}};
+use ospl_common::{ast::frame::RuntimeFrame, inst::{RuntimeFunction, RuntimeValue, optimized::{Inst, Opc}}};
 use crate::{arena::ArenaItem, gc::GcEvent};
 
 mod ffi;
@@ -157,6 +157,22 @@ impl VM {
                 );
             },
 
+            Opc::PushFunction => {
+                let new_indexes = inst.indexes.iter().map(|x| {
+                    // RelAddr -> AbsAddr
+                    return self.top().indexes[*x]
+                }).collect();
+                let f_code = inst.children.get_unchecked(0);
+                
+                let f = RuntimeFunction {
+                    lexical_indexes: new_indexes,
+                    code: f_code.clone()
+                };
+
+                self.push_literal(RuntimeValue::Function(f));
+                return Control::Default
+            }
+
             Opc::If => return self.if_statement(
                 *inst.indexes.get_unchecked(0),
                 &inst.children.get_unchecked(0),
@@ -202,8 +218,6 @@ impl VM {
                 Control::Default => {},
                 other => return other
             }
-
-            eprintln!("{:?}: {:?}", control, inst);
         }
 
         return Control::Default;
