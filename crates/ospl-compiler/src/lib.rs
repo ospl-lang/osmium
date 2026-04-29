@@ -4,7 +4,7 @@ use crate::ast::FunctionType;
 
 pub type RelativeVarID = usize;
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Nul, Undefined,
     Int,
@@ -13,7 +13,7 @@ pub enum Type {
 }
 
 /// A single block of variables.
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Scope {
     map: HashMap<String, Store>,
 
@@ -21,7 +21,7 @@ pub struct Scope {
     next_id: RelativeVarID,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Store {
     ty: Type,
     var: RelativeVarID

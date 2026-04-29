@@ -17,7 +17,7 @@ impl Compiler {
     {
         match &*s.inner {
             // TODO: check type
-            Stmt::Define(var, _ty, init) => {
+            Stmt::Define(var, init) => {
                 let eval = self.eval(init, ob);
 
                 self.stack.top_mut().declare(var.to_string(), eval.address, eval.ty);

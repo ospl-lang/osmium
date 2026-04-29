@@ -3,11 +3,19 @@ use crate::{Compiler, RelativeVarID, Scope, ScopeStack, Type};
 impl Compiler {
     /// Increments to the next index, returning the previous one,
     /// like a postincrement
-    pub fn next_var(&mut self) -> RelativeVarID {
+    fn next_var(&mut self) -> RelativeVarID {
         let t = self.stack.top_mut();
         let i = t.next_id;
         t.next_id += 1;
         return i
+    }
+
+    pub fn new() -> Self {
+        return Self {
+            stack: ScopeStack { scopes: vec![
+                Scope::default()
+            ] }
+        }
     }
 }
 

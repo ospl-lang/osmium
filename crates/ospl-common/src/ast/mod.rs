@@ -1,48 +1,80 @@
-use crate::ast::repr::Type;
+pub struct Statement {
+    pub inner: Box<Stmt>
+}
 
-pub mod repr;
-pub mod module;
+impl Statement {
+    pub fn test(s: Stmt) -> Self {
+        return Self {
+            inner: Box::new(s)
+        }
+    }
+}
+
+pub enum Stmt {
+    Define(String, Expression),
+    Return(Expression),
+    ReturnScope,
+}
+
+pub struct Expression {
+    pub inner: Box<Expr>
+}
+
+impl Expression {
+    pub fn test(s: Expr) -> Self {
+        return Self {
+            inner: Box::new(s)
+        }
+    }
+}
+
+pub enum Expr {
+    Literal(Literal),
+    Call(Expression, Vec<Expression>),
+    LValue(LValue),
+}
+
+pub struct LValue {
+    pub inner: Box<LV>
+}
+
+impl LValue {
+    pub fn test(s: LV) -> Self {
+        return Self {
+            inner: Box::new(s)
+        }
+    }
+}
+
+pub enum LV {
+    Variable(String),
+    Property(LValue, String),
+}
+
+pub enum Literal {
+    Int(i64),
+    Function(FunctionValue)
+}
+
+#[derive(Debug, Clone)]
+pub struct FunctionType {
+    /// Relative var ID
+    pub captures: Vec<usize>,
+    pub args: Vec<Type>,
+    pub ret: Type,
+}
+
+impl PartialEq for FunctionType {
+    fn eq(&self, other: &Self) -> bool {
+        // just ignore captures
+        return (self.args == other.args)
+            && self.ret == other.ret
+    }
+}
+
+pub struct FunctionValue {
+    pub ftype: FunctionType,
+    pub block: Vec<Statement>,
+}
+
 pub mod frame;
-
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, PartialEq, Clone)]
-pub struct Store {
-    /// Don't use this to retrieve stuff.
-    /// Only to generate code!
-    reg: usize,
-
-    ty: Type,
-}
-
-impl Store {
-    /// Don't use this to retrieve stuff.
-    /// Only to generate code!
-    pub fn reg(&self) -> usize {
-        return self.reg
-    }
-
-    pub fn get_type(&self) -> &Type {
-        return &self.ty
-    }
-
-    pub fn new(reg: usize, ty: Type) -> Self {
-        return Self { reg, ty }
-    }
-}
-
-pub struct Expression<'a> {
-    pub position: Position<'a>,
-    pub inner: repr::Expr,
-}
-
-pub struct Statement<'a> {
-    pub position: Position<'a>,
-    pub inner: repr::Stmt,
-}
-
-pub struct Position<'a> {
-    pub line: usize,
-    pub column: usize,
-    pub character: usize,
-    pub file: &'a str,
-}

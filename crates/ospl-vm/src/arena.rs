@@ -11,17 +11,31 @@ pub type ArenaIndex = usize;
 /// the future! So do that.
 pub const MEMMAX: usize = 1024;
 
-pub const FREE_REFCOUNT: usize = usize::MAX;
+// TODO: make this thread-safe!
 
 #[derive(Default, Clone)]
 pub struct ArenaItem {
     pub inner: RuntimeValue,
     pub refcount: usize,
+    next_free: Option<usize>,
+}
+
+impl ArenaItem {
+    pub fn is_free(&self) -> bool {
+        return self.refcount == 0
+    }
+
+    pub fn oom() -> Self {
+        return Self {
+            next_free: None,
+            ..Default::default()
+        }
+    }
 }
 
 impl Debug for ArenaItem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.refcount == FREE_REFCOUNT {
+        if self.is_free() {
             return write!(f, "");
         };
 
@@ -30,10 +44,11 @@ impl Debug for ArenaItem {
 }
 
 impl ArenaItem {
-    pub const fn const_default() -> Self {
+    pub const fn const_default(i: usize) -> Self {
         return Self {
-            refcount: FREE_REFCOUNT,
             inner: RuntimeValue::Undefined,
+            refcount: 0,
+            next_free: Some(i)
         }
     }
 }
@@ -41,19 +56,32 @@ impl ArenaItem {
 #[derive(Debug)]
 pub struct Arena {
     segment: Box<[ArenaItem; MEMMAX]>,
-    freelist: Vec<ArenaIndex>,
+
+    /// If this is [`None`], we're out of memory
+    freelist_head: Option<usize>
 }
 
 impl Arena {
     pub fn new() -> Self {
-        let mut freelist = Vec::with_capacity(MEMMAX);
+        let mut v = Vec::with_capacity(MEMMAX);
+
         for i in 0..MEMMAX {
-            freelist.push(i);
+            v.push(ArenaItem {
+                next_free: if i + 1 < MEMMAX {
+                    Some(i + 1)
+                } else {
+                    None
+                },
+                ..Default::default()
+            });
         }
 
-        return Self {
-            segment: Box::new([const{ArenaItem::const_default()}; MEMMAX]),
-            freelist,
+        let segment: Box<[ArenaItem; MEMMAX]> =
+            v.into_boxed_slice().try_into().unwrap();
+
+        Self {
+            segment,
+            freelist_head: Some(0),
         }
     }
 
@@ -64,22 +92,22 @@ impl Arena {
 
     #[inline(always)]
     pub fn reclaim(&mut self, i: ArenaIndex) {
-        self.segment[i].inner = RuntimeValue::Nul;
-        self.segment[i].refcount = FREE_REFCOUNT;
-        self.freelist.push(i);
+        let item = &mut self.segment[i];
+
+        // don't change refcount, the caller does that
+        item.next_free = self.freelist_head;
+        self.freelist_head = Some(i);
     }
 
     #[inline(always)]
     pub fn push(&mut self, v: RuntimeValue) -> ArenaIndex {
-        if let Some(idx) = self.freelist.pop() {
-            self.segment[idx] = ArenaItem {
-                refcount: 1,
-                inner: v
-            };
-            return idx;
-        } else {
-            panic!("we're out of memory")
-        }
+        let head = self.freelist_head.expect("OSPL: out of memory!");
+        let item = &mut self.segment[head];
+        item.inner = v;
+        item.refcount = 1;
+
+        self.freelist_head = item.next_free;
+        return head
     }
 
     #[inline(always)]
@@ -103,4 +131,3 @@ impl Arena {
         return &raw mut self.segment[index].inner
     }
 }
-

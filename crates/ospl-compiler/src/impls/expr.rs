@@ -38,8 +38,14 @@ impl Compiler {
                     address: self.next_var(),
                     ty: func.ret.clone()
                 }
+            },
+            Expr::LValue(lv) => {
+                let store = self.get_lvalue(lv, ob);
+                return EvalResult {
+                    address: store.var,
+                    ty: store.ty.clone()
+                }
             }
-            _ => unimplemented!(),
         }
     }
 
@@ -51,7 +57,10 @@ impl Compiler {
     {
         match l {
             Literal::Function(f) => return self.fn_literal(f, ob),
-            _ => unimplemented!()
+            Literal::Int(i) => {
+                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Int(*i)).build());
+                return EvalResult { address: self.next_var(), ty: Type::Int }
+            }
             // other => self.literal_generic(i),
         }
     }
