@@ -47,9 +47,6 @@ dependencies = [
 [[package]]
 name = "ospl-parser"
 version = "0.1.0"
-dependencies = [
- "ospl-common",
-]
 
 [[package]]
 name = "ospl-vm"

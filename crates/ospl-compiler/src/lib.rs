@@ -1,37 +1,6 @@
-use std::collections::HashMap;
-
-use crate::ast::FunctionType;
+use ospl_common::ast::{Scope, Type};
 
 pub type RelativeVarID = usize;
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Type {
-    Nul, Undefined,
-    Int,
-    Scope(Scope),
-    Function(Box<FunctionType>)
-}
-
-/// A single block of variables.
-#[derive(Debug, Clone, Default)]
-pub struct Scope {
-    map: HashMap<String, Store>,
-
-    // very private
-    next_id: RelativeVarID,
-}
-
-#[derive(Clone, Debug)]
-pub struct Store {
-    ty: Type,
-    var: RelativeVarID
-}
-
-impl PartialEq for Store {
-    fn eq(&self, other: &Self) -> bool {
-        return self.ty == other.ty
-    }
-}
 
 /// All nested scopes during compilation.
 #[derive(Default)]
@@ -46,6 +15,25 @@ pub struct Compiler {
 pub struct EvalResult {
     address: RelativeVarID,
     ty: Type,
+}
+
+#[derive(Debug)]
+pub enum CompErr {
+    MismatchedTypes {
+        expected: Type,
+        got: Type
+    },
+}
+
+pub type Res<T> = Result<T, CompErr>;
+
+impl From<(usize, &Type)> for EvalResult {
+    fn from(value: (usize, &Type)) -> Self {
+        return Self {
+            address: value.0,
+            ty: value.1.clone()
+        }
+    }
 }
 
 pub mod ast;

@@ -1,50 +1,24 @@
 use ospl_common::inst::optimized::{Inst, InstBuilder, Opc};
 
-use crate::{Compiler, EvalResult, Store, Type, ast::{Expr, LV, LValue, Literal}};
+use crate::{Compiler, EvalResult, Res, Type, ast::{Expr, LV, LValue, Literal}};
 
 impl Compiler {
     pub fn eval(
         &mut self,
         expr: &crate::ast::Expression,
         ob: &mut Vec<Inst>
-    ) -> EvalResult
+    ) -> Res<EvalResult>
     {
         match &*expr.inner {
             Expr::Literal(l) => return self.literal(l, ob),
-            Expr::Call(func, args) => {
-                let f = self.eval(func, ob);
-                let Type::Function(func) = f.ty
-                    else { unimplemented!() };  // FIXME: use result
-
-                // TYPECHECKING...
-                if func.args.len() != args.len() {
-                    // wrong number of args
-                    // FIXME: actually throw error
-                }
-                
-                let mut new_args = Vec::new();
-                for arg in args {
-                    let eval = self.eval(arg, ob);
-                    new_args.push(eval.address);
-                }
-
-                ob.push(InstBuilder::new()
-                    .opcode(Opc::Call)
-                    .index(f.address)
-                    .indexes(&new_args)
-                    .build());
-
-                return EvalResult {
-                    address: self.next_var(),
-                    ty: func.ret.clone()
-                }
-            },
+            Expr::Call(func, args) => self.do_call(func, args, ob),
+            Expr::BinaryOp(b) => self.binary_op(b, ob),
             Expr::LValue(lv) => {
-                let store = self.get_lvalue(lv, ob);
-                return EvalResult {
-                    address: store.var,
+                let store = self.get_lvalue(lv, ob)?;
+                return Ok(EvalResult {
+                    address: store.address,
                     ty: store.ty.clone()
-                }
+                })
             }
         }
     }
@@ -53,13 +27,13 @@ impl Compiler {
         &mut self,
         l: &Literal,
         ob: &mut Vec<Inst>
-    ) -> EvalResult
+    ) -> Res<EvalResult>
     {
         match l {
             Literal::Function(f) => return self.fn_literal(f, ob),
             Literal::Int(i) => {
                 ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Int(*i)).build());
-                return EvalResult { address: self.next_var(), ty: Type::Int }
+                return Ok(EvalResult { address: self.next_var(), ty: Type::Int })
             }
             // other => self.literal_generic(i),
         }
@@ -69,26 +43,26 @@ impl Compiler {
         &mut self,
         lv: &LValue,
         ob: &mut Vec<Inst>
-    ) -> &Store
+    ) -> Res<EvalResult>
     {
         match &*lv.inner {
             LV::Property(lv2, var) => {
-                let eval = self.get_lvalue(lv2, ob);
+                let eval = self.get_lvalue(lv2, ob)?;
                 let x = match &eval.ty {
-                    Type::Scope(s) => s.map.get(&*var),
-                    _ => None
-                }.unwrap();
+                    Type::Scope(s) => EvalResult::from(s.get_combined(var).unwrap()),  // FIXME unwrap
+                    _ => unimplemented!()
+                };
 
                 ob.push(InstBuilder::new()
                     .opcode(Opc::Property)
-                    .index(eval.var)
-                    .index(x.var)
+                    .index(eval.address)
+                    .index(x.address)
                     .build());
 
-                return x
+                return Ok(x)
             },
-            LV::Variable(v) => return self.stack.top().map.get(v)
-                .unwrap()// FIXME
+            // FIXME unwrap
+            LV::Variable(var) => return Ok(EvalResult::from(self.stack.top().get_combined(var).unwrap()))
         }
     }
 

@@ -4,32 +4,6 @@
 [-] binary ops
     [X] with primitives
 
-<!-- [-] vscope
-    [ ] structs
-        [ ] generics
-        [ ] construction
-        [ ] syntax
-    [?] what keyword?
-        [ ] `dsl`: define system level
-        [ ] `vdf`
-        [ ] `vde`
-        [ ] `vdef`
-        [ ] `def` and switch runtime `def` to `let`
-        [ ] `thing`
-        [ ] something else
-    [ ] implement syntax
-    [ ] functions
-        [?] how should be go about this?
-            [Y] put them on classes and push them when we declare?
-            [ ] is there even another option??
-    [ ] visibility
-        [?] what keyword?
-            [ ] `intern` / `extern`
-            [X] `let` (public) / `hold` (private)
-        [?] default to what?
-            [ ] public
-            [ ] private -->
-
 [ ] list type
     [ ] `list + item`
     [ ] `list * list`

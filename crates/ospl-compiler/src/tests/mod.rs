@@ -1,17 +1,14 @@
 #![allow(unused)]  // required for RA
 use std::collections::HashMap;
-use crate::{Compiler, ast::{Expr, Expression, FunctionType, FunctionValue, LV, LValue, Statement, Stmt}};
+use crate::{Compiler, ast::{Expr, Expression, FunctionType, FunctionValue, LV, LValue, Statement, Stmt, Scope, Type}};
 
 #[test]
 fn retscope() {
     let mut c = Compiler::new();
     let mut ob = Vec::new();
 
-    let mut output_type_map = HashMap::new();
-    output_type_map.insert("x".to_string(), crate::Store {
-        ty: crate::Type::Int,
-        var: 0
-    });
+    let mut output_type = Scope::default();
+    output_type.declare("x".to_string(), 0, ospl_common::ast::Type::Int);
 
     c.compile_stmt(&Statement {
         inner: Box::new(Stmt::Define(
@@ -30,10 +27,7 @@ fn retscope() {
                     ftype: FunctionType {
                         args: Vec::new(),
                         captures: Vec::new(),
-                        ret: crate::Type::Scope(crate::Scope {
-                            map: output_type_map,
-                            next_id: 1
-                        })
+                        ret: Type::Scope(output_type)
                     }
                 }))
             )}
@@ -66,6 +60,6 @@ fn retscope() {
         ))
     ), &mut ob);
 
-    let x = c.stack.top().map.get("x").expect("x didn't get defined");
-    assert_eq!(x.ty, crate::Type::Int);
+    let (_, ty) = c.stack.top().get_combined("x").expect("x didn't get defined");
+    assert_eq!(*ty, Type::Int);
 }
