@@ -55,7 +55,9 @@ impl VM {
         });
 
         self.stack.push(RuntimeFrame {
-            indexes: parents
+            indexes: parents,
+            num_args: f.num_args,
+            num_captures: f.num_captures,
         });
     }
 
@@ -71,7 +73,9 @@ impl VM {
         });
 
         self.stack.push(RuntimeFrame {
-            indexes: parents
+            indexes: parents,
+            num_args: self.top().num_args,
+            num_captures: self.top().num_captures,
         });
     }
 
@@ -141,13 +145,17 @@ impl VM {
     pub fn run_one(&mut self, inst: &Inst) -> Control {
         // you're about to see a lot of unsafe code!
         //
-        // It's done to improve preformance. Rust adds
+        // It's done to improve performance. Rust adds
         // a bunch of bounds-checking to Vec<T> indexes,
         // but we know that it's safe as long as our
         // instructions are valid. Rust doesn't know
         // this, so we have to tell it ourselves, which
         // requires this unsafe code.
+        //
+        // TL;DR the safety invariant here is that the
+        // instructions are valid.
 
+        // println!("STACK DEPTH: {}", self.stack.len());
         unsafe { match &inst.opcode {
             Opc::PushLiteral => {
                 self.push_copy(
@@ -186,6 +194,22 @@ impl VM {
                 *self.arena.get_mut(self.top().indexes[inst.indexes[0]]) = inst.immediate.as_ref().unwrap().clone();
             },
 
+            Opc::Property => {
+                let (x, prop) = (*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1));
+
+                // this is just legitimely fucking safe. There's no invariant here.
+                let search_in = self.raw_get_value_top(x);
+                match &*search_in {
+                    RuntimeValue::Scope(s) => {
+                        let cutoff = s.num_args + s.num_captures;
+                        let indexes = &s.indexes[cutoff..];
+                        self.top_mut().indexes.push(indexes[prop]);
+                    },
+                    _ => unreachable!()
+                }
+            },
+            Opc::RetScope => return Control::ReturnScope,
+
             Opc::Add => self.add_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
             Opc::Sub => self.sub_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
             Opc::Eq  => self.eq_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
@@ -200,10 +224,11 @@ impl VM {
             Opc::Loop => return self.run_loop(&inst.children.get_unchecked(0)),
 
             Opc::Ret => return Control::Return(*inst.indexes.get_unchecked(0)),
-            Opc::RetScope => return Control::ReturnScope,
             Opc::Continue => return Control::Continue,
             Opc::Break => return Control::Break,
-            // Opc::Break => panic!("YES!"),
+            // Opc::Break => panic!("YES!")
+
+            // Opc::NullOp => {}
 
             other => unimplemented!("opcode {:?} is not implemented", other)
         } };

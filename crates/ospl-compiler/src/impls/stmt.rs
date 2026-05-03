@@ -1,4 +1,4 @@
-use ospl_common::inst::optimized::Inst;
+use ospl_common::inst::optimized::{Inst, InstBuilder, Opc};
 
 pub enum Control {
     Default,
@@ -22,13 +22,34 @@ impl Compiler {
 
                 self.stack.top_mut().declare(var.to_string(), eval.address, eval.ty);
             },
-            Stmt::ReturnScope => return Ok(Control::ReturnScope),
+            Stmt::ReturnScope => {
+                let inst = InstBuilder::new()
+                    .opcode(Opc::RetScope)
+                    .build();
+                
+                ob.push(inst);
+                return Ok(Control::ReturnScope)
+            },
             Stmt::Return(e) => {
                 let eval = self.eval(e, ob)?;
                 return Ok(Control::Return(eval.address))
-            }
+            },
+            _ => unimplemented!("TODO - impl the other stmts")
         }
 
         return Ok(Control::Default)
+    }
+
+    pub fn compile_block(
+        &mut self,
+        s: &[Statement],
+        ob: &mut Vec<Inst>
+    ) -> Res<()>
+    {
+        for stmt in s {
+            self.compile_stmt(stmt, ob)?;
+        }
+
+        return Ok(())
     }
 }

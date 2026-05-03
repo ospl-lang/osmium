@@ -10,7 +10,7 @@ impl Compiler {
     ) -> Res<EvalResult>
     {
         let left = self.eval(&b.left, ob)?;
-        let right = self.eval(&b.left, ob)?;
+        let right = self.eval(&b.right, ob)?;
         if left.ty != right.ty {
             return Err(CompErr::MismatchedTypes {
                 expected: left.ty,

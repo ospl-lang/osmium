@@ -1,7 +1,8 @@
-def x = 10;
-def y = 20;
-def z = x + y;
-
-def f = fn() {
-    
-};
+{
+    def Counter = fn() -> scope{x: int} {
+        def x = 0;
+        return scope;
+    };
+    def c = Counter();
+    def should_fail = c.x;
+}

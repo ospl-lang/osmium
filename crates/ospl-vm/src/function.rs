@@ -13,7 +13,7 @@ impl VM {
     /// # Calling convention
     /// the calling convention for functions is as follows
     /// ```text,no_run
-    /// frame SP $00 --> | arg 1: copy of original value
+    /// frame SP $00 --> | arg 1: ref to original value
     ///          $01     | arg 2
     ///          $02     | arg 3
     ///          $03     | arg 4
@@ -55,8 +55,8 @@ impl VM {
         {
             let top = self.top();
             for arg in args {
-                let abs = &top.indexes[*arg];
-                frame.indexes.push(*abs);
+                let abs = top.indexes[*arg];
+                frame.indexes.push(abs);
             }
         };
 
@@ -65,6 +65,14 @@ impl VM {
             else { panic!("cannot call this object") };
 
         frame.indexes.extend_from_slice(f.lexical_indexes.as_slice());
+
+        // INVARIANT: I guarantee that the number of args passed in matches the
+        // function's expectations. If this invariant is broken, then the OSPL
+        // function (and any function using the returned scope of the function)
+        // may experience undefined behaviour.
+        frame.num_args = args.len();
+
+        frame.num_captures = f.lexical_indexes.len();
 
         // now, since Rust sucks, we're gonna do unsafe
         // SAFETY: I PROMISE THAT `f.code` AND ITS PARENTS WILL NOT BE MUTATED

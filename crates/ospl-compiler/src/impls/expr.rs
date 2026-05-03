@@ -10,7 +10,7 @@ impl Compiler {
     ) -> Res<EvalResult>
     {
         match &*expr.inner {
-            Expr::Literal(l) => return self.literal(l, ob),
+            Expr::Literal(l) => self.literal(l, ob),
             Expr::Call(func, args) => self.do_call(func, args, ob),
             Expr::BinaryOp(b) => self.binary_op(b, ob),
             Expr::LValue(lv) => {
@@ -30,12 +30,22 @@ impl Compiler {
     ) -> Res<EvalResult>
     {
         match l {
-            Literal::Function(f) => return self.fn_literal(f, ob),
+            Literal::Function(f) => self.fn_literal(f, ob),
+
+            // no idea how to write this without duplicating code.. if anyone knows a cleaner way LMK
             Literal::Int(i) => {
                 ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Int(*i)).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Int })
-            }
-            // other => self.literal_generic(i),
+            },
+            Literal::Float(f) => {
+                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Float(*f)).build());
+                return Ok(EvalResult { address: self.next_var(), ty: Type::Float })
+            },
+            Literal::Bool(b) => {
+                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Bool(*b)).build());
+                return Ok(EvalResult { address: self.next_var(), ty: Type::Bool })
+            },
+            _ => unimplemented!("FIXME")
         }
     }
 
@@ -53,16 +63,24 @@ impl Compiler {
                     _ => unimplemented!()
                 };
 
-                ob.push(InstBuilder::new()
+                let i = InstBuilder::new()
                     .opcode(Opc::Property)
                     .index(eval.address)
                     .index(x.address)
-                    .build());
+                    .build();
 
-                return Ok(x)
+                ob.push(i);
+
+                return Ok(EvalResult {
+                    address: self.next_var(),
+                    ty: x.ty
+                })
             },
             // FIXME unwrap
-            LV::Variable(var) => return Ok(EvalResult::from(self.stack.top().get_combined(var).unwrap()))
+            LV::Variable(var) => {
+                let x = EvalResult::from(self.stack.top().get_combined(var).unwrap());
+                return Ok(x)
+            }
         }
     }
 

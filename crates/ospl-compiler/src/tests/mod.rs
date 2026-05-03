@@ -10,50 +10,51 @@ fn retscope() {
     let mut output_type = Scope::default();
     output_type.declare("x".to_string(), 0, ospl_common::ast::Type::Int);
 
-    c.compile_stmt(&Statement {
-        inner: Box::new(Stmt::Define(
+    c.compile_stmt(&Statement::test(
+        Stmt::Define(
             "F".to_string(),
-            Expression {inner: Box::new(Expr::Literal(
+            Expression::test(Expr::Literal(
                 crate::ast::Literal::Function(FunctionValue {
+                    args: Vec::new(),
                     block: vec![
-                        Statement { inner: Box::new(Stmt::Define(
+                        Statement::test(Stmt::Define(
                             "x".to_string(),
-                            Expression { inner: Box::new(
+                            Expression::test(
                                 Expr::Literal(crate::ast::Literal::Int(0))
-                            ) }
-                        ))},
-                        Statement { inner: Box::new(Stmt::ReturnScope) }
+                            )
+                        )),
+                        Statement::test(Stmt::ReturnScope)
                     ],
                     ftype: FunctionType {
                         args: Vec::new(),
-                        captures: Vec::new(),
+                        // captures: Vec::new(),
                         ret: Type::Scope(output_type)
                     }
                 }))
-            )}
-        ))
-    }, &mut ob);
+            )
+        )
+    ), &mut ob);
 
-    c.compile_stmt(&Statement { inner: Box::new(
-        Stmt::Define("s".to_string(), Expression { inner: Box::new(
+    c.compile_stmt(&Statement::test(
+        Stmt::Define("s".to_string(), Expression::test(
             Expr::Call(
-                Expression { inner: Box::new(
+                Expression::test(
                     Expr::LValue(
-                        crate::ast::LValue { inner: Box::new(
+                        crate::ast::LValue::test(
                             LV::Variable("F".to_string())
-                        ) }
+                        )
                     )
-                )},
+                ),
                 Vec::new()
             )
-        ) })
-    ) }, &mut ob);
+        )
+    )), &mut ob);
 
     c.compile_stmt(&Statement::test(
         Stmt::Define("x".to_string(), Expression::test(
             Expr::LValue(LValue::test(
                 LV::Property(
-                    LValue { inner: Box::new(LV::Variable("s".to_string())) },
+                    LValue::test(LV::Variable("s".to_string())),
                     "x".to_string()
                 )
             ))

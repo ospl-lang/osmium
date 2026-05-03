@@ -31,6 +31,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92ecc6618181def0457392ccd0ee51198e065e016d1d527a7ac1b6dc7c1f09d2"
 
 [[package]]
+name = "ospl-cli"
+version = "0.1.0"
+dependencies = [
+ "ospl-compiler",
+ "ospl-parser",
+ "ospl-vm",
+]
+
+[[package]]
 name = "ospl-common"
 version = "0.1.0"
 dependencies = [
@@ -47,6 +56,9 @@ dependencies = [
 [[package]]
 name = "ospl-parser"
 version = "0.1.0"
+dependencies = [
+ "ospl-common",
+]
 
 [[package]]
 name = "ospl-vm"

@@ -27,6 +27,14 @@ impl ScopeStack {
     pub fn top_mut(&mut self) -> &mut Scope {
         return self.scopes.last_mut().unwrap()
     }
+
+    pub fn push(&mut self) {
+        self.scopes.push(Scope::default());
+    }
+
+    pub fn pop(&mut self) {
+        self.scopes.pop();
+    }
 }
 
 mod stmt;

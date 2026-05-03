@@ -12,6 +12,7 @@ pub struct Compiler {
     stack: ScopeStack
 }
 
+#[derive(Debug)]
 pub struct EvalResult {
     address: RelativeVarID,
     ty: Type,
@@ -23,6 +24,14 @@ pub enum CompErr {
         expected: Type,
         got: Type
     },
+    WrongArgCount {
+        expected: usize,
+        got: usize,
+    },
+    NotFoundInScope {
+        needed: String,
+    },
+    NoScopeToCapture,
 }
 
 pub type Res<T> = Result<T, CompErr>;

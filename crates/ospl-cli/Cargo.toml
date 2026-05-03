@@ -1,0 +1,9 @@
+[package]
+name = "ospl-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ospl-parser = { path = "../ospl-parser" }
+ospl-compiler = { path = "../ospl-compiler" }
+ospl-vm = { path = "../ospl-vm" }

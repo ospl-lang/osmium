@@ -1,35 +1,72 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Position {
+    pub line: usize,
+    pub column: usize,
+    pub ch: usize
+}
+
+impl Display for Position {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        return write!(f, "{}:{} (char #{})", self.line, self.column, self.ch)
+    }
+}
+
+impl Position {
+    pub fn next_line(&mut self) {
+        self.line += 1;
+        self.column = 0;
+    }
+
+    pub fn next_column(&mut self) {
+        self.column += 1;
+    }
+}
+
+#[derive(Debug)]
 pub struct Statement {
-    pub inner: Box<Stmt>
+    pub inner: Box<Stmt>,
+    pub at: Position,
 }
 
 impl Statement {
     pub fn test(s: Stmt) -> Self {
         return Self {
-            inner: Box::new(s)
+            inner: Box::new(s),
+            at: Position::default()
         }
     }
 }
 
+#[derive(Debug)]
 pub enum Stmt {
     Define(String, Expression),
     Return(Expression),
+    ClosureUse(String, Type),
+    Break,
+    Continue,
+    If(Expression, Vec<Statement>, Vec<Statement>),
+    Loop(Vec<Statement>),
     ReturnScope,
 }
 
+#[derive(Debug)]
 pub struct Expression {
-    pub inner: Box<Expr>
+    pub inner: Box<Expr>,
+    pub at: Position,
 }
 
 impl Expression {
     pub fn test(s: Expr) -> Self {
         return Self {
-            inner: Box::new(s)
+            inner: Box::new(s),
+            at: Position::default()
         }
     }
 }
 
+#[derive(Debug)]
 pub enum Expr {
     Literal(Literal),
     Call(Expression, Vec<Expression>),
@@ -37,32 +74,40 @@ pub enum Expr {
     LValue(LValue),
 }
 
+#[derive(Debug)]
 pub struct LValue {
-    pub inner: Box<LV>
+    pub inner: Box<LV>,
+    pub pos: Position
 }
 
 impl LValue {
     pub fn test(s: LV) -> Self {
         return Self {
-            inner: Box::new(s)
+            inner: Box::new(s),
+            pos: Position::default()
         }
     }
 }
 
+#[derive(Debug)]
 pub enum LV {
     Variable(String),
     Property(LValue, String),
 }
 
+#[derive(Debug)]
 pub enum Literal {
     Int(i64),
+    Float(f64),
+    Bool(bool),
+    Str(String),
     Function(FunctionValue)
 }
 
 #[derive(Debug, Clone)]
 pub struct FunctionType {
     /// Relative var ID
-    pub captures: Vec<usize>,
+    // pub captures: Vec<usize>,
     pub args: Vec<Type>,
     pub ret: Type,
 }
@@ -70,9 +115,10 @@ pub struct FunctionType {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Nul, Undefined,
-    Int,
+    Int, Float, Str, Bool, List,
     Scope(Scope),
-    Function(Box<FunctionType>)
+    Function(Box<FunctionType>),
+    TypeOfVar(String),
 }
 
 /// A single block of variables.
@@ -91,6 +137,7 @@ impl Scope {
     pub fn declare(&mut self, key: String, address: usize, ty: Type) {
         self.map.insert(key, address);
         self.types.insert(address, ty);
+        // println!("DECLARE: {:?}", self);
     }
 
     pub fn get_map(&mut self) -> &HashMap<String, usize> {
@@ -122,8 +169,17 @@ impl PartialEq for FunctionType {
     }
 }
 
+#[derive(Debug)]
 pub struct FunctionValue {
     pub ftype: FunctionType,
+
+    /// Argument names, take the index in the array of the target argument to
+    /// and index into the function type's array to get the value
+    pub args: Vec<String>,
+
+    /// Are derieved by the literal generator (in the compiler)
+    // pub captures: Vec<usize>,
+
     pub block: Vec<Statement>,
 }
 
