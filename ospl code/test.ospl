@@ -1,11 +1,11 @@
-{
+{   # program should loop forever if captures are functional.
     def x = 0;
     def A = fn[x]() {
         x = 1;
     };
 
     def B = fn[x]() {
-        if x {
+        if x == 1 {
             loop {};
         };
     };

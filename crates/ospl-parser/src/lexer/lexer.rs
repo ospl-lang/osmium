@@ -85,6 +85,17 @@ impl<'a> Lexer<'a> {
             ';' => Token::Semicolon,
             ':' => Token::Colon,
 
+            '#' => {
+                // ignore all the text until a newline
+                loop {
+                    self.peek()?;
+                    if self.bump()? == '\n' {
+                        // recurse for data
+                        return self.next_token();
+                    };
+                }
+            }
+
             '&' => self.do_dup(c, Token::LogicAnd, Token::BitwiseAnd),
             '|' => self.do_dup(c, Token::LogicOr, Token::BitwiseOr),
             '!' => self.do_dup(c, Token::LogicNot, Token::BitwiseNot),

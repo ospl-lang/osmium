@@ -161,7 +161,6 @@ impl VM {
         // TL;DR the safety invariant here is that the
         // instructions are valid.
 
-        eprintln!("> {:?}", inst);
         unsafe { match &inst.opcode {
             Opc::PushLiteral => {
                 self.push_copy(

@@ -1,6 +1,6 @@
 use ospl_common::{ast::Expression, inst::optimized::{Inst, InstBuilder, Opc}};
 
-use crate::{CompErr, Compiler, EvalResult, Res, Type, ast::FunctionValue};
+use crate::{CompErr, Compiler, EvalResult, Res, Type, ast::FunctionValue, impls::stmt::Control};
 
 impl Compiler {
     pub fn fn_literal(
@@ -27,20 +27,40 @@ impl Compiler {
 
             let (u, t) = {
                 let idx = self.stack.scopes.len() - 2;
-                let scope = self.stack.scopes.get(idx).expect("a");
-                scope.get_combined_copy(&capture).expect("b")
+                let scope = self.stack.scopes.get(idx)
+                    .ok_or_else(|| CompErr::NoScopeToCapture)?;
+
+                scope.get_combined_copy(&capture)
+                    .ok_or_else(|| CompErr::NotFoundInScope { needed: capture.clone() })?
             };
             self.stack.top_mut().declare(capture.clone(), variable, t);
-
-            eprintln!("{} {} {}", capture, variable, u);
 
             capture_indexes.push(u);
         }
 
         let mut insts = Vec::<Inst>::new();
+        let mut has_a_return = false;
         for stmt in &func.block {
-            self.compile_stmt(stmt, &mut insts)?;
+            match self.compile_stmt(stmt, &mut insts)? {
+                Control::Return(_) => has_a_return = true,
+                _ => {}
+            }
         };
+
+        // insert a return at the end if we don't have one
+        if !has_a_return {
+            let v = self.next_var();
+
+            insts.push(InstBuilder::new()
+                .opcode(Opc::PushLiteral)
+                .value(ospl_common::inst::RuntimeValue::Nul)
+                .build());
+
+            insts.push(InstBuilder::new()
+                .opcode(Opc::Ret)
+                .index(v)
+                .build());
+        }
 
         let inst = InstBuilder::new()
             .opcode(Opc::PushFunction)
@@ -89,8 +109,6 @@ impl Compiler {
             }
             new_args.push(eval.address);
         }
-        eprintln!("{:?}", func);
-
         let i = InstBuilder::new()
             .opcode(Opc::Call)
             .index(f.address)  // right here

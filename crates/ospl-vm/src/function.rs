@@ -75,7 +75,6 @@ impl VM {
         // SAFETY: I PROMISE THAT `f.code` AND ITS PARENTS WILL NOT BE MUTATED
         unsafe {
             let very_good_safe = &raw const f.code;
-            eprintln!("{frame:?}");
             self.push_frame(frame);  // needs to be in unsafe because of course it does..
 
             for inst in &*very_good_safe {
