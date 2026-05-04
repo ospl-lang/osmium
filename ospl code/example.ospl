@@ -1,0 +1,13 @@
+{
+    def Counter = fn() -> scope{x: int} {
+        def x = 1;
+        def add = fn[x]() -> int {
+            x = x + 1;
+            return x;
+        };
+
+        return scope;
+    };
+    def c = Counter();
+    do c.add();
+}

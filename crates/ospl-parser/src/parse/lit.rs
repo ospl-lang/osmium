@@ -3,11 +3,31 @@ use crate::{lexer::token::{EXP_IDENT, Token, TokenExpectation}, parse::{Parser, 
 
 impl<'a> Parser<'a> {
     pub fn parse_function_literal(&mut self) -> Res<FunctionValue> {
-        // two paralel lists: very fucking stupid
+        self.expect(tExp!(Fn))?;
+
+        // get the captures
+        let mut captures = Vec::new();
+        if let Token::LBracket = self.peek()?.token() {
+            self.next()?;  // consume `[`
+            loop {
+                let id = self.expect(tComb!(
+                    "identifier | RBracket",
+                    tExp!(RBracket),
+                    EXP_IDENT
+                ))?;
+                let (_, Token::Ident(id)) = id.destructure()
+                else {
+                    // consume and break the look
+                    break;
+                };
+
+                captures.push(id);
+            }
+        }
+
+        // get the args using two paralel lists: very fucking stupid
         let mut arg_types = Vec::new();
         let mut arg_names = Vec::new();
-
-        self.expect(tExp!(Fn))?;
         self.expect(tExp!(LParen))?;
         loop {
             let (_, token) = self.expect(EXP_NAMED_ARG_MEMBER)?.destructure();
@@ -29,6 +49,7 @@ impl<'a> Parser<'a> {
             ftype: FunctionType { args: arg_types, ret },
             block: b,
             args: arg_names,
+            captures,
         })
     }
 

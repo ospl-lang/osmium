@@ -1,6 +1,6 @@
 use arena::{ArenaIndex, Arena};
 use ospl_common::{ast::frame::RuntimeFrame, inst::{RuntimeFunction, RuntimeValue, optimized::{Inst, Opc}}};
-use crate::{arena::ArenaItem, gc::GcEvent};
+use crate::arena::ArenaItem;
 
 mod ffi;
 mod cond;
@@ -41,19 +41,16 @@ impl VM {
         }
     }
 
+    #[inline(always)]
     pub fn push_frame(&mut self, f: RuntimeFrame) {
-        self.arena.gc_event(GcEvent::FrameAdded {
-            indexes: &f.indexes
-        });
+        self.arena.gc_frame_added(&f.indexes);
         self.stack.push(f);
     }
 
+    #[inline(always)]
     pub fn new_child_of_scope(&mut self, f: &RuntimeFrame) {
         let parents = f.indexes.clone();
-        self.arena.gc_event(GcEvent::FrameAdded {
-            indexes: parents.as_slice()
-        });
-
+        self.arena.gc_frame_added(&parents);
         self.stack.push(RuntimeFrame {
             indexes: parents,
             num_args: f.num_args,
@@ -62,15 +59,9 @@ impl VM {
     }
 
     #[inline(always)]
-    pub fn get_item_top(&mut self, abs: ArenaIndex) -> &mut ArenaItem {
-        return self.arena.get_item_mut(self.top().indexes[abs]);
-    }
-
     pub fn new_scope_but_parental(&mut self) {
         let parents = self.top().indexes.clone();
-        self.arena.gc_event(GcEvent::FrameAdded {
-            indexes: parents.as_slice()
-        });
+        self.arena.gc_frame_added(&parents);
 
         self.stack.push(RuntimeFrame {
             indexes: parents,
@@ -79,20 +70,35 @@ impl VM {
         });
     }
 
+    #[inline(always)]
     pub fn end_scope(&mut self) {
         let Some(f) = self.stack.pop()
             else { panic!("You can't return from the top level of a script, you fucking moron!") };
 
-        self.arena.gc_event(GcEvent::FrameDestroyed {
-            indexes: f.indexes.as_slice()
-        });
+        self.arena.gc_frame_destroyed(&f.indexes);
+    }
+
+    #[inline(always)]
+    pub unsafe fn pop_scope_without_gc(&mut self) -> RuntimeFrame {
+        let Some(f) = self.stack.pop()
+            else { panic!("You can't return from the top level of a script, you fucking moron!") };
+
+        return f
     }
 
     /// Returns the scope without decrementing the refcount
     #[inline(always)]
     pub fn pop_scope(&mut self) -> RuntimeFrame {
-        return self.stack.pop()
+        let f = self.stack.pop()
             .unwrap_or_else(|| panic!("You can't return from the top level of a script, you fucking moron!"));
+    
+        self.arena.gc_frame_destroyed(&f.indexes);
+        return f
+    }
+
+    #[inline(always)]
+    pub fn get_item_top(&mut self, abs: ArenaIndex) -> &mut ArenaItem {
+        return self.arena.get_item_mut(self.top().indexes[abs]);
     }
 
     #[inline(always)]
@@ -155,7 +161,7 @@ impl VM {
         // TL;DR the safety invariant here is that the
         // instructions are valid.
 
-        // println!("STACK DEPTH: {}", self.stack.len());
+        eprintln!("> {:?}", inst);
         unsafe { match &inst.opcode {
             Opc::PushLiteral => {
                 self.push_copy(
@@ -213,6 +219,11 @@ impl VM {
             Opc::Add => self.add_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
             Opc::Sub => self.sub_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
             Opc::Eq  => self.eq_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
+            Opc::Neq => self.neq_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
+            Opc::Gt  => self.gt_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
+            Opc::Lt  => self.lt_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
+            Opc::Gte => self.gte_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
+            Opc::Lte => self.lte_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
 
             Opc::Addl => self.add_assign(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
 

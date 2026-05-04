@@ -1,18 +1,20 @@
 use ospl_common::ast::{Statement, Stmt};
 
-use crate::{lexer::token::{EXP_IDENT, EXP_KEYWORD, Token, TokenExpectation}, parse::{Parser, Res}, tExp};
+use crate::{lexer::token::{EXP_IDENT, EXP_KEYWORD, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
 
 pub const EXP_ENDL: TokenExpectation = tExp!(Semicolon);
 
 impl<'a> Parser<'a> {
-    pub const EXP_STMT_START: TokenExpectation = EXP_KEYWORD;
+    pub const EXP_STMT_STARTER: TokenExpectation = tComb!("Keyword | lvalue", EXP_KEYWORD, EXP_IDENT);
     pub const EXP_ENDL: TokenExpectation = tExp!(Semicolon);
 
     pub fn parse_stmt(&mut self) -> Res<Statement> {
-        let t = self.expect(Self::EXP_STMT_START)?;
+        let t = self.expect_peek(Self::EXP_STMT_STARTER)?;
 
         match t.token() {
             Token::Def => {
+                self.next()?;  // consume `t`
+
                 // ugly way of this...
                 let _id = self.expect(EXP_IDENT)?;
                 let Token::Ident(id) = _id.token()
@@ -28,6 +30,8 @@ impl<'a> Parser<'a> {
                 })
             },
             Token::Return => {
+                self.next()?;  // consume `t`
+
                 if *self.peek()?.token() == Token::Scope {
                     self.next()?;
                     return Ok(Statement {
@@ -44,17 +48,44 @@ impl<'a> Parser<'a> {
                 }
             },
             Token::Break => {
+                self.next()?;  // consume `t`
+
                 return Ok(Statement {
                     at: *t.position(),
                     inner: Box::new(Stmt::Break),
                 })
             },
             Token::Continue => {
+                self.next()?;  // consume `t`
+
                 return Ok(Statement {
                     at: *t.position(),
                     inner: Box::new(Stmt::Continue),
                 })
             },
+            Token::Loop => return self.parse_loop(),
+            Token::If => return self.parse_if(),
+            Token::Do => {
+                self.next()?;  // consume `t`
+
+                let expr = self.parse_expr()?;
+                return Ok(Statement {
+                    at: *t.position(),
+                    inner: Box::new(Stmt::Expr(expr))
+                })
+            }
+            Token::Ident(_) => {
+                let lv = self.parse_lvalue()?;
+
+                self.expect(tExp!(Equals))?;
+
+                let right = self.parse_expr()?;
+
+                return Ok(Statement {
+                    at: lv.pos,
+                    inner: Box::new(Stmt::Assign(lv, right))
+                });
+            }
             _ => unreachable!()
         }
     }

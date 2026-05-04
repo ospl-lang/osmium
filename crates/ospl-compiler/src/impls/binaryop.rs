@@ -24,6 +24,12 @@ impl Compiler {
             BinaryOpType::Multiply  => Opc::Mul,
             BinaryOpType::Divide    => Opc::Div,
             BinaryOpType::Modulo    => Opc::Mod,
+            BinaryOpType::Equals    => Opc::Eq,
+            BinaryOpType::NotEquals => Opc::Neq,
+            BinaryOpType::Gt        => Opc::Gt,
+            BinaryOpType::Lt        => Opc::Lt,
+            BinaryOpType::Ge        => Opc::Gte,
+            BinaryOpType::Le        => Opc::Lte,
         };
 
         let inst = InstBuilder::new()

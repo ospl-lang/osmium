@@ -1,50 +1,51 @@
-use ospl_common::{ast::{Expression, Stmt}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::Expression, inst::optimized::{Inst, InstBuilder, Opc}};
 
-use crate::{CompErr, Compiler, EvalResult, Res, Type, ast::FunctionValue, impls::stmt::Control};
+use crate::{CompErr, Compiler, EvalResult, Res, Type, ast::FunctionValue};
 
 impl Compiler {
-    /// Unsafe if called more than once on the same FunctionValue.
     pub fn fn_literal(
         &mut self,
         func: &FunctionValue,
         ob: &mut Vec<Inst>
     ) -> Res<EvalResult>
     {
-        let mut insts = Vec::<Inst>::new();
-        let mut captures = Vec::new();
-
         self.stack.push();
 
+        // add the aregs
+        let mut arg_indexes = Vec::new();
+        for (arg, typ) in func.args.iter().zip(func.ftype.args.iter()) {
+            let variable = self.next_var();
+
+            self.stack.top_mut().declare(arg.clone(), variable, typ.clone());
+            arg_indexes.push(variable);
+        }
+
+        // add the closures
+        let mut capture_indexes = Vec::new();
+        for capture in &func.captures {
+            let variable = self.next_var();
+
+            let (u, t) = {
+                let idx = self.stack.scopes.len() - 2;
+                let scope = self.stack.scopes.get(idx).expect("a");
+                scope.get_combined_copy(&capture).expect("b")
+            };
+            self.stack.top_mut().declare(capture.clone(), variable, t);
+
+            eprintln!("{} {} {}", capture, variable, u);
+
+            capture_indexes.push(u);
+        }
+
+        let mut insts = Vec::<Inst>::new();
         for stmt in &func.block {
-            // silly way of implementing the `use` statement for closures.
-            if let Stmt::ClosureUse(upper_ident, upper_type) = &*stmt.inner {
-                let Some(x) = self.stack.scopes.get(self.stack.scopes.len() - 1)
-                    else { return Err(CompErr::NoScopeToCapture) };
-                
-                let Some(x) = x.get_combined(&upper_ident)
-                    else { return Err(CompErr::NotFoundInScope { needed: upper_ident.to_string() } )};
-                
-                if x.1 != upper_type {
-                    return Err(CompErr::MismatchedTypes {
-                        expected: upper_type.to_owned(),
-                        got: x.1.to_owned()
-                    })
-                }
-
-                captures.push(x.0);
-                continue;
-            }
-
-            match self.compile_stmt(stmt, &mut insts)? {
-                Control::Default => {},
-                _ => {}
-            }
+            self.compile_stmt(stmt, &mut insts)?;
         };
 
         let inst = InstBuilder::new()
             .opcode(Opc::PushFunction)
             .child(insts)
-            .indexes(&captures)
+            .indexes(&capture_indexes)
             .build();
 
         ob.push(inst);
@@ -78,16 +79,17 @@ impl Compiler {
         }
 
         let mut new_args = Vec::new();
-        for (arg, func_arg) in args.iter().zip(func.args) {
+        for (arg, func_arg) in args.iter().zip(&func.args) {
             let eval = self.eval(arg, ob)?;
-            if eval.ty != func_arg {
+            if eval.ty != *func_arg {
                 return Err(CompErr::MismatchedTypes {
-                    expected: func_arg,
+                    expected: func_arg.clone(),
                     got: eval.ty
                 })
             }
             new_args.push(eval.address);
         }
+        eprintln!("{:?}", func);
 
         let i = InstBuilder::new()
             .opcode(Opc::Call)

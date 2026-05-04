@@ -1,0 +1,15 @@
+{
+    def x = 0;
+    def A = fn[x]() {
+        x = 1;
+    };
+
+    def B = fn[x]() {
+        if x {
+            loop {};
+        };
+    };
+
+    do A();
+    do B();
+}

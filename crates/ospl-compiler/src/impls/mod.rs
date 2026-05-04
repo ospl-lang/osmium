@@ -40,4 +40,5 @@ impl ScopeStack {
 mod stmt;
 mod expr;
 mod func;
+mod cond;
 mod binaryop;

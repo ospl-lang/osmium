@@ -4,6 +4,7 @@ use ospl_common::ast::Position;
 pub enum Token {
     /* keywords */
     Def,
+    Do,
     Fn,
     Scope,
     Return,
@@ -57,8 +58,11 @@ pub enum Token {
     /** `<` symbol */ LAngle,
     /** `>` symbol */ RAngle,
 
-    /** `=` symbol */ Equals,
+    /** `=` symbol */  Equals,
     /** `==` symbol */ IsEqual,
+    /** `!=` symbol */ IsNotEqual,
+    /** `<=` symbol */ LessThanEqual,
+    /** `>=` symbol */ GreaterThanEqual,
 
     /* literals */
     Integer(i64),
@@ -101,7 +105,7 @@ pub struct TokenExpectation {
 }
 
 pub const EXP_KEYWORD: TokenExpectation =
-    tExp!(Fn, Def, Scope, Return, Continue, If, Else, Loop, Use);
+    tExp!(Fn, Do, Def, Scope, Return, Continue, If, Else, Loop, Use);
 
 pub const EXP_IDENT: TokenExpectation = TokenExpectation {
     matches: |t| -> bool {

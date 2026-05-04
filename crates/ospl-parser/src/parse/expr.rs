@@ -16,7 +16,7 @@ pub const EXP_LITERAL_STARTER: TokenExpectation = TokenExpectation {
     label: "literal starter (StringLit, Integer, Float, Fn, True or False)"
 };
 
-pub const EXP_OPERATION: TokenExpectation = tExp!(Plus, Dash, Star, Slash, Percent);
+pub const EXP_OPERATION: TokenExpectation = tExp!(Plus, Dash, Star, Slash, Percent, IsEqual, GreaterThanEqual, LessThanEqual, RAngle, LAngle);
 
 impl<'a> Parser<'a> {
     pub fn parse_atom(&mut self) -> Res<Expression> {
@@ -221,6 +221,11 @@ fn span_to_binaryop(span: &Span) -> BinaryOpType {
         Token::Star => BinaryOpType::Multiply,
         Token::Slash => BinaryOpType::Divide,
         Token::Percent => BinaryOpType::Modulo,
+        Token::IsEqual => BinaryOpType::Equals,
+        Token::LAngle => BinaryOpType::Lt,
+        Token::RAngle => BinaryOpType::Gt,
+        Token::LessThanEqual => BinaryOpType::Le,
+        Token::GreaterThanEqual => BinaryOpType::Ge,
         _ => unreachable!(),
     }
 }

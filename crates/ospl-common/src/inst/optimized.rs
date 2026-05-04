@@ -34,8 +34,8 @@ pub enum Opc {
     /// - **Child #0:** the code of the function
     PushFunction,
 
-    PushCopy,
     AssignCopy,
+    AssignRef,
     AssignLiteral,
 
     Add,

@@ -2,11 +2,13 @@ use ospl_common::inst::optimized::{Inst, InstBuilder, Opc};
 
 pub enum Control {
     Default,
+    Break,
+    Continue,
     Return(usize),
     ReturnScope,
 }
 
-use crate::{Compiler, Res, ast::{Statement, Stmt}};
+use crate::{CompErr, Compiler, Res, ast::{Statement, Stmt}};
 
 impl Compiler {
     pub fn compile_stmt(
@@ -15,6 +17,7 @@ impl Compiler {
         ob: &mut Vec<Inst>
     ) -> Res<Control>
     {
+        // note: we never match on Control so it doesn't really matter
         match &*s.inner {
             // TODO: check type
             Stmt::Define(var, init) => {
@@ -22,6 +25,9 @@ impl Compiler {
 
                 self.stack.top_mut().declare(var.to_string(), eval.address, eval.ty);
             },
+            Stmt::Expr(e) => {
+                let _ = self.eval(e, ob)?;
+            }
             Stmt::ReturnScope => {
                 let inst = InstBuilder::new()
                     .opcode(Opc::RetScope)
@@ -32,9 +38,44 @@ impl Compiler {
             },
             Stmt::Return(e) => {
                 let eval = self.eval(e, ob)?;
+                ob.push(InstBuilder::new().opcode(Opc::Ret).index(eval.address).build());
                 return Ok(Control::Return(eval.address))
             },
-            _ => unimplemented!("TODO - impl the other stmts")
+
+            Stmt::If(left, yes, no) => 
+                self.compile_if_stmt(left, yes, no, ob)?,
+
+            Stmt::Break => {
+                ob.push(InstBuilder::new().opcode(Opc::Break).build());
+                return Ok(Control::Break)
+            },
+
+            Stmt::Continue => {
+                ob.push(InstBuilder::new().opcode(Opc::Continue).build());
+                return Ok(Control::Continue)
+            },
+
+            Stmt::Loop(l) => self.compile_loop_stmt(l, ob)?,
+
+            Stmt::Assign(lv, to) => {
+                // BUGNOTE: I'm unsure if this get_lvalue() call is safe
+                // because we're going to interpret it under the current
+                // scope. get_lvalue may or may not work this way and I
+                // honestly forgot.
+                let reval = self.eval(to, ob)?;
+                let leval = self.get_lvalue(lv, ob)?;
+                if leval.ty != reval.ty {
+                    return Err(CompErr::MismatchedTypes { expected: leval.ty, got: reval.ty })
+                }
+
+                let i = InstBuilder::new()
+                    .opcode(Opc::AssignCopy)
+                    .index(leval.address)
+                    .index(reval.address)
+                    .build();
+
+                ob.push(i);
+            }
         }
 
         return Ok(Control::Default)

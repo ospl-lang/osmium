@@ -51,25 +51,44 @@ macro_rules! impl_op {
 }
 
 impl VM {
-    pub fn eq_regs(&mut self, a: usize, b: usize) {
+    pub fn eq_regs_b(&mut self, a: usize, b: usize) -> bool {
         let va = self.get_value_top(a);
         let vb = self.get_value_top(b);
 
         let r = match (va, vb) {
-            (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => RuntimeValue::Bool(xa == xb),
-            (RuntimeValue::Float(xa), RuntimeValue::Float(xb)) => RuntimeValue::Bool(xa == xb),
+            (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => xa == xb,
+            (RuntimeValue::Float(xa), RuntimeValue::Float(xb)) => xa == xb,
             _ => panic!("cannot eq these two!"),
         };
 
-        self.push_literal(r);
+        return r
+    }
+
+    pub fn eq_regs(&mut self, a: usize, b: usize) {
+        let x = self.eq_regs_b(a, b);
+        self.push_literal(RuntimeValue::Bool(x));
+    }
+
+    pub fn neq_regs(&mut self, a: usize, b: usize) {
+        let x = !self.eq_regs_b(a, b);
+        self.push_literal(RuntimeValue::Bool(x));
     }
 }
 
+// math
 impl_op!(binary, VM, add_regs, +, {});
 impl_op!(binary, VM, sub_regs, -, {});
 impl_op!(binary, VM, mul_regs, *, {});
 impl_op!(binary, VM, div_regs, /, {});
 impl_op!(binary, VM, mod_regs, %, {});
+
+// stupid shit
+// impl_op!(binary, VM, eq_regs, ==, {});
+// impl_op!(binary, VM, neq_regs, !=, {});
+impl_op!(binary, VM, gt_regs, >, {});
+impl_op!(binary, VM, lt_regs, <, {});
+impl_op!(binary, VM, gte_regs, >=, {});
+impl_op!(binary, VM, lte_regs, <=, {});
 
 // TODO: implement assign-ops in impl_op!()
 

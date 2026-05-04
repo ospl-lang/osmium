@@ -3,11 +3,12 @@ use ospl_common::ast::{Scope, Type};
 pub type RelativeVarID = usize;
 
 /// All nested scopes during compilation.
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct ScopeStack {
     scopes: Vec<Scope>,
 }
 
+#[derive(Debug)]
 pub struct Compiler {
     stack: ScopeStack
 }

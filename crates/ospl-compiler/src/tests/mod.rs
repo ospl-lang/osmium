@@ -16,6 +16,7 @@ fn retscope() {
             Expression::test(Expr::Literal(
                 crate::ast::Literal::Function(FunctionValue {
                     args: Vec::new(),
+                    captures: Vec::new(),
                     block: vec![
                         Statement::test(Stmt::Define(
                             "x".to_string(),
@@ -27,7 +28,6 @@ fn retscope() {
                     ],
                     ftype: FunctionType {
                         args: Vec::new(),
-                        // captures: Vec::new(),
                         ret: Type::Scope(output_type)
                     }
                 }))

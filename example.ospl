@@ -1,8 +1,0 @@
-{
-    def Counter = fn() -> scope{x: int} {
-        def x = 0;
-        return scope;
-    };
-    def c = Counter();
-    def should_fail = c.x;
-}

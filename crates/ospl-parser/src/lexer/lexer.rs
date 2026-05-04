@@ -47,6 +47,13 @@ impl<'a> Lexer<'a> {
             return two
         } else { return one }
     }
+
+    fn do_0dup(&mut self, c: char, zero: Token, one: Token) -> Token {
+        if self.peek() == Some(c) {
+            self.bump();
+            return one
+        } else { return zero }
+    }
 }
 
 impl<'a> Lexer<'a> {
@@ -60,21 +67,14 @@ impl<'a> Lexer<'a> {
             '(' => Token::LParen,
             ')' => Token::RParen,
             '[' => Token::LBracket,
-            ']' => Token::LBracket,
+            ']' => Token::RBracket,
             '{' => Token::LSquirly,
             '}' => Token::RSquirly,
-            '<' => Token::LAngle,
-            '>' => Token::RAngle,
+            '<' => self.do_0dup('=', Token::LAngle, Token::LessThanEqual),
+            '>' => self.do_0dup('=', Token::RAngle, Token::GreaterThanEqual),
 
             '+' => Token::Plus,
-            '-' => {
-                if self.peek() == Some('>') {
-                    self.bump();
-                    Token::Arrow
-                } else {
-                    Token::Dash
-                }
-            },
+            '-' => self.do_0dup('>', Token::Dash, Token::Arrow),
             '*' => Token::Star,
             '/' => Token::Slash,
             '%' => Token::Percent,
@@ -113,6 +113,7 @@ impl<'a> Lexer<'a> {
                 match s.as_str() {
                     /* keywords */
                     "fn" => Token::Fn,
+                    "do" => Token::Do,
                     "scope" => Token::Scope,
                     "def" => Token::Def,
                     "return" => Token::Return,

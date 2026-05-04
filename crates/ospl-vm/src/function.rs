@@ -41,9 +41,6 @@ impl VM {
     /// YOU CANNOT MUTATE THE CODE OF THE FUNCTION YOU ARE CALLING, OR ANY PARENT FUNCTION,
     /// WITHOUT UNDEFINED BEHAVOIUR. PLEASE DO NOT DO THIS! IT'S A VERY BAD IDEA!!
     pub fn call_fn(&mut self, f: usize, args: &[ArenaIndex]) -> Control {
-        // ignore the above rant because I wrote unsafe code to fix the
-        // dumb clones!
-
         // here, it is important that we push the lexical regs to the frame
         // AFTER we push the arguments, this is just the calling convention
         // we're gonna use, because it makes things easier for you and the
@@ -78,13 +75,20 @@ impl VM {
         // SAFETY: I PROMISE THAT `f.code` AND ITS PARENTS WILL NOT BE MUTATED
         unsafe {
             let very_good_safe = &raw const f.code;
+            eprintln!("{frame:?}");
             self.push_frame(frame);  // needs to be in unsafe because of course it does..
 
             for inst in &*very_good_safe {
                 let run = self.run_one(inst);
                 match run {
-                    Control::Return(i) => self.ret(i),
-                    Control::ReturnScope => self.retscope(),
+                    Control::Return(i) => {
+                        self.ret(i);
+                        break;
+                    },
+                    Control::ReturnScope => {
+                        self.retscope();
+                        break;
+                    },
                     _ => {},
                 }
             }
@@ -95,10 +99,17 @@ impl VM {
 
     /// Returns a copy of the value to the previous stack frame
     pub fn ret(&mut self, i: ArenaIndex) {
-        let vr = self.arena.get(self.top().indexes[i]).clone();
-        self.end_scope();
+        let address = self.top().indexes[i];
+        unsafe {
+            let f = self.pop_scope_without_gc();
 
-        self.push_literal(vr);
+            // don't touch anything here (this is stupid but trust me
+            // it will work)
+            self.arena.inc_refcount(address);
+            self.arena.gc_frame_destroyed(&f.indexes);
+        }
+
+        self.top_mut().indexes.push(address);
     }
 
     /// Returns the current frame as a value

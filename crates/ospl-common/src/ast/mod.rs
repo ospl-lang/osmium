@@ -41,9 +41,10 @@ impl Statement {
 
 #[derive(Debug)]
 pub enum Stmt {
+    Expr(Expression),
     Define(String, Expression),
+    Assign(LValue, Expression),
     Return(Expression),
-    ClosureUse(String, Type),
     Break,
     Continue,
     If(Expression, Vec<Statement>, Vec<Statement>),
@@ -150,6 +151,12 @@ impl Scope {
         return Some((*x, t))
     }
 
+    pub fn get_combined_copy(&self, k: &str) -> Option<(usize, Type)> {
+        let x = self.map.get(k)?;
+        let t = self.types.get(x)?.clone();
+        return Some((*x, t))
+    }
+
     pub fn get_types(&mut self) -> &HashMap<usize, Type> {
         return &self.types
     }
@@ -178,7 +185,7 @@ pub struct FunctionValue {
     pub args: Vec<String>,
 
     /// Are derieved by the literal generator (in the compiler)
-    // pub captures: Vec<usize>,
+    pub captures: Vec<String>,
 
     pub block: Vec<Statement>,
 }

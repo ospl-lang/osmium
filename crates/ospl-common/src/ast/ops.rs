@@ -9,9 +9,20 @@ pub struct BinaryOp {
 
 #[derive(Debug)]
 pub enum BinaryOpType {
+    /* mathematical */
     Add,
     Subtract,
     Multiply,
     Divide,
     Modulo,
+
+    /* comparison */
+    Equals,
+    NotEquals,
+    Gt,
+    Lt,
+    Ge,
+    Le,
+
+    /* logical */
 }

@@ -1,6 +1,6 @@
 use ospl_common::inst::optimized::{Inst, InstBuilder, Opc};
 
-use crate::{Compiler, EvalResult, Res, Type, ast::{Expr, LV, LValue, Literal}};
+use crate::{CompErr, Compiler, EvalResult, Res, Type, ast::{Expr, LV, LValue, Literal}};
 
 impl Compiler {
     pub fn eval(
@@ -59,7 +59,13 @@ impl Compiler {
             LV::Property(lv2, var) => {
                 let eval = self.get_lvalue(lv2, ob)?;
                 let x = match &eval.ty {
-                    Type::Scope(s) => EvalResult::from(s.get_combined(var).unwrap()),  // FIXME unwrap
+                    Type::Scope(s) => {
+                        let v = s.get_combined(var)
+                            .ok_or_else(|| CompErr::NotFoundInScope { needed: var.to_string() })?;
+
+                        let x = EvalResult::from(v);
+                        x
+                    },
                     _ => unimplemented!()
                 };
 
@@ -78,7 +84,10 @@ impl Compiler {
             },
             // FIXME unwrap
             LV::Variable(var) => {
-                let x = EvalResult::from(self.stack.top().get_combined(var).unwrap());
+                let v = self.stack.top().get_combined(var)
+                    .ok_or_else(|| CompErr::NotFoundInScope { needed: var.to_string() })?;
+
+                let x = EvalResult::from(v);
                 return Ok(x)
             }
         }

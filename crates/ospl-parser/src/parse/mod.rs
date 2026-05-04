@@ -72,6 +72,7 @@ impl<'a> Parser<'a> {
 mod stmt;
 mod expr;
 mod lit;
+mod cond;
 
 pub mod diag;
 
