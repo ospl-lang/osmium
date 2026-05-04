@@ -1,6 +1,6 @@
 use ospl_common::inst::optimized::{Inst, InstBuilder, Opc};
 
-use crate::{CompErr, Compiler, EvalResult, Res, Type, ast::{Expr, LV, LValue, Literal}};
+use crate::{CE, CEData, Compiler, EvalResult, Res, Type, ast::{Expr, LV, LValue, Literal}};
 
 impl Compiler {
     pub fn eval(
@@ -61,12 +61,24 @@ impl Compiler {
                 let x = match &eval.ty {
                     Type::Scope(s) => {
                         let v = s.get_combined(var)
-                            .ok_or_else(|| CompErr::NotFoundInScope { needed: var.to_string() })?;
+                            // not found in that scope
+                            .ok_or_else(|| CE {
+                                at: Box::new(lv2.clone()),
+                                hint_msg: Some("perhaps you typed the wrong name?"),
+                                error: CEData::NotFoundInScope { needed: var.to_string() }
+                            })?;
 
                         let x = EvalResult::from(v);
                         x
                     },
-                    _ => unimplemented!()
+                    other => return Err(CE {
+                        at: Box::new(lv2.clone()),
+                        hint_msg: Some("perhaps you're accessing the wrong value?"),
+                        error: CEData::MismatchedTypes {
+                            expected: Type::Scope(ospl_common::ast::Scope::default()),
+                            got: other.clone()
+                        }
+                    })
                 };
 
                 let i = InstBuilder::new()
@@ -85,7 +97,11 @@ impl Compiler {
             // FIXME unwrap
             LV::Variable(var) => {
                 let v = self.stack.top().get_combined(var)
-                    .ok_or_else(|| CompErr::NotFoundInScope { needed: var.to_string() })?;
+                    .ok_or_else(|| CE {
+                        at: Box::new(lv.clone()),
+                        hint_msg: Some("Perhaps you failed preschool?"),
+                        error: CEData::NotFoundInScope { needed: var.to_string() }
+                    })?;
 
                 let x = EvalResult::from(v);
                 return Ok(x)

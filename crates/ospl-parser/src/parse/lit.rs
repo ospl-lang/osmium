@@ -119,13 +119,16 @@ impl<'a> Parser<'a> {
         let mut current = 0;  // imitate addresses being correct
         loop {
             let (_, token) = self.expect(tComb!(
-                "Ident | RSquirly",
+                "Ident | RSquirly | Semicolon",
                 EXP_IDENT,
-                tExp!(RSquirly),
+                tExp!(RSquirly, Semicolon),
             ))?.destructure();
             let name = match token {
                 Token::Ident(i) => i,
                 Token::RSquirly => break,
+                Token::Semicolon => {
+                    continue;
+                }
                 _ => unreachable!()
             };
 

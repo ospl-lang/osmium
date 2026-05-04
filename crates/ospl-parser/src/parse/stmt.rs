@@ -82,7 +82,7 @@ impl<'a> Parser<'a> {
                 let right = self.parse_expr()?;
 
                 return Ok(Statement {
-                    at: lv.pos,
+                    at: lv.at,
                     inner: Box::new(Stmt::Assign(lv, right))
                 });
             }

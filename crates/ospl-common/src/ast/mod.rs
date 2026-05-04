@@ -24,7 +24,7 @@ impl Position {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Statement {
     pub inner: Box<Stmt>,
     pub at: Position,
@@ -39,7 +39,7 @@ impl Statement {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Stmt {
     Expr(Expression),
     Define(String, Expression),
@@ -52,7 +52,7 @@ pub enum Stmt {
     ReturnScope,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Expression {
     pub inner: Box<Expr>,
     pub at: Position,
@@ -67,7 +67,7 @@ impl Expression {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     Literal(Literal),
     Call(Expression, Vec<Expression>),
@@ -75,28 +75,28 @@ pub enum Expr {
     LValue(LValue),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LValue {
     pub inner: Box<LV>,
-    pub pos: Position
+    pub at: Position
 }
 
 impl LValue {
     pub fn test(s: LV) -> Self {
         return Self {
             inner: Box::new(s),
-            pos: Position::default()
+            at: Position::default()
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum LV {
     Variable(String),
     Property(LValue, String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Literal {
     Int(i64),
     Float(f64),
@@ -176,7 +176,7 @@ impl PartialEq for FunctionType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionValue {
     pub ftype: FunctionType,
 
@@ -192,3 +192,4 @@ pub struct FunctionValue {
 
 pub mod frame;
 pub mod ops;
+pub mod spanning;

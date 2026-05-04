@@ -1,6 +1,6 @@
 use ospl_common::{ast::ops::{BinaryOp, BinaryOpType}, inst::optimized::{Inst, InstBuilder, Opc}};
 
-use crate::{CompErr, Compiler, EvalResult, Res};
+use crate::{CE, CEData, Compiler, EvalResult, Res};
 
 impl Compiler {
     pub fn binary_op(
@@ -12,9 +12,13 @@ impl Compiler {
         let left = self.eval(&b.left, ob)?;
         let right = self.eval(&b.right, ob)?;
         if left.ty != right.ty {
-            return Err(CompErr::MismatchedTypes {
-                expected: left.ty,
-                got: right.ty
+            return Err(CE {
+                at: Box::new(b.left.clone()),
+                hint_msg: Some("Perhaps you meant to cast one type?"),
+                error: CEData::MismatchedTypes {
+                    expected: left.ty,
+                    got: right.ty
+                }
             })
         }
 

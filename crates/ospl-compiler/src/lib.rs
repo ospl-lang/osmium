@@ -20,7 +20,7 @@ pub struct EvalResult {
 }
 
 #[derive(Debug)]
-pub enum CompErr {
+pub enum CEData {
     MismatchedTypes {
         expected: Type,
         got: Type
@@ -35,7 +35,14 @@ pub enum CompErr {
     NoScopeToCapture,
 }
 
-pub type Res<T> = Result<T, CompErr>;
+#[derive(Debug)]
+pub struct CE {
+    pub at: Box<dyn ospl_common::ast::spanning::Spannable>,
+    pub error: CEData,
+    pub hint_msg: Option<&'static str>,
+}
+
+pub type Res<T> = Result<T, CE>;
 
 impl From<(usize, &Type)> for EvalResult {
     fn from(value: (usize, &Type)) -> Self {

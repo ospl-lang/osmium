@@ -8,7 +8,7 @@ pub enum Control {
     ReturnScope,
 }
 
-use crate::{CompErr, Compiler, Res, ast::{Statement, Stmt}};
+use crate::{CE, CEData, Compiler, Res, ast::{Statement, Stmt}};
 
 impl Compiler {
     pub fn compile_stmt(
@@ -17,6 +17,7 @@ impl Compiler {
         ob: &mut Vec<Inst>
     ) -> Res<Control>
     {
+        // trace!(stmt=?s, "compiling stmt");
         // note: we never match on Control so it doesn't really matter
         match &*s.inner {
             // TODO: check type
@@ -25,9 +26,11 @@ impl Compiler {
 
                 self.stack.top_mut().declare(var.to_string(), eval.address, eval.ty);
             },
+
             Stmt::Expr(e) => {
                 let _ = self.eval(e, ob)?;
-            }
+            },
+
             Stmt::ReturnScope => {
                 let inst = InstBuilder::new()
                     .opcode(Opc::RetScope)
@@ -36,6 +39,7 @@ impl Compiler {
                 ob.push(inst);
                 return Ok(Control::ReturnScope)
             },
+
             Stmt::Return(e) => {
                 let eval = self.eval(e, ob)?;
                 ob.push(InstBuilder::new().opcode(Opc::Ret).index(eval.address).build());
@@ -65,7 +69,11 @@ impl Compiler {
                 let reval = self.eval(to, ob)?;
                 let leval = self.get_lvalue(lv, ob)?;
                 if leval.ty != reval.ty {
-                    return Err(CompErr::MismatchedTypes { expected: leval.ty, got: reval.ty })
+                    return Err(CE {
+                        at: Box::new(lv.clone()),
+                        hint_msg: Some("perhaps wrap the right-hand side's type?"),
+                        error: CEData::MismatchedTypes { expected: leval.ty, got: reval.ty }
+                    })
                 }
 
                 let i = InstBuilder::new()

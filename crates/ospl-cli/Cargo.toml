@@ -7,3 +7,5 @@ edition = "2024"
 ospl-parser = { path = "../ospl-parser" }
 ospl-compiler = { path = "../ospl-compiler" }
 ospl-vm = { path = "../ospl-vm" }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing = "0.1.44"

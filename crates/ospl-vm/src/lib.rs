@@ -50,7 +50,9 @@ impl VM {
     #[inline(always)]
     pub fn new_child_of_scope(&mut self, f: &RuntimeFrame) {
         let parents = f.indexes.clone();
-        self.arena.gc_frame_added(&parents);
+
+        // adding this makes it not behave according to spec
+        // self.arena.gc_frame_added(&parents);
         self.stack.push(RuntimeFrame {
             indexes: parents,
             num_args: f.num_args,
@@ -61,7 +63,9 @@ impl VM {
     #[inline(always)]
     pub fn new_scope_but_parental(&mut self) {
         let parents = self.top().indexes.clone();
-        self.arena.gc_frame_added(&parents);
+
+        // adding this makes it not behave according to spec
+        // self.arena.gc_frame_added(&parents);
 
         self.stack.push(RuntimeFrame {
             indexes: parents,
@@ -208,7 +212,14 @@ impl VM {
                     RuntimeValue::Scope(s) => {
                         let cutoff = s.num_args + s.num_captures;
                         let indexes = &s.indexes[cutoff..];
-                        self.top_mut().indexes.push(indexes[prop]);
+                        let add_thing = indexes[prop];
+
+                        // we don't incremenet the refcount because that only
+                        // happens at frame boundaries.
+
+                        println!("{:?} {:?}", add_thing, self.arena);
+
+                        self.top_mut().indexes.push(add_thing);
                     },
                     _ => unreachable!()
                 }

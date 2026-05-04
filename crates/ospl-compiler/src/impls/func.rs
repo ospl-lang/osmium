@@ -1,6 +1,6 @@
-use ospl_common::{ast::Expression, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{Expression, spanning::IdkWhere}, inst::optimized::{Inst, InstBuilder, Opc}};
 
-use crate::{CompErr, Compiler, EvalResult, Res, Type, ast::FunctionValue, impls::stmt::Control};
+use crate::{CE, CEData, Compiler, EvalResult, Res, Type, ast::FunctionValue, impls::stmt::Control};
 
 impl Compiler {
     pub fn fn_literal(
@@ -28,10 +28,18 @@ impl Compiler {
             let (u, t) = {
                 let idx = self.stack.scopes.len() - 2;
                 let scope = self.stack.scopes.get(idx)
-                    .ok_or_else(|| CompErr::NoScopeToCapture)?;
+                    .ok_or_else(|| CE {
+                        at: Box::new(IdkWhere),
+                        hint_msg: Some("perhaps you failed preschool?"),
+                        error: CEData::NoScopeToCapture,
+                    })?;
 
                 scope.get_combined_copy(&capture)
-                    .ok_or_else(|| CompErr::NotFoundInScope { needed: capture.clone() })?
+                    .ok_or_else(|| CE {
+                        at: Box::new(IdkWhere),
+                        hint_msg: Some("perhaps you meant to chain the capture across multiple scopes?"),
+                        error: CEData::NotFoundInScope { needed: capture.clone() }
+                    })?
             };
             self.stack.top_mut().declare(capture.clone(), variable, t);
 
@@ -43,12 +51,14 @@ impl Compiler {
         for stmt in &func.block {
             match self.compile_stmt(stmt, &mut insts)? {
                 Control::Return(_) => has_a_return = true,
+                Control::ReturnScope => has_a_return = true,
                 _ => {}
             }
         };
 
         // insert a return at the end if we don't have one
         if !has_a_return {
+            tracing::warn!("auto-inserting return");
             let v = self.next_var();
 
             insts.push(InstBuilder::new()
@@ -80,31 +90,39 @@ impl Compiler {
 
     pub fn do_call(
         &mut self,
-        func: &Expression,
+        call_func: &Expression,
         args: &[Expression],
         ob: &mut Vec<Inst>,
     ) -> Res<EvalResult>
     {
-        let f = self.eval(func, ob)?;
+        let f = self.eval(call_func, ob)?;
         let Type::Function(func) = f.ty
             else { unimplemented!() };  // FIXME: use result
 
         // TYPECHECKING...
         if func.args.len() != args.len() {
             // wrong number of args
-            return Err(CompErr::WrongArgCount {
-                expected: func.args.len(),
-                got: args.len()
-            })
+            return Err(CE {
+                at: Box::new(call_func.clone()),
+                hint_msg: Some("perhaps you meant to pass in null?"),
+                error: CEData::WrongArgCount {
+                    expected: func.args.len(),
+                    got: args.len()
+                }
+            });
         }
 
         let mut new_args = Vec::new();
         for (arg, func_arg) in args.iter().zip(&func.args) {
             let eval = self.eval(arg, ob)?;
             if eval.ty != *func_arg {
-                return Err(CompErr::MismatchedTypes {
-                    expected: func_arg.clone(),
-                    got: eval.ty
+                return Err(CE {
+                    at: Box::new(arg.clone()),
+                    hint_msg: Some("perhaps you meant to cast the argument?"),
+                    error: CEData::MismatchedTypes {
+                        expected: func_arg.clone(),
+                        got: eval.ty
+                    }
                 })
             }
             new_args.push(eval.address);

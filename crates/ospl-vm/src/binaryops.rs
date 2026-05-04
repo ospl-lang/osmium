@@ -58,7 +58,7 @@ impl VM {
         let r = match (va, vb) {
             (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => xa == xb,
             (RuntimeValue::Float(xa), RuntimeValue::Float(xb)) => xa == xb,
-            _ => panic!("cannot eq these two!"),
+            (other1, other2) => panic!("cannot eq value {other1:?} with value {other2:?}!"),
         };
 
         return r

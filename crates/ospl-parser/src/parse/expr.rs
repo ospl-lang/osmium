@@ -65,7 +65,7 @@ impl<'a> Parser<'a> {
                         at: t.0,
                         inner: Box::new(Expr::LValue(LValue {
                             inner: Box::new(LV::Variable(i)),
-                            pos: t.0,
+                            at: t.0,
                         })),
                     },
 
@@ -106,7 +106,7 @@ impl<'a> Parser<'a> {
             Token::Ident(_) => {
                 let lv = self.parse_lvalue()?;
                 Expression {
-                    at: lv.pos,
+                    at: lv.at,
                     inner: Box::new(Expr::LValue(lv)),
                 }
             },
@@ -189,7 +189,7 @@ impl<'a> Parser<'a> {
 
         let mut node = LValue {
             inner: Box::new(LV::Variable(id.to_string())),
-            pos: *initial_span.position()
+            at: *initial_span.position()
         };
 
         while let Ok(t) = self.peek() {
@@ -203,8 +203,8 @@ impl<'a> Parser<'a> {
 
                     node = LValue {
                         inner: Box::new(LV::Property(node, id.to_string())),
-                        pos: *span.position()
-                    }
+                        at: *span.position()
+                    };
                 },
                 _ => break
             }

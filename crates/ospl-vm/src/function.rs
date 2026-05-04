@@ -114,7 +114,7 @@ impl VM {
     /// Returns the current frame as a value
     pub fn retscope(&mut self) {
         // may or may not work...
-        let s = self.pop_scope();
+        let s = unsafe{self.pop_scope_without_gc()};
         self.push_literal(RuntimeValue::Scope(Box::new(s)));
     }
 }
