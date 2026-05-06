@@ -316,6 +316,7 @@ pub fn token_to_binaryop(token: &Token) -> BinaryOpType {
         Token::Slash => BinaryOpType::Divide,
         Token::Percent => BinaryOpType::Modulo,
         Token::IsEqual => BinaryOpType::Equals,
+        Token::IsNotEqual => BinaryOpType::NotEquals,
         Token::LAngle => BinaryOpType::Lt,
         Token::RAngle => BinaryOpType::Gt,
         Token::LessThanEqual => BinaryOpType::Le,

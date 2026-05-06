@@ -1,91 +1,83 @@
 use crate::{VM, RuntimeValue};
 
-macro_rules! op {
-    (
-        binary,
-        $a:ident,
-        $b:ident,
-        $op:tt,
-        { $($extra_arms:tt)* }
-    ) => {
-        match ($a, $b) {
-            (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => RuntimeValue::Int(xa $op xb),
-            (RuntimeValue::Float(xa), RuntimeValue::Float(xb)) => RuntimeValue::Float(xa $op xb),
-            $($extra_arms)*
-            (invalid_a, invalid_b) => panic!(
-                "invalid op (binary): {:?} {} {:?}",
-                invalid_a,
-                stringify!($op),
-                invalid_b
-            ),
-        }
-    };
-}
-
-macro_rules! impl_op {
-    (
-        $type:ident,
-        $on:ident,
-        $fname:ident,
-        $op:tt,
-        { $($extra_arms:tt)* }
-    ) => {
-        impl $on {
-            #[inline(always)]
-            pub fn $fname(&mut self, a: usize, b: usize) {
-                let va = self.arena.get(self.top().indexes[a]);
-                let vb = self.arena.get(self.top().indexes[b]);
-
-                let r = op!(
-                    $type,
-                    va,
-                    vb,
-                    $op,
-                    { $($extra_arms)* }
-                );
-
-                self.push_literal(r);
-            }
-        }
-    };
-}
-
+// comparison
 impl VM {
-    pub fn eq_regs_b(&mut self, a: usize, b: usize) -> bool {
+    fn get_two_regs(&mut self, a: usize, b: usize) -> (&RuntimeValue, &RuntimeValue) {
         let va = self.get_value_top(a);
         let vb = self.get_value_top(b);
+        return (va, vb)
+    }
 
-        let r = match (va, vb) {
+    fn _eq_regs(&mut self, a: usize, b: usize) -> bool {
+        return match self.get_two_regs(a, b) {
             (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => xa == xb,
+            (RuntimeValue::Address(xa), RuntimeValue::Address(xb)) => xa == xb,
             (RuntimeValue::Float(xa), RuntimeValue::Float(xb)) => xa == xb,
             (other1, other2) => panic!("cannot eq value {other1:?} with value {other2:?}!"),
-        };
+        }
+    }
 
-        return r
+    fn _gt_regs(&mut self, a: usize, b: usize) -> bool {
+        return match self.get_two_regs(a, b) {
+            (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => xa > xb,
+            (RuntimeValue::Address(xa), RuntimeValue::Address(xb)) => xa > xb,
+            (RuntimeValue::Float(xa), RuntimeValue::Float(xb)) => xa > xb,
+            (other1, other2) => panic!("cannot gt value {other1:?} with value {other2:?}!"),
+        }
     }
 
     pub fn eq_regs(&mut self, a: usize, b: usize) {
-        let x = self.eq_regs_b(a, b);
+        let x = self._eq_regs(a, b);
         self.push_literal(RuntimeValue::Bool(x));
     }
 
     pub fn neq_regs(&mut self, a: usize, b: usize) {
-        let x = !self.eq_regs_b(a, b);
+        let x = !self._eq_regs(a, b);
         self.push_literal(RuntimeValue::Bool(x));
     }
 
-    // can Gt / Le regs by doing subtractions
+    pub fn gt_regs(&mut self, a: usize, b: usize) {
+        let x = self._gt_regs(a, b);
+        self.push_literal(RuntimeValue::Bool(x));
+    }
+
+    pub fn lt_regs(&mut self, a: usize, b: usize) {
+        let x = !self._gt_regs(a, b);
+        self.push_literal(RuntimeValue::Bool(x));
+    }
 }
 
-// math
-impl_op!(binary, VM, add_regs, +, {});
-impl_op!(binary, VM, sub_regs, -, {});
-impl_op!(binary, VM, mul_regs, *, {});
-impl_op!(binary, VM, div_regs, /, {});
-impl_op!(binary, VM, mod_regs, %, {});
+impl VM {
+    fn _add_regs(&mut self, a: usize, b: usize) -> RuntimeValue {
+        match self.get_two_regs(a, b) {
+            (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => RuntimeValue::Int(*xa + *xb),
+            (RuntimeValue::Address(xa), RuntimeValue::Address(xb)) => RuntimeValue::Address(*xa + *xb),
+            (RuntimeValue::Float(xa), RuntimeValue::Float(xb)) => RuntimeValue::Float(*xa + *xb),
+            _ => unimplemented!()
+        }
+    }
 
-// TODO: implement assign-ops in impl_op!()
+    fn _sub_regs(&mut self, a: usize, b: usize) -> RuntimeValue {
+        match self.get_two_regs(a, b) {
+            (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => RuntimeValue::Int(*xa - *xb),
+            (RuntimeValue::Address(xa), RuntimeValue::Address(xb)) => RuntimeValue::Address(*xa - *xb),
+            (RuntimeValue::Float(xa), RuntimeValue::Float(xb)) => RuntimeValue::Float(*xa - *xb),
+            _ => unimplemented!()
+        }
+    }
 
+    pub fn add_regs(&mut self, a: usize, b: usize) {
+        let r = self._add_regs(a, b);
+        self.push_literal(r);
+    }
+
+    pub fn sub_regs(&mut self, a: usize, b: usize) {
+        let r = self._sub_regs(a, b);
+        self.push_literal(r);
+    }
+}
+
+// assign ops
 impl VM {
     pub fn add_assign(&mut self, a: usize, b: usize) {
         debug_assert!(a != b);

@@ -1,0 +1,11 @@
+{
+    def test = fn() -> bool {
+        def x = 10
+        if x == 10 {
+            return false
+        }
+        return true
+    }
+
+    do test()
+}

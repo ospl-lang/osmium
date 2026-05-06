@@ -52,6 +52,7 @@ fn main() {
         compiler.compile_block(&p, &mut root)
             .unwrap_or_else(|c| panic!("{:#?}", c));
 
+        println!("{root:#?}");
         root
     };
 

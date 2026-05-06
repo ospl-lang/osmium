@@ -1,4 +1,4 @@
-use ospl_common::ast::frame::RuntimeFrame;
+use ospl_common::{ast::frame::RuntimeFrame, types::AbsAddress};
 use crate::{Control, RuntimeValue};
 use super::{VM, arena::ArenaIndex};
 
@@ -97,8 +97,7 @@ impl VM {
     }
 
     /// Returns a copy of the value to the previous stack frame
-    pub fn ret(&mut self, i: ArenaIndex) {
-        let address = self.top().indexes[i];
+    pub fn ret(&mut self, address: AbsAddress) {
         unsafe {
             let f = self.pop_scope_without_gc();
 

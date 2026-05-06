@@ -115,6 +115,7 @@ pub enum LV {
 #[derive(Debug, Clone)]
 pub enum Literal {
     Int(i64),
+    Address(u64),
     Float(f64),
     Bool(bool),
     Str(String),
@@ -133,12 +134,12 @@ pub struct FunctionType {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Nul, Undefined,
-    Int, Float, Str, Bool, List(Box<Type>),
+    Int, Address, Float, Str, Bool, List(Box<Type>),
     Scope(Scope),
     Function(Box<FunctionType>),
 
     ForeignLibrary,
-    ForeignFunction,
+    ForeignFunction(Vec<Type>, Box<Type>),
 
     // virtual types
     TypeOfVar(String),

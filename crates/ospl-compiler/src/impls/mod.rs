@@ -32,6 +32,11 @@ impl ScopeStack {
         self.scopes.push(Scope::default());
     }
 
+    pub fn push_parental(&mut self) {
+        let s = self.top().clone();
+        self.scopes.push(s);
+    }
+
     pub fn pop(&mut self) {
         self.scopes.pop();
     }

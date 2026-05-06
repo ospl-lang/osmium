@@ -42,6 +42,10 @@ impl Compiler {
                 ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Int(*i)).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Int })
             },
+            Literal::Address(u) => {
+                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Address(*u)).build());
+                return Ok(EvalResult { address: self.next_var(), ty: Type::Address })
+            },
             Literal::Float(f) => {
                 ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Float(*f)).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Float })
@@ -137,40 +141,11 @@ impl Compiler {
                 ob.push(i);
 
                 return Ok(EvalResult {
+                    // yes this is correct just believe me.
                     address: self.next_var(),
                     ty: x.ty
                 })
             },
-
-            // LV::Index(lv, expr) => {
-            //     let left = self.eval(lv, ob)?;
-            //     let right = self.eval(expr, ob)?;
-
-            //     let lty = match left.ty {
-            //         Type::List(lty) => *lty,
-            //         other => return Err(CE {
-            //             at: Box::new(lv.clone()),
-            //             error: CEData::MismatchedTypes {
-            //                 expected: Type::List(Box::new(Type::Nul)),
-            //                 got: other
-            //             },
-            //             hint_msg: Some("Indexing only works in array?")
-            //         })
-            //     };
-
-            //     let i = InstBuilder::new()
-            //         .opcode(Opc::IndexArray)
-            //         .index(left.address)
-            //         .index(right.address)
-            //         .build();
-
-            //     ob.push(i);
-
-            //     return Ok(EvalResult {
-            //         address: self.next_var(),
-            //         ty: lty
-            //     })
-            // },
 
             LV::Index(l, r) => self.array_index(l, r, ob),
             LV::Slice(l, r1, r2) => self.array_slice(l, r1, r2, ob),

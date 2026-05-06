@@ -45,9 +45,13 @@ impl Compiler {
             .indexes(types)
             .build());
 
+        let ret = typeno_to_type(ret_type);
+
+        let arg_types: Vec<Type> = types.iter().map(|i| typeno_to_type(*i)).collect();
+
         return Ok(EvalResult {
             address: self.next_var(),
-            ty: Type::ForeignFunction,
+            ty: Type::ForeignFunction(arg_types, Box::new(ret)),
         })
     }
 
@@ -59,6 +63,9 @@ impl Compiler {
     ) -> Res<EvalResult>
     {
         let func = self.get_lvalue(func, ob)?;
+        let Type::ForeignFunction(_, r) = &func.ty
+            else { panic!("can't call a foreign function without foreign keyword") };
+
         let mut new_args = Vec::new();
         for arg in args {
             new_args.push(self.eval(arg, ob)?.address);
@@ -72,7 +79,25 @@ impl Compiler {
 
         return Ok(EvalResult {
             address: self.next_var(),
-            ty: Type::ForeignFunction,
+            ty: *r.clone()
         })
+    }
+}
+
+fn typeno_to_type(i: usize) -> Type {
+    return match i {
+        /* u8 */  0 => Type::Address,
+        /* i8 */  1 => Type::Int,
+        /* u16 */ 2 => Type::Address,
+        /* i16 */ 3 => Type::Int,
+        /* u32 */ 4 => Type::Address,
+        /* i32 */ 5 => Type::Int,
+        /* u64 */ 6 => Type::Address,
+        /* i64 */ 7 => Type::Int,
+        /* f32 */ 8 => Type::Float,
+        /* f64 */ 9 => Type::Float,
+        /* void */ 10 => Type::Nul,
+        /* ptr */  11 => Type::Address,
+        /* err */ _ => unimplemented!("unknown FFI typeno"),
     }
 }

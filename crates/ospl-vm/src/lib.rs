@@ -1,5 +1,5 @@
 use arena::{ArenaIndex, Arena};
-use ospl_common::{ast::frame::RuntimeFrame, inst::{RuntimeFunction, RuntimeValue, optimized::{Inst, Opc}}};
+use ospl_common::{ast::frame::RuntimeFrame, inst::{RuntimeFunction, RuntimeValue, optimized::{Inst, Opc}}, types::AbsAddress};
 use crate::arena::ArenaItem;
 
 mod ffi;
@@ -30,7 +30,7 @@ pub struct VM {
 pub enum Control {
     Break,
     Continue,
-    Return(ArenaIndex),
+    Return(AbsAddress),
     ReturnScope,
     Default,
 }
@@ -64,7 +64,7 @@ impl VM {
     }
 
     #[inline(always)]
-    pub fn new_scope_but_parental(&mut self) {
+    pub fn new_scope_parental(&mut self) {
         let parents = self.top().indexes.clone();
 
         // adding this makes it not behave according to spec
@@ -268,7 +268,7 @@ impl VM {
 
             Opc::Loop => return self.run_loop(&inst.children.get_unchecked(0)),
 
-            Opc::Ret => return Control::Return(inst.get_index(0)),
+            Opc::Ret => return Control::Return(self.top().indexes[inst.get_index(0)]),
             Opc::Continue => return Control::Continue,
             Opc::Break => return Control::Break,
             // FFI stuff

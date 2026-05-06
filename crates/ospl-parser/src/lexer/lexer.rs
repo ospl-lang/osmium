@@ -56,20 +56,6 @@ impl<'a> Lexer<'a> {
             return one
         } else { return zero }
     }
-
-    fn do_2dup(&mut self, c0: char, c1: char, zero: Token, one_tok0: Token, one_tok1: Token) -> Token {
-        if self.peek() == Some(c0) {
-            self.bump();
-            return one_tok0
-        }
-
-        else if self.peek() == Some(c1) {
-            self.bump();
-            return one_tok1
-        }
-        
-        else { return zero }
-    }
 }
 
 impl<'a> Lexer<'a> {
@@ -90,7 +76,27 @@ impl<'a> Lexer<'a> {
             '>' => self.do_0dup('=', Token::RAngle, Token::GreaterThanEqual),
 
             '+' => self.do_dup(c, Token::Plus, Token::Increment),
-            '-' => self.do_2dup('>', '-', Token::Dash, Token::Arrow, Token::Decrement),
+            '-' => {
+                match self.peek()? {
+                    '-' => {
+                        self.bump()?;
+                        Token::Decrement
+                    },
+
+                    '>' => {
+                        self.bump()?;
+                        Token::Arrow
+                    },
+
+                    // negative numbers
+                    c if c.is_ascii_digit() => {
+                        self.bump()?;
+                        self.do_number(c)
+                    },
+
+                    _ => Token::Dash
+                }
+            }
             '*' => Token::Star,
             '/' => Token::Slash,
             '%' => Token::Percent,
@@ -114,20 +120,23 @@ impl<'a> Lexer<'a> {
 
             '&' => self.do_dup(c, Token::LogicAnd, Token::BitwiseAnd),
             '|' => self.do_dup(c, Token::LogicOr, Token::BitwiseOr),
-            '!' => self.do_dup(c, Token::LogicNot, Token::BitwiseNot),
+            '!' => {
+                match self.peek()? {
+                    '=' => {
+                        self.bump()?;
+                        Token::IsNotEqual
+                    },
+                    '!' => {
+                        self.bump()?;
+                        Token::BitwiseNot
+                    },
+                    _ => Token::LogicNot
+                }
+            }
 
             '=' => self.do_dup(c, Token::Equals, Token::IsEqual),
 
-            c if c.is_ascii_digit() => {
-                let mut s = String::new();
-                s.push(c);
-
-                while matches!(self.peek(), Some(p) if p.is_ascii_digit()) {
-                    s.push(self.bump().unwrap());
-                }
-
-                Token::Integer(s.parse().unwrap())
-            }
+            c if c.is_ascii_digit() => self.do_number(c),
 
             c if c.is_alphabetic() || c == '_' => {
                 let mut s = String::new();
@@ -190,6 +199,17 @@ impl<'a> Lexer<'a> {
         };
 
         Some(Span::new(pos, tok))
+    }
+
+    fn do_number(&mut self, starting: char) -> Token {
+        let mut s = String::new();
+        s.push(starting);
+
+        while matches!(self.peek(), Some(p) if p.is_ascii_digit()) {
+            s.push(self.bump().unwrap());
+        }
+
+        Token::Integer(s.parse().unwrap())
     }
 
     pub fn all_tokens(&mut self) -> Vec<Span> {

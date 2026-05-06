@@ -36,17 +36,21 @@ impl VM {
         yes: &[Inst],
         no: &[Inst],
     ) -> Control {
-        if self.get_truthiness(cond) {
-            self.new_scope_but_parental();
+        let control = if self.get_truthiness(cond) {
+            self.new_scope_parental();
             let out = self.run_all(yes);
+
+            // the new if statement scope has a variable we're trying to return that doesn't exist anymore because the scope ended.
             self.end_scope();
-            return out
+            out
         } else {
-            self.new_scope_but_parental();
+            self.new_scope_parental();
             let out = self.run_all(no);
             self.end_scope();
-            return out
-        }
+            out
+        };
+
+        return control
     }
 
     /// Runs the given code forever until a [`Control::Break`] is issued.
@@ -55,7 +59,7 @@ impl VM {
         code: &[Inst]
     ) -> Control {
         loop {
-            self.new_scope_but_parental();
+            self.new_scope_parental();
             match self.run_all(code) {
                 Control::Break => break,
                 Control::Default => {},

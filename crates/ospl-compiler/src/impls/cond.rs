@@ -14,10 +14,14 @@ impl Compiler {
         let l = self.eval(left, ob)?;
 
         let mut ob_yes = Vec::new();
+        self.stack.push_parental();
         self.compile_block(yes, &mut ob_yes)?;
+        self.stack.pop();
 
         let mut ob_no = Vec::new();
+        self.stack.push_parental();
         self.compile_block(no, &mut ob_no)?;
+        self.stack.pop();
 
         let i = InstBuilder::new()
             .opcode(Opc::If)
