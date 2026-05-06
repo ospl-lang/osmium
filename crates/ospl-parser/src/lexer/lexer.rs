@@ -1,3 +1,5 @@
+use core::panic;
+
 use ospl_common::ast::Position;
 
 use crate::lexer::token::{Span, Token};
@@ -54,6 +56,20 @@ impl<'a> Lexer<'a> {
             return one
         } else { return zero }
     }
+
+    fn do_2dup(&mut self, c0: char, c1: char, zero: Token, one_tok0: Token, one_tok1: Token) -> Token {
+        if self.peek() == Some(c0) {
+            self.bump();
+            return one_tok0
+        }
+
+        else if self.peek() == Some(c1) {
+            self.bump();
+            return one_tok1
+        }
+        
+        else { return zero }
+    }
 }
 
 impl<'a> Lexer<'a> {
@@ -73,8 +89,8 @@ impl<'a> Lexer<'a> {
             '<' => self.do_0dup('=', Token::LAngle, Token::LessThanEqual),
             '>' => self.do_0dup('=', Token::RAngle, Token::GreaterThanEqual),
 
-            '+' => Token::Plus,
-            '-' => self.do_0dup('>', Token::Dash, Token::Arrow),
+            '+' => self.do_dup(c, Token::Plus, Token::Increment),
+            '-' => self.do_2dup('>', '-', Token::Dash, Token::Arrow, Token::Decrement),
             '*' => Token::Star,
             '/' => Token::Slash,
             '%' => Token::Percent,
@@ -134,12 +150,14 @@ impl<'a> Lexer<'a> {
                     "else" => Token::Else,
                     "loop" => Token::Loop,
                     "use" => Token::Use,
+                    "foreign" => Token::Foreign,
 
                     /* types */
                     "int" => Token::IntT,
                     "float" => Token::FloatT,
                     "str" => Token::StrT,
                     "bool" => Token::BoolT,
+                    "list" => Token::List,
 
                     /* values */
                     "nul" => Token::Nul,
@@ -151,17 +169,21 @@ impl<'a> Lexer<'a> {
                 }
             }
 
-            '\'' => {
+            '\"' => {
                 let mut s = String::new();
-                
+
                 loop {
                     let x = self.peek()?;
-                    if x == '\'' {
-                        break Token::StringLit(s)
+                    if x == '\"' {
+                        self.bump()?;  // consume closing '
+                        break
                     }
-                    self.bump()?;
+
+                    self.bump()?;  // consume character
                     s.push(x);
                 }
+
+                return Some(Span::new(pos, Token::StringLit(s)));
             }
 
             _ => panic!("Unexpected character: {c}"),

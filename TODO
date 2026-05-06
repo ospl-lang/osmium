@@ -1,17 +1,17 @@
-[X] assignment
-[X] dot-op assignment
-[X] function defs
-[-] binary ops
-    [X] with primitives
-
 [ ] list type
+    [ ] impl
+    [ ] parse
     [ ] `list + item`
     [ ] `list * list`
+    [ ] `list * int`
+    [ ] slicing (`arr:start..end`)
 
-[ ] references
-    [?] what syntax?
-        [ ] `$ref` / `@deref`
-        [ ] `&ref` / `*deref`
+[ ] str type
+    [ ] impl
+    [X] parse
+    [ ] `str + str`
+    [ ] `str * str`
+    [ ] slicing (`arr:start..end`)
 
 [ ] map type? (do we even want this in the standard?)
 [ ] assign ops

@@ -33,7 +33,8 @@ impl Spannable for IdkWhere {
         return Position {
             line: usize::MAX,
             column: usize::MAX,
-            ch: usize::MAX
+            ch: usize::MAX,
+            token_num: usize::MAX
         }
     }
 }

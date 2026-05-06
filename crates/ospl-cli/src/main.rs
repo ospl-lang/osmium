@@ -1,5 +1,5 @@
 use ospl_compiler::Compiler;
-use ospl_parser::{lexer::lexer::Lexer, parse::{Parser, diag::print_diag}};
+use ospl_parser::{lexer::lexer::Lexer, parse::Parser};
 use ospl_vm::VM;
 use tracing::{info, info_span};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
@@ -33,10 +33,11 @@ fn main() {
         info!("beginning parsing");
 
         let mut parser = Parser::new(&toks);
-        let p = parser.parse_block().map_err(|e| {
-            print_diag(&parser, e);
-            std::process::exit(1);
-        }).unwrap();
+        let p = parser.parse_block()
+            .unwrap();
+            /*.map_err(|e| {
+                print_diag(&parser, e);
+            }).unwrap();*/
 
         p
     };
@@ -58,5 +59,5 @@ fn main() {
     let mut vm = VM::new();
     vm.run_all(&root);
 
-    println!("{vm:?}");
+    info!("final VM: {:?}", vm);
 }

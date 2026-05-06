@@ -1,4 +1,4 @@
-use ospl_common::{ast::ops::{BinaryOp, BinaryOpType}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::ops::{AssignOp, BinaryOp, BinaryOpType}, inst::optimized::{Inst, InstBuilder, Opc}};
 
 use crate::{CE, CEData, Compiler, EvalResult, Res};
 
@@ -14,9 +14,9 @@ impl Compiler {
         if left.ty != right.ty {
             return Err(CE {
                 at: Box::new(b.left.clone()),
-                hint_msg: Some("Perhaps you meant to cast one type?"),
+                msg: Some("Perhaps you meant to cast one type?"),
                 error: CEData::MismatchedTypes {
-                    expected: left.ty,
+                    expected: crate::TypeExpectation::Exact(left.ty),
                     got: right.ty
                 }
             })
@@ -48,5 +48,38 @@ impl Compiler {
             address: self.next_var(),
             ty: left.ty.clone()
         })
+    }
+
+    pub fn assign_op(
+        &mut self,
+        b: &AssignOp,
+        ob: &mut Vec<Inst>
+    ) -> Res<()>
+    {
+        let left = self.get_lvalue(&b.left, ob)?;
+        let right = self.eval(&b.right, ob)?;
+
+        let opc = match &b.kind {
+            BinaryOpType::Add       => Opc::Addl,
+            BinaryOpType::Subtract  => Opc::Subl,
+            BinaryOpType::Multiply  => Opc::Mull,
+            BinaryOpType::Divide    => Opc::Divl,
+            BinaryOpType::Modulo    => Opc::Modl,
+            other => return Err(CE {
+                at: Box::new(b.left.clone()),
+                error: CEData::InvalidAssignOp { op: other.clone() },
+                msg: Some("perhaps you want to use def 'X = X op Y'")
+            })
+        };
+
+        let inst = InstBuilder::new()
+            .opcode(opc)
+            .index(left.address)
+            .index(right.address)
+            .build();
+
+        ob.push(inst);
+
+        return Ok(())
     }
 }

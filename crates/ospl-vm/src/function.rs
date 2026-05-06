@@ -117,4 +117,24 @@ impl VM {
         let s = unsafe{self.pop_scope_without_gc()};
         self.push_literal(RuntimeValue::Scope(Box::new(s)));
     }
+
+    pub fn call_foreign_function(&mut self, h: usize, idxs: &[usize]) {
+        unsafe {
+            let RuntimeValue::ForeignFn(h) = *self.get_value_top(h)
+                else { unimplemented!("not a foreign fn") };
+
+            let x = &raw const *self.ffi.get_function(h).expect("FFI function not found");
+
+            let mut values = Vec::new();
+            for idx in idxs {
+                values.push(self.get_value_top(*idx).clone());
+            }
+
+            let ret = crate::ffi::call_foreign_function(
+                &*x,
+                &values,
+            ).expect("failed to call FFI fn");
+            self.push_literal(ret);
+        }
+    }
 }

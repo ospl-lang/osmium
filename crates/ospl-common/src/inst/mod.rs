@@ -1,14 +1,24 @@
 // use crate::inst::unoptimized::VMInstruction;
 use crate::{ast::frame::RuntimeFrame, inst::optimized::Inst};
 
+pub mod list;
+pub mod optimized;
+
 /// A value in it's static runtime form
 #[derive(Default, Debug, Clone, PartialEq)]
 pub enum RuntimeValue {
     Int(i64),
+    Address(u64),
     Float(f64),
     Bool(bool),
+    Char(char),
+    Str(String),
+    List(list::List),
     Function(RuntimeFunction),
     Scope(Box<RuntimeFrame>),
+
+    ForeignLib(u32),
+    ForeignFn(u32),
 
     Nul,
 
@@ -20,11 +30,10 @@ pub enum RuntimeValue {
 pub struct RuntimeFunction {
     /// Absolute address
     pub lexical_indexes: Vec<crate::types::AbsAddress>,
-    pub code: Vec<Inst>    
+    pub code: Vec<Inst>
 }
 
 // pub mod unoptimized;
-pub mod optimized;
 
 impl RuntimeValue {
     /// Returns the boolean value (or coerces into one),
@@ -37,22 +46,38 @@ impl RuntimeValue {
         }
     }
 
-    // pub fn exactly_equal(&self, other: &Self) -> bool {
-    //     return match (self, other) {
-    //         (Self::Nul, Self::Nul) => true,
-    //         (Self::Undefined, Self::Undefined) => true,
-    //         (Self::Int(x), Self::Int(y)) => x == y,
-    //         (Self::Float(x), Self::Float(y)) => x != y,
-    //         _ => false
-    //     };
-    // }
-
     /// Returns a reference to [`function::Fn`] if `self` is [`Value::Fn`], and
     /// [`None`] otherwise.
     pub fn as_fn(&self) -> Option<&RuntimeFunction> {
         return match self {
             Self::Function(x) => Some(&x),
             _ => None
+        }
+    }
+
+    /// Unsafely returns the int value (if there is), or garbage data.
+    #[cfg(not(debug_assertions))]
+    pub unsafe fn assume_int(&self) -> i64 {
+        return match self {
+            Self::Int(i) => *i,
+            _ => unsafe { std::hint::unreachable_unchecked() }
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    pub unsafe fn assume_int(&self) -> i64 {
+        return match self {
+            Self::Int(i) => *i,
+            other => panic!("{other:?} aint an int!")
+        }
+    }
+
+    /// Returns the length of the value (if there is one)
+    pub fn get_length(&self) -> usize {
+        return match self {
+            Self::List(i) => i.items.len(),
+            Self::Str(s) => s.len(),
+            t => panic!("can't get the len of value of type {t:?}")
         }
     }
 }

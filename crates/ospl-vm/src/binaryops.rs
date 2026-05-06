@@ -40,7 +40,7 @@ macro_rules! impl_op {
                     $type,
                     va,
                     vb,
-                    +,
+                    $op,
                     { $($extra_arms)* }
                 );
 
@@ -73,6 +73,8 @@ impl VM {
         let x = !self.eq_regs_b(a, b);
         self.push_literal(RuntimeValue::Bool(x));
     }
+
+    // can Gt / Le regs by doing subtractions
 }
 
 // math
@@ -81,14 +83,6 @@ impl_op!(binary, VM, sub_regs, -, {});
 impl_op!(binary, VM, mul_regs, *, {});
 impl_op!(binary, VM, div_regs, /, {});
 impl_op!(binary, VM, mod_regs, %, {});
-
-// stupid shit
-// impl_op!(binary, VM, eq_regs, ==, {});
-// impl_op!(binary, VM, neq_regs, !=, {});
-impl_op!(binary, VM, gt_regs, >, {});
-impl_op!(binary, VM, lt_regs, <, {});
-impl_op!(binary, VM, gte_regs, >=, {});
-impl_op!(binary, VM, lte_regs, <=, {});
 
 // TODO: implement assign-ops in impl_op!()
 
@@ -107,10 +101,15 @@ impl VM {
 
             match (va, vb) {
                 (RuntimeValue::Int(x), RuntimeValue::Int(y)) => *x += *y,
-                // (RuntimeValue::List(x), all) => {
-                //     let idx = self.arena.push(all.clone_composite());
-                //     x.push(idx, &mut self.arena);
-                // }
+                (RuntimeValue::List(_), RuntimeValue::List(r)) => {
+                    self.extend_array(a, &r.items);
+                },
+                (RuntimeValue::List(_), _) => {
+                    self.append_array(a, b);
+                },
+                (RuntimeValue::Str(s1), RuntimeValue::Str(s2)) => {
+                    s1.push_str(&*s2);
+                },
 
                 (err_a, err_b) => panic!("can't add-assign {:?} += {:?}", err_a, err_b),
             }

@@ -14,6 +14,7 @@ pub enum Token {
     Else,
     Loop,
     Use,
+    Foreign,
 
     /* values */
     Nul,
@@ -22,7 +23,7 @@ pub enum Token {
     False,
 
     /* types */
-    IntT, FloatT, StrT, BoolT, ListT,
+    IntT, FloatT, StrT, BoolT, List,
 
     /* punctuation */
     Atsign, Comma, Dot, Colon, Semicolon,
@@ -49,6 +50,12 @@ pub enum Token {
 
     /// `!!` symbol
     BitwiseNot,
+
+    /// `--`
+    Decrement,
+
+    /// `++`
+    Increment,
 
     LParen,   RParen,
     LSquirly, RSquirly,

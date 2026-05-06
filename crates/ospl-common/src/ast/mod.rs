@@ -1,10 +1,13 @@
 use std::{collections::HashMap, fmt::Display};
 
+use crate::ast::ops::AssignOp;
+
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Position {
     pub line: usize,
     pub column: usize,
-    pub ch: usize
+    pub token_num: usize,
+    pub ch: usize,
 }
 
 impl Display for Position {
@@ -50,6 +53,7 @@ pub enum Stmt {
     If(Expression, Vec<Statement>, Vec<Statement>),
     Loop(Vec<Statement>),
     ReturnScope,
+    AssignOp(AssignOp),
 }
 
 #[derive(Debug, Clone)]
@@ -72,6 +76,12 @@ pub enum Expr {
     Literal(Literal),
     Call(Expression, Vec<Expression>),
     BinaryOp(ops::BinaryOp),
+    UnaryOp(ops::UnaryOp),
+
+    FFILoad(Expression),
+    FFIFunc(LValue, Expression, usize, Vec<usize>),
+    FFICall(LValue, Vec<Expression>),
+
     LValue(LValue),
 }
 
@@ -94,6 +104,12 @@ impl LValue {
 pub enum LV {
     Variable(String),
     Property(LValue, String),
+
+    /// Indexes from the start to the end
+    Index(Expression, Expression),
+
+    /// Slices from the start to the end
+    Slice(Expression, Expression, Expression),
 }
 
 #[derive(Debug, Clone)]
@@ -102,6 +118,7 @@ pub enum Literal {
     Float(f64),
     Bool(bool),
     Str(String),
+    List(Type, Vec<Expression>),
     Function(FunctionValue)
 }
 
@@ -116,10 +133,16 @@ pub struct FunctionType {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Nul, Undefined,
-    Int, Float, Str, Bool, List,
+    Int, Float, Str, Bool, List(Box<Type>),
     Scope(Scope),
     Function(Box<FunctionType>),
+
+    ForeignLibrary,
+    ForeignFunction,
+
+    // virtual types
     TypeOfVar(String),
+    ReturnTypeOfVar(String),
 }
 
 /// A single block of variables.

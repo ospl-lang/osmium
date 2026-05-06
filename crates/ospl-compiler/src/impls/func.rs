@@ -30,14 +30,14 @@ impl Compiler {
                 let scope = self.stack.scopes.get(idx)
                     .ok_or_else(|| CE {
                         at: Box::new(IdkWhere),
-                        hint_msg: Some("perhaps you failed preschool?"),
+                        msg: Some("perhaps you failed preschool?"),
                         error: CEData::NoScopeToCapture,
                     })?;
 
                 scope.get_combined_copy(&capture)
                     .ok_or_else(|| CE {
                         at: Box::new(IdkWhere),
-                        hint_msg: Some("perhaps you meant to chain the capture across multiple scopes?"),
+                        msg: Some("perhaps you meant to chain the capture across multiple scopes?"),
                         error: CEData::NotFoundInScope { needed: capture.clone() }
                     })?
             };
@@ -104,7 +104,7 @@ impl Compiler {
             // wrong number of args
             return Err(CE {
                 at: Box::new(call_func.clone()),
-                hint_msg: Some("perhaps you meant to pass in null?"),
+                msg: Some("perhaps you meant to pass in null?"),
                 error: CEData::WrongArgCount {
                     expected: func.args.len(),
                     got: args.len()
@@ -118,9 +118,9 @@ impl Compiler {
             if eval.ty != *func_arg {
                 return Err(CE {
                     at: Box::new(arg.clone()),
-                    hint_msg: Some("perhaps you meant to cast the argument?"),
+                    msg: Some("perhaps you meant to cast the argument?"),
                     error: CEData::MismatchedTypes {
-                        expected: func_arg.clone(),
+                        expected: crate::TypeExpectation::Exact(func_arg.clone()),
                         got: eval.ty
                     }
                 })

@@ -23,6 +23,12 @@ pub enum Opc {
 
     PushLiteral,
 
+    /// Pushes an array to the stack.
+    /// 
+    /// - **Indexes:** the members of the array (the refcounts will be
+    ///                incremented)
+    PushArray,
+
     /// Pushes a function, except the captures are specified as
     /// relative addresses, and are converted to 
     /// 
@@ -38,17 +44,24 @@ pub enum Opc {
     AssignRef,
     AssignLiteral,
 
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Mod,
+    /** Binary `+` */ Add,
+    /** Binary `-` */ Sub,
+    /** Binary `*` */ Mul,
+    /** Binary `/` */ Div,
+    /** Binary `%` */ Mod,
 
-    Addl,
-    Subl,
-    Mull,
-    Divl,
-    Modl,
+    /** Assign `+=` */ Addl,
+    /** Assign `-=` */ Subl,
+    /** Assign `*=` */ Mull,
+    /** Assign `/=` */ Divl,
+    /** Assign `%=` */ Modl,
+
+    /** Unary `--`
+     * 
+     * When used on a list, the value is popped off instead
+    */ Decrement,
+
+    /** Unary `++` */ Increment,
 
     Eq,
     Neq,
@@ -56,6 +69,8 @@ pub enum Opc {
     Lt,
     Gte,
     Lte,
+
+    Neg,
 
     Lnot,
     Lor,
@@ -71,10 +86,58 @@ pub enum Opc {
     Break,
     Continue,
 
-    Property,
+    /// Gets the length of an array or string.
+    /// 
+    /// - **Index #0:** the array to get the length of
+    /// - **Return:** the length as an Int
+    GetLength,
 
-    Purge,
-    Unbind,
+    /// Pops a value at off a sequence
+    /// 
+    /// - **Index #0:** the array/string to pop off of
+    /// - **Index #1:** a ref to an Int containing the value to index
+    Pop,
+
+    /** Get a property */ Property,
+    /** Index into an array */ IndexArray,
+    /** Slice into an array */ SliceArray,
+
+    /* ********************************************************************* */
+    /*           FFI STUFF                                                   */
+    /* ********************************************************************* */
+
+    /// Loads a foreign library from a file
+    /// 
+    /// - **Index #0:** a string value indicating the library to load
+    /// - **Return:** a [`RuntimeValue::ForeignLib`]
+    FFILoadLib,
+
+    /// Loads a foreign function from a library
+    /// 
+    /// - **Index #0:** a string value indicating which library to load from
+    /// - **Index #1:** a string value indicating which functon to obtain
+    /// - **Index #2:** a number (not a reference to a number, just a number
+    ///                 as the index) that represents the return type.
+    /// 
+    /// - **Remaining indexes:** a number that represents each argument type.
+    /// 
+    /// - **Return:** a [`RuntimeValue::ForeignFn`]
+    /// 
+    /// Type enum mapping:
+    /// - 0: u8
+    /// - 1: i8
+    /// - 2: u16
+    /// - 3: i16
+    /// - 5: u32
+    /// - 6: i32
+    /// - 7: u64
+    /// - 8: i64
+    /// - 9: float
+    /// - 10: double
+    /// - 11: ptr
+    FFILoadFn,
+
+    FFICall,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -95,6 +158,18 @@ pub struct Inst {
     /// 
     /// Mostly used for if statements and loops
     pub children: Vec<Vec<Inst>>
+}
+
+impl Inst {
+    #[cfg(not(debug_assertions))]
+    pub fn get_index(&self, x: usize) -> usize {
+        return unsafe { *self.indexes.get_unchecked(x) }
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn get_index(&self, x: usize) -> usize {
+        return self.indexes[x]
+    }
 }
 
 pub struct InstBuilder {

@@ -104,7 +104,11 @@ impl<'a> Parser<'a> {
             Token::FloatT => {self.next()?; return Ok(Type::Float)},
             Token::StrT => {self.next()?; return Ok(Type::Str)},
             Token::BoolT => {self.next()?; return Ok(Type::Bool)},
-            Token::ListT => {self.next()?; return Ok(Type::List)},
+            Token::List => {
+                self.next()?;
+                let list_typ = self.parse_type()?;
+                return Ok(Type::List(Box::new(list_typ)))
+            },
 
             Token::Atsign => unimplemented!(),
             Token::Scope => return Ok(Type::Scope(self.parse_scope_type()?)),
@@ -126,9 +130,7 @@ impl<'a> Parser<'a> {
             let name = match token {
                 Token::Ident(i) => i,
                 Token::RSquirly => break,
-                Token::Semicolon => {
-                    continue;
-                }
+                Token::Semicolon => continue,
                 _ => unreachable!()
             };
 
@@ -158,6 +160,6 @@ const EXP_NAMED_ARG_MEMBER: TokenExpectation = tComb!(
 
 pub const EXP_TYPE_STARTER: TokenExpectation = tComb!(
     "Fn | Atsign | IntT | FloatT | StrT | BoolT | ListT | Ident | Scope",
-    tExp!(Fn, Atsign, IntT, FloatT, StrT, BoolT, ListT, Scope),
+    tExp!(Fn, Atsign, IntT, FloatT, StrT, BoolT, List, Scope),
     EXP_IDENT,
 );

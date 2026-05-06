@@ -71,8 +71,8 @@ impl Compiler {
                 if leval.ty != reval.ty {
                     return Err(CE {
                         at: Box::new(lv.clone()),
-                        hint_msg: Some("perhaps wrap the right-hand side's type?"),
-                        error: CEData::MismatchedTypes { expected: leval.ty, got: reval.ty }
+                        msg: Some("perhaps wrap the right-hand side's type?"),
+                        error: CEData::MismatchedTypes { expected: crate::TypeExpectation::Exact(leval.ty), got: reval.ty }
                     })
                 }
 
@@ -83,6 +83,9 @@ impl Compiler {
                     .build();
 
                 ob.push(i);
+            },
+            Stmt::AssignOp(b) => {
+                self.assign_op(b, ob)?;
             }
         }
 

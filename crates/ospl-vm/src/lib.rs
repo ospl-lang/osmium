@@ -7,9 +7,10 @@ mod cond;
 mod binaryops;
 mod pushes;
 mod function;
+mod unaryops;
+mod list;
 pub mod arena;
 pub mod gc;
-pub mod list;
 
 pub mod tests;
 
@@ -22,6 +23,7 @@ pub mod tests;
 pub struct VM {
     pub arena: Arena,
     pub stack: Vec<RuntimeFrame>,
+    pub ffi: ffi::FfiRegistry
 }
 
 #[derive(Debug)]
@@ -38,6 +40,7 @@ impl VM {
         return Self {
             arena: Arena::new(),
             stack: vec![RuntimeFrame::default()],
+            ffi: ffi::FfiRegistry::default(),
         }
     }
 
@@ -174,6 +177,17 @@ impl VM {
                 );
             },
 
+            Opc::PushArray => self.push_array(&inst.indexes),
+            Opc::IndexArray => self.index_array(
+                inst.get_index(0),
+                inst.get_index(1),
+            ),
+            Opc::SliceArray => self.slice_array(
+                inst.get_index(0),
+                inst.get_index(1),
+                inst.get_index(2),
+            ),
+
             Opc::PushFunction => {
                 let new_indexes = inst.indexes.iter().map(|x| {
                     // RelAddr -> AbsAddr
@@ -191,12 +205,12 @@ impl VM {
             }
 
             Opc::If => return self.if_statement(
-                *inst.indexes.get_unchecked(0),
+                inst.get_index(0),
                 &inst.children.get_unchecked(0),
                 &inst.children.get_unchecked(1),
             ),
 
-            Opc::AssignCopy => self.assign_copy(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
+            Opc::AssignCopy => self.assign_copy(inst.get_index(0), inst.get_index(1)),
 
             Opc::AssignLiteral => {
                 // don't even fuck with this one lmao.
@@ -204,7 +218,7 @@ impl VM {
             },
 
             Opc::Property => {
-                let (x, prop) = (*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1));
+                let (x, prop) = (inst.get_index(0), inst.get_index(1));
 
                 // this is just legitimely fucking safe. There's no invariant here.
                 let search_in = self.raw_get_value_top(x);
@@ -217,39 +231,74 @@ impl VM {
                         // we don't incremenet the refcount because that only
                         // happens at frame boundaries.
 
-                        println!("{:?} {:?}", add_thing, self.arena);
-
                         self.top_mut().indexes.push(add_thing);
                     },
-                    _ => unreachable!()
+                    _ => std::hint::unreachable_unchecked()
                 }
             },
+
+            Opc::GetLength => {
+                let x = self.get_value_top(inst.get_index(0));
+                let l = x.get_length();
+                let l = RuntimeValue::Int(l as i64);
+                self.push_literal(l);
+            }
+
             Opc::RetScope => return Control::ReturnScope,
 
-            Opc::Add => self.add_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
-            Opc::Sub => self.sub_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
-            Opc::Eq  => self.eq_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
-            Opc::Neq => self.neq_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
-            Opc::Gt  => self.gt_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
-            Opc::Lt  => self.lt_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
-            Opc::Gte => self.gte_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
-            Opc::Lte => self.lte_regs(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
+            Opc::Add => self.add_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::Sub => self.sub_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::Eq  => self.eq_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::Neq => self.neq_regs(inst.get_index(0), inst.get_index(1)),
+            // Opc::Gt  => self.gt_regs(inst.get_index(0), inst.get_index(1)),
+            // Opc::Lt  => self.lt_regs(inst.get_index(0), inst.get_index(1)),
+            // Opc::Gte => self.gte_regs(inst.get_index(0), inst.get_index(1)),
+            // Opc::Lte => self.lte_regs(inst.get_index(0), inst.get_index(1)),
 
-            Opc::Addl => self.add_assign(*inst.indexes.get_unchecked(0), *inst.indexes.get_unchecked(1)),
+            Opc::Decrement => self.dec_value(inst.get_index(0)),
+
+            Opc::Addl => self.add_assign(inst.get_index(0), inst.get_index(1)),
 
             Opc::Call => return self.call_fn(
-                *inst.indexes.get_unchecked(0),
-                &inst.indexes.get_unchecked(1..),
+                inst.get_index(0),
+                inst.indexes.get_unchecked(1..),
             ),
+
+            Opc::FFICall => { self.call_foreign_function(inst.get_index(0), &inst.indexes[1..]); },
 
             Opc::Loop => return self.run_loop(&inst.children.get_unchecked(0)),
 
-            Opc::Ret => return Control::Return(*inst.indexes.get_unchecked(0)),
+            Opc::Ret => return Control::Return(inst.get_index(0)),
             Opc::Continue => return Control::Continue,
             Opc::Break => return Control::Break,
-            // Opc::Break => panic!("YES!")
+            // FFI stuff
 
-            // Opc::NullOp => {}
+            Opc::FFILoadLib => {
+                let RuntimeValue::Str(s) = &*self.raw_get_value_top(inst.get_index(0))
+                    else { panic!("expected str for FFI instruction") };
+
+                let l = self.ffi.load_library(s).expect("failed to load FFI");
+                self.push_literal(RuntimeValue::ForeignLib(l));
+            },
+
+            Opc::FFILoadFn => {
+                let RuntimeValue::ForeignLib(lib) = *self.get_value_top(inst.get_index(0))
+                    else { unreachable!("no idea what this is") };
+
+                let RuntimeValue::Str(s) = &*self.raw_get_value_top(inst.get_index(1))
+                    else { panic!("expected str for FFI instruction") };
+
+                let rtype = ffi::type_number_to_string(inst.get_index(2));
+
+                // do the thing
+                let mut types = Vec::new();
+                for remaining_index in inst.indexes.get(3..).unwrap() {
+                    types.push(ffi::type_number_to_string(*remaining_index as usize).to_string());
+                }
+
+                let handle = self.ffi.register_function(lib, s, types, rtype.to_string()).unwrap();
+                self.push_literal(RuntimeValue::ForeignFn(handle));
+            }
 
             other => unimplemented!("opcode {:?} is not implemented", other)
         } };

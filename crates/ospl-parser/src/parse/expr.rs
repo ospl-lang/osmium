@@ -1,6 +1,6 @@
-use ospl_common::ast::{Expr, Expression, LV, LValue, Literal, ops::{BinaryOp, BinaryOpType}};
+use ospl_common::ast::{Expr, Expression, LV, LValue, Literal, ops::{BinaryOp, BinaryOpType, UnaryOp, UnaryOpType}};
 
-use crate::{lexer::token::{EXP_IDENT, Span, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
+use crate::{lexer::token::{EXP_IDENT, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
 
 pub const EXP_LITERAL_STARTER: TokenExpectation = TokenExpectation {
     matches: |t| -> bool {
@@ -10,37 +10,36 @@ pub const EXP_LITERAL_STARTER: TokenExpectation = TokenExpectation {
             Token::Float(_) |
             Token::Fn |
             Token::True |
-            Token::False
+            Token::False |
+            Token::List
         )
     },
     label: "literal starter (StringLit, Integer, Float, Fn, True or False)"
 };
 
-pub const EXP_OPERATION: TokenExpectation = tExp!(Plus, Dash, Star, Slash, Percent, IsEqual, GreaterThanEqual, LessThanEqual, RAngle, LAngle);
+pub const EXP_BINARY_OPERATION: TokenExpectation = tExp!(
+    Plus, Dash, Star, Slash, Percent, IsEqual, IsNotEqual, GreaterThanEqual, LessThanEqual, RAngle, LAngle
+);
+
+pub const EXP_UNARY_OPERATION: TokenExpectation = tExp!(Increment, Decrement);
 
 impl<'a> Parser<'a> {
     pub fn parse_atom(&mut self) -> Res<Expression> {
         let t = self.expect_peek(tComb!(
-            "EXP_LITERAL_STARTER | LParen",
-            tExp!(LParen),
+            "EXP_LITERAL_STARTER | LParen | Foreign",
+            tExp!(LParen, Foreign),
             EXP_LITERAL_STARTER
         ))?;
 
         match t.token() {
             Token::Integer(_) |
             Token::Float(_) |
-            Token::StringLit(_) |
             Token::True |
             Token::False |
             Token::Ident(_) => {
                 let t = self.expect(EXP_LITERAL_STARTER)?.destructure();
 
                 Ok(match t.1 {
-                    Token::StringLit(s) => Expression {
-                        at: t.0,
-                        inner: Box::new(Expr::Literal(Literal::Str(s.to_string()))),
-                    },
-
                     Token::Integer(i) => Expression {
                         at: t.0,
                         inner: Box::new(Expr::Literal(Literal::Int(i))),
@@ -73,11 +72,52 @@ impl<'a> Parser<'a> {
                 })
             },
 
+            Token::StringLit(s) => {
+                self.next()?;
+                return Ok(Expression {
+                    at: *t.position(),
+                    inner: Box::new(Expr::Literal(Literal::Str(s.to_string()))),
+                });
+            }
+
+            Token::List => {
+                self.next()?;
+
+                // get the type
+                let lty = self.parse_type()?;
+
+                self.expect(tExp!(LSquirly))?;
+
+                let mut exprs = Vec::new();
+                loop {
+                    let span = self.expect_peek(tComb!(
+                        "RBracket | Expr",
+                        tExp!(RSquirly),
+                        EXP_LITERAL_STARTER
+                    ))?;
+
+                    match span.token() {
+                        Token::RSquirly => {
+                            self.next()?;
+                            break;
+                        },
+                        _ => {
+                            let e = self.parse_expr()?;
+                            exprs.push(e);
+                        }
+                    }
+                }
+
+                return Ok(Expression {
+                    at: *t.position(),
+                    inner: Box::new(Expr::Literal(Literal::List(lty, exprs))),
+                })
+            }
+
             Token::Fn => Ok(Expression {
                 at: *t.position(),
                 inner: Box::new(Expr::Literal(Literal::Function(self.parse_function_literal()?))),
             }),
-
 
             Token::LParen => {
                 self.expect(tExp!(LParen))?;
@@ -86,15 +126,17 @@ impl<'a> Parser<'a> {
                 Ok(expr)
             },
 
+            Token::Foreign => return self.parse_foreign_expr(),
+
             _ => unreachable!()
         }
     }
 
     pub const EXP_EXPR_STARTER: TokenExpectation = tComb!(
-        "EXP_LVALUE_STARTER | EXP_ATOM_STARTER",
+        "start of LValue | start of atom | foreign",
         EXP_IDENT,
         EXP_LITERAL_STARTER,
-        tExp!(LParen),
+        tExp!(LParen, Foreign),
     );
 
     /// A primary is either:
@@ -144,13 +186,13 @@ impl<'a> Parser<'a> {
     pub fn parse_expr(&mut self) -> Res<Expression> {
         let mut a1 = self.parse_primary()?;
         loop {
-            let span = self.peek()?;
+            let span = self.peek()?;  // here
 
             // parse operations
-            if (EXP_OPERATION.matches)(span.token()) {
+            if (EXP_BINARY_OPERATION.matches)(span.token()) {
                 self.next()?;
 
-                let optype = span_to_binaryop(&span);
+                let optype = token_to_binaryop(&span.token());
 
                 let a2 = self.parse_primary()?;
                 a1 = Expression {
@@ -158,6 +200,25 @@ impl<'a> Parser<'a> {
                     inner: Box::new(Expr::BinaryOp(BinaryOp {
                         left: a1,
                         right: a2,
+                        kind: optype
+                    })),
+                };
+            }
+
+            else if (EXP_UNARY_OPERATION.matches)(span.token()) {
+                self.next()?;
+                
+                let optype = match &span.token() {
+                    Token::Increment => UnaryOpType::Increment,
+                    Token::Decrement => UnaryOpType::Decrement,
+                    Token::LogicNot => UnaryOpType::LogicNot,
+                    _ => unreachable!()
+                };
+
+                a1 = Expression {
+                    at: a1.at,
+                    inner: Box::new(Expr::UnaryOp(UnaryOp {
+                        expr: a1,
                         kind: optype
                     })),
                 };
@@ -206,6 +267,39 @@ impl<'a> Parser<'a> {
                         at: *span.position()
                     };
                 },
+                Token::Colon => {
+                    let _ = self.next()?;  // consume `t` (a colon)
+
+                    let a = self.parse_atom()?;
+                    
+                    if let Token::Comma = self.peek()?.token() {  // slicing
+                        self.next()?;
+                        let b = self.parse_atom()?;
+                        node = LValue {
+                            at: a.at,
+                            inner: Box::new(LV::Slice(
+                                Expression {
+                                    at: a.at,
+                                    inner: Box::new(Expr::LValue(node))
+                                },
+                                a, b,
+                            ))
+                        }
+                    }
+
+                    else {
+                        node = LValue {
+                            at: a.at,
+                            inner: Box::new(LV::Index(
+                                Expression {
+                                    at: node.at,
+                                    inner: Box::new(Expr::LValue(node))
+                                },
+                                a
+                            ))
+                        };
+                    }
+                }
                 _ => break
             }
         };
@@ -214,8 +308,8 @@ impl<'a> Parser<'a> {
     }
 }
 
-fn span_to_binaryop(span: &Span) -> BinaryOpType {
-    return match span.token() {
+pub fn token_to_binaryop(token: &Token) -> BinaryOpType {
+    return match token {
         Token::Plus => BinaryOpType::Add,
         Token::Dash => BinaryOpType::Subtract,
         Token::Star => BinaryOpType::Multiply,

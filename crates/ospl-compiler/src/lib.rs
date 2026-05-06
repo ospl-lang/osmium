@@ -1,4 +1,4 @@
-use ospl_common::ast::{Scope, Type};
+use ospl_common::ast::{Scope, Type, ops::BinaryOpType};
 
 pub type RelativeVarID = usize;
 
@@ -20,9 +20,16 @@ pub struct EvalResult {
 }
 
 #[derive(Debug)]
+pub enum TypeExpectation {
+    Exact(Type),
+    AnyList,
+    AnyScope,
+}
+
+#[derive(Debug)]
 pub enum CEData {
     MismatchedTypes {
-        expected: Type,
+        expected: TypeExpectation,
         got: Type
     },
     WrongArgCount {
@@ -33,13 +40,24 @@ pub enum CEData {
         needed: String,
     },
     NoScopeToCapture,
+    InvalidOpForType {
+        op: BinaryOpType,
+        ty: Type
+    },
+    InvalidAssignOp {
+        op: BinaryOpType,
+    },
+    UnrecognizedSpecialVar {
+        ty: Type,
+        special: String,
+    }
 }
 
 #[derive(Debug)]
 pub struct CE {
     pub at: Box<dyn ospl_common::ast::spanning::Spannable>,
     pub error: CEData,
-    pub hint_msg: Option<&'static str>,
+    pub msg: Option<&'static str>,
 }
 
 pub type Res<T> = Result<T, CE>;

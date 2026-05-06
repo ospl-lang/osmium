@@ -1,7 +1,83 @@
-use crate::arena::ArenaIndex;
+use ospl_common::inst::{RuntimeValue, list::List};
 
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct List {
-    pub inner: Vec<ArenaIndex>
+use crate::VM;
+
+impl VM {
+    pub fn push_array(&mut self, indexes: &[usize]) {
+        let mut list = List::default();
+        for rel in indexes {
+            let abs = self.top().indexes[*rel];
+            self.arena.inc_refcount(abs);
+            
+            list.items.push(abs);
+        }
+
+        self.push_literal(RuntimeValue::List(list));
+    }
+
+    pub fn index_array(&mut self, array: usize, index: usize) {
+        // SAFETY: the invariant here is that the instruction is operating on a
+        // valid type and the index into the array is valid.
+        let x = {
+            let list = self.get_value_top(array);
+            let index = unsafe { self.get_value_top(index).assume_int() };
+            let x = match list {
+                RuntimeValue::List(l) => { l.items[index as usize] },
+                _ => unsafe{ std::hint::unreachable_unchecked() },
+            };
+
+            x
+        };
+        self.top_mut().indexes.push(x);
+    }
+
+    pub fn slice_array(&mut self, array: usize, start: usize, end: usize) {
+        let x = unsafe {
+            let list = self.raw_get_value_top(array);
+            let start = self.get_value_top(start).assume_int() as usize;
+            let end = self.get_value_top(end).assume_int() as usize;
+            let x = match &*list {
+                RuntimeValue::List(l) => &l.items[start..end],
+                _ => std::hint::unreachable_unchecked(),
+            };
+
+            x
+        };
+
+        self.top_mut().indexes.extend_from_slice(x);
+    }
+
+    pub fn index_string_bytes(&mut self, string: usize, index: usize) {
+        let str = self.get_value_top(string);
+        match str {
+            RuntimeValue::Str(s) => {
+                let b = s.as_bytes()[index];
+                let b = b as i64;
+                let b = RuntimeValue::Int(b);
+                self.push_literal(b);
+            },
+            _ => unsafe { std::hint::unreachable_unchecked() },
+        }
+    }
+
+    pub fn append_array(&mut self, array: usize, index: usize) {
+        self.extend_array(array, &[index]);
+    }
+
+    pub fn extend_array(&mut self, array: usize, indexes: &[usize]) {
+        // FIXME: improve performance
+        let indexes: Vec<usize> = indexes.iter().map(|f| self.top().indexes[*f]).collect();
+        unsafe {
+            let list = self.raw_get_value_top_mut(array);
+            match &mut *list {
+                RuntimeValue::List(l) => {
+                    for abs in indexes {
+                        self.arena.inc_refcount(abs);
+                        l.items.push(abs);
+                    }
+                },
+                _ => std::hint::unreachable_unchecked(),
+            };
+        }
+    }
 }

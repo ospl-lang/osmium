@@ -54,7 +54,10 @@ impl<'a> Parser<'a> {
     fn next(&mut self) -> Res<Span> {
         let ct = self.current_token;
         let Some(t) = self.tokens.get(ct)
-            else { return Err(PE::UnexpectedEOF) };
+        else {
+            // panic!("unexpected EOF");
+            return Err(PE::UnexpectedEOF)
+        };
 
         self.current_token += 1;
 
@@ -63,7 +66,10 @@ impl<'a> Parser<'a> {
 
     fn peek(&self) -> Res<Span> {
         let Some(t) = self.tokens.get(self.current_token)  
-            else { return Err(PE::UnexpectedEOF) };
+        else {
+            // panic!("unexpected EOF in peek()");
+            return Err(PE::UnexpectedEOF)
+        };
 
         return Ok(t.clone())
     }
@@ -73,6 +79,7 @@ mod stmt;
 mod expr;
 mod lit;
 mod cond;
+mod ffi;
 
 pub mod diag;
 
