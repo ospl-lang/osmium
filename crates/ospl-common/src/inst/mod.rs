@@ -6,6 +6,7 @@ pub mod optimized;
 
 /// A value in it's static runtime form
 #[derive(Default, Debug, Clone, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub enum RuntimeValue {
     Int(i64),
     Address(u64),
@@ -27,6 +28,7 @@ pub enum RuntimeValue {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct RuntimeFunction {
     /// Absolute address
     pub lexical_indexes: Vec<crate::types::AbsAddress>,

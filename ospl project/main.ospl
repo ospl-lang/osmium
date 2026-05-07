@@ -1,4 +1,0 @@
-{
-    def other = use "other"
-    do other.add(1 1)
-}

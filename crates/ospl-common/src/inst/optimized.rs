@@ -17,6 +17,7 @@
 use crate::inst::RuntimeValue;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub enum Opc {
     /// Does nothing
     NullOp,
@@ -154,7 +155,7 @@ pub enum Opc {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-// #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct Inst {
     pub opcode: Opc,
 

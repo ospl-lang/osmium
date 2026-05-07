@@ -15,11 +15,6 @@ pub mod gc;
 
 pub mod tests;
 
-
-// WE WILL EVENTUALLY SWITCH TO FIXEDVEC. WHEN FIXEDVEC BECOMES
-// FAST ENOUGH.
-// pub const VM_FRAME_SIZE: usize = 256;
-
 #[derive(Debug)]
 pub struct VM {
     pub arena: Arena,
