@@ -21,10 +21,10 @@ impl Compiler {
         // note: we never match on Control so it doesn't really matter
         match &*s.inner {
             // TODO: check type
-            Stmt::Define(var, init) => {
-                let eval = self.eval(init, ob)?;
+            Stmt::Define(dcl) => {
+                let eval = self.eval(&dcl.rhs, ob)?;
 
-                self.stack.top_mut().declare(var.to_string(), eval.address, eval.ty);
+                self.stack.top_mut().declare(dcl.name.to_string(), eval.address, eval.ty);
             },
 
             Stmt::Expr(e) => {
@@ -86,7 +86,7 @@ impl Compiler {
             },
             Stmt::AssignOp(b) => {
                 self.assign_op(b, ob)?;
-            }
+            },
         }
 
         return Ok(Control::Default)

@@ -1,6 +1,6 @@
 use ospl_common::ast::Scope;
 
-use crate::{Compiler, RelativeVarID, ScopeStack};
+use crate::{Compiler, RelativeVarID, ScopeStack, package::Packages};
 
 impl Compiler {
     /// Increments to the next index, returning the previous one,
@@ -10,11 +10,12 @@ impl Compiler {
         return t.next_post()
     }
 
-    pub fn new() -> Self {
+    pub fn new(pkgs: Packages) -> Self {
         return Self {
             stack: ScopeStack { scopes: vec![
                 Scope::default()
-            ] }
+            ] },
+            packages: pkgs
         }
     }
 }
@@ -50,3 +51,4 @@ mod array;
 mod binaryop;
 mod unaryop;
 mod ffi;
+mod pkg;

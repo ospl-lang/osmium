@@ -4,6 +4,7 @@ use ospl_common::ast::Position;
 pub enum Token {
     /* keywords */
     Def,
+    Let,
     Do,
     Fn,
     Scope,
@@ -73,6 +74,7 @@ pub enum Token {
 
     /* literals */
     Integer(i64),
+    AddressLiteral(u64),
     Float(f64),
     StringLit(String),
 

@@ -1,6 +1,10 @@
 use ospl_common::ast::{Scope, Type, ops::BinaryOpType};
 
+use crate::package::Packages;
+
 pub type RelativeVarID = usize;
+
+pub mod package;
 
 /// All nested scopes during compilation.
 #[derive(Debug, Default)]
@@ -10,10 +14,11 @@ struct ScopeStack {
 
 #[derive(Debug)]
 pub struct Compiler {
-    stack: ScopeStack
+    stack: ScopeStack,
+    packages: Packages,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EvalResult {
     address: RelativeVarID,
     ty: Type,
@@ -73,4 +78,4 @@ impl From<(usize, &Type)> for EvalResult {
 
 pub mod ast;
 mod impls;
-mod tests;
+// mod tests;

@@ -114,7 +114,7 @@ impl VM {
     pub fn retscope(&mut self) {
         // may or may not work...
         let s = unsafe{self.pop_scope_without_gc()};
-        self.push_literal(RuntimeValue::Scope(Box::new(s)));
+        self.push_literal(RuntimeValue::Scope(s));
     }
 
     pub fn call_foreign_function(&mut self, h: usize, idxs: &[usize]) {

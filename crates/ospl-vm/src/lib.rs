@@ -202,7 +202,12 @@ impl VM {
 
                 self.push_literal(RuntimeValue::Function(f));
                 return Control::Default
-            }
+            },
+
+            Opc::PushFrame => {
+                let idxs: Vec<usize> = inst.indexes.iter().map(|i| self.top().indexes[*i]).collect();
+                self.push_literal(RuntimeValue::Scope(RuntimeFrame::new(idxs, 0, 0)));
+            },
 
             Opc::If => return self.if_statement(
                 inst.get_index(0),

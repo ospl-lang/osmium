@@ -9,3 +9,5 @@ ospl-compiler = { path = "../ospl-compiler" }
 ospl-vm = { path = "../ospl-vm" }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing = "0.1.44"
+serde = { version = "1", features = ["derive"] }
+yaml_serde = { version = "0.10" }

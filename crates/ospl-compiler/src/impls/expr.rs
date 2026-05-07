@@ -25,6 +25,44 @@ impl Compiler {
             Expr::FFICall(f, args) => self.ffi_call(f, args, ob),
             Expr::FFIFunc(lib, func_name, rtype, types) => self.ffi_func(lib, func_name, *rtype, types, ob),
             Expr::FFILoad(lib_path) => self.ffi_load(lib_path, ob),
+            Expr::Use(pkg) => {
+                let mut scope = ospl_common::ast::Scope::default();
+
+                // I know this is safe
+                let package = &raw mut *self.get_mut_module(pkg).expect("TODO unwrap");
+                let package = unsafe {&mut *package};
+
+                let mut addresses = Vec::new();
+                for export in &mut package.exports {
+                    let value = if let Some(cached) = &export.cached {
+                        cached.clone()
+                    } else {
+                        let value = self.eval(&export.decl.rhs, ob)?;
+                        export.cached = Some(value.clone());
+                        value
+                    };
+
+                    scope.declare(
+                        export.decl.name.clone(),
+                        value.address,
+                        value.ty.clone(),
+                    );
+
+                    addresses.push(value.address);
+                }
+
+                ob.push(
+                    InstBuilder::new()
+                        .opcode(Opc::PushFrame)
+                        .indexes(&addresses)
+                        .build(),
+                );
+
+                return Ok(EvalResult {
+                    address: self.next_var(),
+                    ty: Type::Scope(scope)
+                })
+            }
         }
     }
 
@@ -162,7 +200,6 @@ impl Compiler {
                 let x = EvalResult::from(v);
                 return Ok(x)
             },
-
         }
     }
 

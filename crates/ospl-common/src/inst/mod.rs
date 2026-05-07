@@ -15,7 +15,7 @@ pub enum RuntimeValue {
     Str(String),
     List(list::List),
     Function(RuntimeFunction),
-    Scope(Box<RuntimeFrame>),
+    Scope(RuntimeFrame),
 
     ForeignLib(u32),
     ForeignFn(u32),

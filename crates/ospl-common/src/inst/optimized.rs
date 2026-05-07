@@ -23,6 +23,13 @@ pub enum Opc {
 
     PushLiteral,
 
+    /// Pushes a frame onto the stack, but not in the way a function would.
+    /// This is intended for generic compiler namespaces such as modules.
+    /// 
+    /// - **Indexes:** the members of the scope relative to the current one
+    ///                 (the refcounts will be incremented)
+    PushFrame,
+
     /// Pushes an array to the stack.
     /// 
     /// - **Indexes:** the members of the array (the refcounts will be

@@ -1,0 +1,5 @@
+version: 1.0.0
+
+includes:
+  binary: !File "main.ospl"
+  other: !File "other.ospl"

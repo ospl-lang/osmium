@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
-use crate::ast::ops::AssignOp;
+use crate::ast::{decl::Declaration, ops::AssignOp};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Position {
@@ -45,7 +45,8 @@ impl Statement {
 #[derive(Debug, Clone)]
 pub enum Stmt {
     Expr(Expression),
-    Define(String, Expression),
+    // Define(String, Expression),
+    Define(Declaration),
     Assign(LValue, Expression),
     Return(Expression),
     Break,
@@ -83,6 +84,7 @@ pub enum Expr {
     FFICall(LValue, Vec<Expression>),
 
     LValue(LValue),
+    Use(String),
 }
 
 #[derive(Debug, Clone)]
@@ -217,3 +219,4 @@ pub struct FunctionValue {
 pub mod frame;
 pub mod ops;
 pub mod spanning;
+pub mod decl;

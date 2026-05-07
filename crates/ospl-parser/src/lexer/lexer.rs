@@ -152,6 +152,7 @@ impl<'a> Lexer<'a> {
                     "do" => Token::Do,
                     "scope" => Token::Scope,
                     "def" => Token::Def,
+                    "let" => Token::Let,
                     "return" => Token::Return,
                     "break" => Token::Break,
                     "continue" => Token::Continue,
@@ -209,7 +210,12 @@ impl<'a> Lexer<'a> {
             s.push(self.bump().unwrap());
         }
 
-        Token::Integer(s.parse().unwrap())
+        if self.peek().unwrap() == '@' {
+            self.bump().unwrap();
+            return Token::AddressLiteral(s.parse().unwrap())
+        }
+
+        return Token::Integer(s.parse().unwrap())
     }
 
     pub fn all_tokens(&mut self) -> Vec<Span> {
