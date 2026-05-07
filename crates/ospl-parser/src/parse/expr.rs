@@ -206,6 +206,7 @@ impl<'a> Parser<'a> {
     /// - a primary
     /// - or a chained binary operation on a primary.
     /// - a function call
+    /// - a type cast
     /// 
     /// THIS DOES NOT FOLLOW BEDMAS.
     pub fn parse_expr(&mut self) -> Res<Expression> {
@@ -247,6 +248,16 @@ impl<'a> Parser<'a> {
                         kind: optype
                     })),
                 };
+            }
+
+            else if let Token::As = span.token() {
+                self.next()?;                
+                let t = self.parse_type()?;
+
+                a1 = Expression {
+                    at: a1.at,
+                    inner: Box::new(Expr::Cast(a1, t))
+                }
             }
 
             if *span.token() == Token::LParen {

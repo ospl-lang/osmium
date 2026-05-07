@@ -145,6 +145,12 @@ pub enum Opc {
     FFILoadFn,
 
     FFICall,
+
+    /// Converts a (primitive) value to a type and pushes it onto the stack.
+    /// 
+    /// - **Index #0:** the value to convert
+    /// - **Index #1:** the type primitive type number to convert to 
+    Cast,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -25,6 +25,20 @@ impl Compiler {
             Expr::FFICall(f, args) => self.ffi_call(f, args, ob),
             Expr::FFIFunc(lib, func_name, rtype, types) => self.ffi_func(lib, func_name, *rtype, types, ob),
             Expr::FFILoad(lib_path) => self.ffi_load(lib_path, ob),
+            Expr::Cast(left, into) => {
+                let left = self.eval(left, ob)?;
+
+                ob.push(InstBuilder::new()
+                    .opcode(Opc::Cast)
+                    .index(left.address)
+                    .index(into.to_primitive_type_id())
+                    .build());
+
+                return Ok(EvalResult {
+                    address: self.next_var(),
+                    ty: into.clone()
+                })
+            }
             Expr::Use(pkg) => {
                 let mut scope = ospl_common::ast::Scope::default();
 

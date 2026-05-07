@@ -16,6 +16,7 @@ pub enum Token {
     Loop,
     Use,
     Foreign,
+    As,
 
     /* values */
     Nul,

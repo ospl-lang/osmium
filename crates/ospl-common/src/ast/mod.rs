@@ -78,6 +78,7 @@ pub enum Expr {
     Call(Expression, Vec<Expression>),
     BinaryOp(ops::BinaryOp),
     UnaryOp(ops::UnaryOp),
+    Cast(Expression, Type),
 
     FFILoad(Expression),
     FFIFunc(LValue, Expression, usize, Vec<usize>),
@@ -220,3 +221,4 @@ pub mod frame;
 pub mod ops;
 pub mod spanning;
 pub mod decl;
+mod types;

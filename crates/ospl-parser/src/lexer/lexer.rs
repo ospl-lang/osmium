@@ -161,6 +161,7 @@ impl<'a> Lexer<'a> {
                     "loop" => Token::Loop,
                     "use" => Token::Use,
                     "foreign" => Token::Foreign,
+                    "as" => Token::As,
 
                     /* types */
                     "int" => Token::IntT,

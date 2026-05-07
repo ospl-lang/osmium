@@ -9,6 +9,7 @@ mod pushes;
 mod function;
 mod unaryops;
 mod list;
+mod types;
 pub mod arena;
 pub mod gc;
 
@@ -241,6 +242,8 @@ impl VM {
                     _ => std::hint::unreachable_unchecked()
                 }
             },
+
+            Opc::Cast => self.cast_value(inst.get_index(0), inst.get_index(1)),
 
             Opc::GetLength => {
                 let x = self.get_value_top(inst.get_index(0));
