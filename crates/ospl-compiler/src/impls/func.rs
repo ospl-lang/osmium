@@ -11,6 +11,9 @@ impl Compiler {
     {
         self.stack.push();
 
+        // for inference of the return type if we're returning a scope
+        let mut real_next_index = 0;
+
         // add the aregs
         let mut arg_indexes = Vec::new();
         for (arg, typ) in func.args.iter().zip(func.ftype.args.iter()) {
@@ -18,9 +21,12 @@ impl Compiler {
 
             self.stack.top_mut().declare(arg.clone(), variable, typ.clone());
             arg_indexes.push(variable);
+
+            // don't declare args in the inferred type
+            real_next_index += 1;
         }
 
-        // add the closures
+        // add the captures
         let mut capture_indexes = Vec::new();
         for capture in &func.captures {
             let variable = self.next_var();
@@ -44,6 +50,10 @@ impl Compiler {
             self.stack.top_mut().declare(capture.clone(), variable, t);
 
             capture_indexes.push(u);
+            real_next_index += 1;
+
+            // don't declare captures in the inferred type
+            real_next_index += 1;
         }
 
         let mut insts = Vec::<Inst>::new();
@@ -51,7 +61,10 @@ impl Compiler {
         for stmt in &func.block {
             match self.compile_stmt(stmt, &mut insts)? {
                 Control::Return(_) => has_a_return = true,
-                Control::ReturnScope => has_a_return = true,
+                Control::ReturnScope => {
+                    has_a_return = true;
+                    eprintln!("{:?}", self.stack.top());
+                }
                 _ => {}
             }
         };
@@ -72,6 +85,24 @@ impl Compiler {
                 .build());
         }
 
+        // here we fix our return type types
+        let mut ftype = func.ftype.clone();
+        ftype.ret = match ftype.ret {
+            Type::Scope(s) => {
+                // all we're doing here is skipping over the arguments and captures and copying the data
+                // verbatim otherwise.
+                let mut scope_return_type = ospl_common::ast::Scope::default();
+                for (key, type_location) in s.get_map() {
+                    let ty = s.get_types().get(&type_location).expect("failed to get type? (this is an extreme bug)");
+                    scope_return_type.declare(key.clone(), real_next_index, ty.clone());
+                    real_next_index += 1;
+                };
+
+                Type::Scope(scope_return_type)
+            },
+            t => t,
+        };
+
         let inst = InstBuilder::new()
             .opcode(Opc::PushFunction)
             .child(insts)
@@ -84,7 +115,7 @@ impl Compiler {
 
         return Ok(EvalResult {
             address: self.next_var(),
-            ty: Type::Function(Box::new(func.ftype.clone()))
+            ty: Type::Function(Box::new(ftype))
         })
     }
 
@@ -104,7 +135,7 @@ impl Compiler {
             // wrong number of args
             return Err(CE {
                 at: Box::new(call_func.clone()),
-                msg: Some("perhaps you meant to pass in null?"),
+                msg: None,
                 error: CEData::WrongArgCount {
                     expected: func.args.len(),
                     got: args.len()

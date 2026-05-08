@@ -104,7 +104,7 @@ pub fn do_main_functionality(s: &str, exports: &mut Vec<Export>) -> Vec<Statemen
     let t = l.all_tokens();
 
     let mut p = Parser::new(&t);
-    let p = p.parse_block().expect("failed to parse module");
+    let p = p.parse_file().expect("failed to parse module");
 
     stmt_to_exports(p.as_slice(), exports);
     return p

@@ -132,6 +132,8 @@ pub enum Literal {
 pub struct FunctionType {
     /// Relative var ID
     // pub captures: Vec<usize>,
+
+    pub generics: Vec<Type>,
     pub args: Vec<Type>,
     pub ret: Type,
 }
@@ -139,6 +141,14 @@ pub struct FunctionType {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Nul, Undefined,
+
+    /// A type-erased type.
+    /// 
+    /// It has an unknown runtime type. It cannot be operated upon but any
+    /// creator of the value is aware as to what type it is and can fully
+    /// utilize it.
+    Unknown,
+
     Int, Address, Float, Str, Bool, List(Box<Type>),
     Scope(Scope),
     Function(Box<FunctionType>),
@@ -148,7 +158,7 @@ pub enum Type {
 
     // virtual types
     TypeOfVar(String),
-    ReturnTypeOfVar(String),
+    ReturnTypeOf(Box<Type>),
 }
 
 /// A single block of variables.
@@ -170,8 +180,12 @@ impl Scope {
         // println!("DECLARE: {:?}", self);
     }
 
-    pub fn get_map(&mut self) -> &HashMap<String, usize> {
+    pub fn get_map(&self) -> &HashMap<String, usize> {
         return &self.map
+    }
+
+    pub fn get_map_mut(&mut self) -> &mut HashMap<String, usize> {
+        return &mut self.map
     }
 
     pub fn get_combined(&self, k: &str) -> Option<(usize, &Type)> {
@@ -186,7 +200,7 @@ impl Scope {
         return Some((*x, t))
     }
 
-    pub fn get_types(&mut self) -> &HashMap<usize, Type> {
+    pub fn get_types(&self) -> &HashMap<usize, Type> {
         return &self.types
     }
 
@@ -213,7 +227,6 @@ pub struct FunctionValue {
     /// and index into the function type's array to get the value
     pub args: Vec<String>,
 
-    /// Are derieved by the literal generator (in the compiler)
     pub captures: Vec<String>,
 
     pub block: Vec<Statement>,

@@ -46,11 +46,40 @@ impl<'a> Parser<'a> {
 
         let b = self.parse_block()?;
         return Ok(FunctionValue {
-            ftype: FunctionType { args: arg_types, ret },
+            ftype: FunctionType {
+                args: arg_types,
+                generics: Vec::new(),
+                ret
+            },
             block: b,
             args: arg_names,
             captures,
         })
+    }
+
+    pub fn parse_function_generics(&mut self) -> Res<Vec<(String, Type)>> {
+        let mut types = Vec::new();
+        loop {
+            let span = self.expect_peek(tComb!(
+                "RAngle | start of ID",
+                tExp!(RAngle),
+                EXP_IDENT,
+            ))?;
+
+            if let Token::RAngle = span.token() {
+                self.next()?;  // consume `>`
+                break;
+            }
+
+            if let (_, Token::Ident(i)) = span.destructure() {
+                self.next()?;
+                self.expect(tExp!(Colon))?;
+                let ty = self.parse_type()?;
+                types.push((i, ty));
+            }
+        };
+
+        return Ok(types)
     }
 
     pub fn parse_function_type(&mut self) -> Res<FunctionType> {
@@ -75,7 +104,8 @@ impl<'a> Parser<'a> {
 
         return Ok(FunctionType {
             args,
-            ret
+            ret,
+            generics: Vec::new()
         });
     }
 
@@ -98,6 +128,11 @@ impl<'a> Parser<'a> {
         match t {
             Token::Fn => Ok(Type::Function(Box::new(self.parse_function_type()?))),
             Token::Ident(i) => {self.next()?; return Ok(Type::TypeOfVar(i))},
+            Token::Atsign => {
+                self.next()?;
+                let t = self.parse_type()?;
+                return Ok(Type::ReturnTypeOf(Box::new(t)))
+            }
 
             /* primitives */
             Token::IntT => {self.next()?; return Ok(Type::Int)},
@@ -110,7 +145,6 @@ impl<'a> Parser<'a> {
                 return Ok(Type::List(Box::new(list_typ)))
             },
 
-            Token::Atsign => unimplemented!(),
             Token::Scope => return Ok(Type::Scope(self.parse_scope_type()?)),
             other => unreachable!("{other:?}")
         }

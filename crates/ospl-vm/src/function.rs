@@ -58,8 +58,11 @@ impl VM {
         };
 
         // LEXICALS
-        let Some(f) = self.get_value_top(f).as_fn()
-            else { panic!("cannot call this object") };
+        let f = self.get_value_top(f);
+        let f = match f.as_fn() {
+            Some(o) => o,
+            None => panic!("can't call object of type {f:?}")
+        };
 
         frame.indexes.extend_from_slice(f.lexical_indexes.as_slice());
 
@@ -67,10 +70,6 @@ impl VM {
         // function's expectations. If this invariant is broken, then the OSPL
         // function (and any function using the returned scope of the function)
         // may experience undefined behaviour.
-        frame.num_args = args.len();
-
-        frame.num_captures = f.lexical_indexes.len();
-
         // now, since Rust sucks, we're gonna do unsafe
         // SAFETY: I PROMISE THAT `f.code` AND ITS PARENTS WILL NOT BE MUTATED
         unsafe {

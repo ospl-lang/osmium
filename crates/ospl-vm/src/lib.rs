@@ -54,8 +54,6 @@ impl VM {
         // self.arena.gc_frame_added(&parents);
         self.stack.push(RuntimeFrame {
             indexes: parents,
-            num_args: f.num_args,
-            num_captures: f.num_captures,
         });
     }
 
@@ -68,8 +66,6 @@ impl VM {
 
         self.stack.push(RuntimeFrame {
             indexes: parents,
-            num_args: self.top().num_args,
-            num_captures: self.top().num_captures,
         });
     }
 
@@ -204,7 +200,7 @@ impl VM {
 
             Opc::PushFrame => {
                 let idxs: Vec<usize> = inst.indexes.iter().map(|i| self.top().indexes[*i]).collect();
-                self.push_literal(RuntimeValue::Scope(RuntimeFrame::new(idxs, 0, 0)));
+                self.push_literal(RuntimeValue::Scope(RuntimeFrame::new(idxs)));
             },
 
             Opc::If => return self.if_statement(
@@ -227,13 +223,10 @@ impl VM {
                 let search_in = self.raw_get_value_top(x);
                 match &*search_in {
                     RuntimeValue::Scope(s) => {
-                        let cutoff = s.num_args + s.num_captures;
-                        let indexes = &s.indexes[cutoff..];
-                        let add_thing = indexes[prop];
+                        let add_thing = s.indexes[prop];
 
                         // we don't incremenet the refcount because that only
                         // happens at frame boundaries.
-
                         self.top_mut().indexes.push(add_thing);
                     },
                     _ => std::hint::unreachable_unchecked()

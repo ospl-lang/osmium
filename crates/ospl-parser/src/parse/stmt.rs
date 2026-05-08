@@ -134,4 +134,8 @@ impl<'a> Parser<'a> {
 
         Ok(stmts)
     }
+
+    pub fn parse_file(&mut self) -> Res<Vec<Statement>> {
+        return self.parse_block()
+    }
 }

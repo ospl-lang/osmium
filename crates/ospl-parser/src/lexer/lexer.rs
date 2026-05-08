@@ -213,8 +213,8 @@ impl<'a> Lexer<'a> {
             s.push(self.bump().unwrap());
         }
 
-        if self.peek().unwrap() == '@' {
-            self.bump().unwrap();
+        if let Some('@') = self.peek() {
+            self.bump().expect("failed to bump");
             return Token::AddressLiteral(s.parse().unwrap())
         }
 
