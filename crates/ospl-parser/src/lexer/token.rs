@@ -28,7 +28,7 @@ pub enum Token {
     IntT, FloatT, StrT, BoolT, List,
 
     /* punctuation */
-    Atsign, Comma, Dot, Colon, Semicolon,
+    Atsign, Comma, Dot, Colon, Semicolon, Question,
 
     /// `->` symbol
     Arrow,

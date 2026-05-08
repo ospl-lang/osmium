@@ -116,7 +116,9 @@ impl<'a> Lexer<'a> {
                         return self.next_token();
                     };
                 }
-            }
+            },
+
+            '?' => Token::Question,
 
             '&' => self.do_dup(c, Token::LogicAnd, Token::BitwiseAnd),
             '|' => self.do_dup(c, Token::LogicOr, Token::BitwiseOr),

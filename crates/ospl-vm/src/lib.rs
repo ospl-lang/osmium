@@ -184,6 +184,8 @@ impl VM {
                 inst.get_index(2),
             ),
 
+            Opc::QuestionMark => self.question_mark(inst.get_index(0), inst.get_index(1)),
+
             Opc::PushFunction => {
                 let new_indexes = inst.indexes.iter().map(|x| {
                     // RelAddr -> AbsAddr

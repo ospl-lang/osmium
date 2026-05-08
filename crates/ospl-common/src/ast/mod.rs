@@ -117,6 +117,8 @@ pub enum LV {
 
 #[derive(Debug, Clone)]
 pub enum Literal {
+    Nul,
+    Undefined,
     Int(i64),
     Address(u64),
     Float(f64),

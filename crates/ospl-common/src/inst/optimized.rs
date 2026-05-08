@@ -84,6 +84,12 @@ pub enum Opc {
     Lor,
     Land,
 
+    /// The `?` (find in) operator.
+    /// 
+    /// - **Index #0:** the index of the thing to find in
+    /// - **Index #1:** the index of the thing to find in
+    QuestionMark,
+
     Call,
     Ret,
     RetScope,
@@ -150,7 +156,8 @@ pub enum Opc {
     /// Converts a (primitive) value to a type and pushes it onto the stack.
     /// 
     /// - **Index #0:** the value to convert
-    /// - **Index #1:** the type primitive type number to convert to 
+    /// - **Index #1:** the type primitive type number to convert to (see
+    /// [`crate::ast::Type::to_primitive_type_id`])
     Cast,
 }
 

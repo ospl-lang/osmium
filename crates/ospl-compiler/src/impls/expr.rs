@@ -110,6 +110,14 @@ impl Compiler {
                 ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Str(s.clone())).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Str })
             },
+            Literal::Nul => {
+                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Nul).build());
+                return Ok(EvalResult { address: self.next_var(), ty: Type::Nul })
+            },
+            Literal::Undefined => {
+                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Undefined).build());
+                return Ok(EvalResult { address: self.next_var(), ty: Type::Undefined })
+            },
             Literal::List(lty, l) => {
                 let mut indexes = Vec::new();
                 for expr in l.iter() {

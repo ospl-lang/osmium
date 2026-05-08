@@ -17,6 +17,8 @@ pub const EXP_LITERAL_STARTER: TokenExpectation = TokenExpectation {
             Token::Fn |
             Token::True |
             Token::False |
+            Token::Nul |
+            Token::Undefined |
             Token::List
         )
     },
@@ -24,7 +26,8 @@ pub const EXP_LITERAL_STARTER: TokenExpectation = TokenExpectation {
 };
 
 pub const EXP_BINARY_OPERATION: TokenExpectation = tExp!(
-    Plus, Dash, Star, Slash, Percent, IsEqual, IsNotEqual, GreaterThanEqual, LessThanEqual, RAngle, LAngle
+    Plus, Dash, Star, Slash, Percent, IsEqual, IsNotEqual, GreaterThanEqual, LessThanEqual, RAngle, LAngle,
+    Question
 );
 
 pub const EXP_UNARY_OPERATION: TokenExpectation = tExp!(Increment, Decrement);
@@ -43,6 +46,8 @@ impl<'a> Parser<'a> {
             Token::AddressLiteral(_) |
             Token::True |
             Token::False |
+            Token::Undefined |
+            Token::Nul |
             Token::Ident(_) => {
                 let t = self.expect(EXP_LITERAL_STARTER)?.destructure();
 
@@ -70,6 +75,16 @@ impl<'a> Parser<'a> {
                     Token::False => Expression {
                         at: t.0,
                         inner: Box::new(Expr::Literal(Literal::Bool(false))),
+                    },
+
+                    Token::Nul => Expression {
+                        at: t.0,
+                        inner: Box::new(Expr::Literal(Literal::Nul)),
+                    },
+
+                    Token::Undefined => Expression {
+                        at: t.0,
+                        inner: Box::new(Expr::Literal(Literal::Undefined)),
                     },
 
                     Token::Ident(i) => Expression {
@@ -357,6 +372,7 @@ pub fn token_to_binaryop(token: &Token) -> BinaryOpType {
         Token::RAngle => BinaryOpType::Gt,
         Token::LessThanEqual => BinaryOpType::Le,
         Token::GreaterThanEqual => BinaryOpType::Ge,
+        Token::Question => BinaryOpType::Question,
         _ => unreachable!(),
     }
 }

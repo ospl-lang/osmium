@@ -1,4 +1,4 @@
-use ospl_common::{ast::ops::{AssignOp, BinaryOp, BinaryOpType}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{Type, ops::{AssignOp, BinaryOp, BinaryOpType}}, inst::optimized::{Inst, InstBuilder, Opc}};
 
 use crate::{CE, CEData, Compiler, EvalResult, Res};
 
@@ -11,15 +11,24 @@ impl Compiler {
     {
         let left = self.eval(&b.left, ob)?;
         let right = self.eval(&b.right, ob)?;
-        if left.ty != right.ty {
-            return Err(CE {
-                at: Box::new(b.left.clone()),
-                msg: Some("Perhaps you meant to cast one type?"),
-                error: CEData::MismatchedTypes {
-                    expected: crate::TypeExpectation::Exact(left.ty),
-                    got: right.ty
+
+        // don't do the type checking for the question mark operator
+        match b.kind {
+            BinaryOpType::Question => {},
+
+            // normal typecheck
+            _ => {
+                if (left.ty != right.ty) && (right.ty != Type::Undefined) {
+                    return Err(CE {
+                        at: Box::new(b.left.clone()),
+                        msg: Some("Perhaps you meant to cast one type?"),
+                        error: CEData::MismatchedTypes {
+                            expected: crate::TypeExpectation::Exact(left.ty),
+                            got: right.ty
+                        }
+                    })
                 }
-            })
+            }
         }
 
         let opc = match b.kind {
@@ -34,6 +43,7 @@ impl Compiler {
             BinaryOpType::Lt        => Opc::Lt,
             BinaryOpType::Ge        => Opc::Gte,
             BinaryOpType::Le        => Opc::Lte,
+            BinaryOpType::Question  => Opc::QuestionMark,
         };
 
         let inst = InstBuilder::new()
@@ -46,7 +56,11 @@ impl Compiler {
 
         return Ok(EvalResult {
             address: self.next_var(),
-            ty: left.ty.clone()
+
+            // we use right here because `?` returns its right operand (or
+            // undefined) as the type, and all others binary ops have the
+            // same left and right return type, so we'll use the right.
+            ty: right.ty.clone()
         })
     }
 

@@ -30,6 +30,7 @@ pub enum BinaryOpType {
     Lt,
     Ge,
     Le,
+    Question,
 
     /* logical */
 }

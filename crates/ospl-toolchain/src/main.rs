@@ -4,8 +4,8 @@ use ospl_compiler::Compiler;
 use ospl_vm::VM;
 use tracing::info;
 use tracing_subscriber::fmt::MakeWriter;
-use std::io::Read;
-use clap::{Parser, Subcommand};
+use std::io::{Write, Read};
+use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Parser)]
 struct Cli {
@@ -21,13 +21,37 @@ enum Cmd {
         output: Option<PathBuf>,
     },
 
-    /// Run the project in the current directory
-    Run,
+    /// Rebuild and run the project in the current directory
+    ScratchRun,
 
     /// Run a bytecode file
     Exec {
         at: PathBuf,
     },
+
+    New {
+        name: String,
+
+        #[arg(short = 'k', default_value_t = ProjTyp::Library)]
+        kind: ProjTyp
+    },
+}
+
+#[derive(Default, Copy, Clone, Debug, ValueEnum)]
+enum ProjTyp {
+    Binary,
+
+    #[default]
+    Library,
+}
+
+impl ToString for ProjTyp {
+    fn to_string(&self) -> String {
+        return match self {
+            Self::Binary => "binary".to_string(),
+            Self::Library => "library".to_string(),
+        }
+    }
 }
 
 pub mod package;
@@ -47,13 +71,16 @@ fn main() {
             cmd_build(outfile);
         }
         Cmd::Exec { at } => cmd_exec(at),
-        Cmd::Run => {
+        Cmd::ScratchRun => {
             let pb = PathBuf::from(DEFAULT_BUILD_LOCATION);
-            if !pb.exists() {
-                cmd_build(pb.clone());
-            }
-
+            // if !pb.exists() {
+                // cmd_build(pb.clone());
+            // }
+            cmd_build(pb.clone());
             cmd_exec(pb);
+        },
+        Cmd::New { name, kind } => {
+            cmd_new(name, kind.to_string());
         }
     };
 }
@@ -73,6 +100,25 @@ fn cmd_exec(at: PathBuf) {
 
     let mut vm = VM::new();
     vm.run_all(&insts);
+}
+
+fn cmd_new(name: String, kind: String) {
+    let mut path = std::env::current_dir().expect("failed to get cwd");
+    path.push(&name);
+    fs::DirBuilder::new()
+        .recursive(true)
+        .create(&path)
+        .expect("failed to create new package folder");
+
+    path.push("package.yml");
+    let mut f = fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&path)
+        .expect("failed to open package.yml");
+
+    writeln!(&mut f, include_str!("default_config_fstring"), name, kind)
+        .expect("failed to write default package.yml");
 }
 
 fn cmd_build(output: PathBuf) {
