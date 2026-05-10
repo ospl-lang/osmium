@@ -27,7 +27,13 @@ impl<'a> Lexer<'a> {
             self.position.next_column();
         }
 
+        self.position.ch += 1;
+
         return p
+    }
+
+    fn say_next_token(&mut self) {
+        self.position.token_num += 1;
     }
 
     fn peek(&mut self) -> Option<char> {
@@ -170,7 +176,8 @@ impl<'a> Lexer<'a> {
                     "float" => Token::FloatT,
                     "str" => Token::StrT,
                     "bool" => Token::BoolT,
-                    "list" => Token::List,
+                    "list" => Token::ListT,
+                    "addr" => Token::AddrT,
 
                     /* values */
                     "nul" => Token::Nul,
@@ -196,11 +203,13 @@ impl<'a> Lexer<'a> {
                     s.push(x);
                 }
 
-                return Some(Span::new(pos, Token::StringLit(s)));
-            }
+                Token::StringLit(s)
+            },
 
             _ => panic!("Unexpected character: {c}"),
         };
+
+        self.say_next_token();
 
         Some(Span::new(pos, tok))
     }

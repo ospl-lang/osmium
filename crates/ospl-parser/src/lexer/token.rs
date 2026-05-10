@@ -25,7 +25,7 @@ pub enum Token {
     False,
 
     /* types */
-    IntT, FloatT, StrT, BoolT, List,
+    IntT, FloatT, StrT, BoolT, ListT, AddrT,
 
     /* punctuation */
     Atsign, Comma, Dot, Colon, Semicolon, Question,
@@ -115,7 +115,7 @@ pub struct TokenExpectation {
 }
 
 pub const EXP_KEYWORD: TokenExpectation =
-    tExp!(Fn, Do, Def, Scope, Return, Continue, If, Else, Loop, Use);
+    tExp!(Fn, Do, Def, Let, Scope, Return, Continue, If, Else, Loop, Use);
 
 pub const EXP_IDENT: TokenExpectation = TokenExpectation {
     matches: |t| -> bool {

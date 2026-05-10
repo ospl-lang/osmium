@@ -4,7 +4,6 @@ use crate::{ast::frame::RuntimeFrame, inst::optimized::Inst};
 pub mod list;
 pub mod optimized;
 
-/// A value in it's static runtime form
 #[derive(Default, Debug, Clone, PartialEq)]
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum RuntimeValue {

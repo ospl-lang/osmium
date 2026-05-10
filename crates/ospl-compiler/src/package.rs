@@ -1,4 +1,4 @@
-use ospl_common::ast::{Statement, decl::Declaration};
+use ospl_common::ast::Statement;
 use crate::EvalResult;
 
 #[derive(Debug, Default)]
@@ -8,12 +8,6 @@ pub struct Packages {
 
 #[derive(Debug, Default)]
 pub struct Module {
-    pub exports: Vec<Export>,
-    pub ast: Vec<Statement>,
-}
-
-#[derive(Debug)]
-pub struct Export {
-    pub decl: Declaration,
+    pub code: Vec<Statement>,
     pub cached: Option<EvalResult>,
 }

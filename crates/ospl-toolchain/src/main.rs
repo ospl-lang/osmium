@@ -132,7 +132,9 @@ fn cmd_build(output: PathBuf) {
     let b = &raw const *comp.get_module("binary")
         .expect("binary package not declared");
 
-    comp.compile_block(unsafe {&(*b).ast}, &mut root).expect("failed to compile");
+    if let Err(e) = comp.compile_block(unsafe {&(*b).code}, &mut root) {
+        panic!("failed to compile\n\n{e:#?}");
+    }
 
     info!("compilation successful!");
 

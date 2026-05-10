@@ -128,7 +128,7 @@ pub enum Literal {
     Function(FunctionValue)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionType {
     /// Relative var ID
     // pub captures: Vec<usize>,
@@ -138,7 +138,7 @@ pub struct FunctionType {
     pub ret: Type,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     Nul, Undefined,
 
@@ -162,7 +162,7 @@ pub enum Type {
 }
 
 /// A single block of variables.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Scope {
     /// A mapping of names to stack indexes / RelAddrs
     map: HashMap<String, usize>,
@@ -171,6 +171,18 @@ pub struct Scope {
     types: HashMap<usize, Type>,
 
     next_id: usize,
+}
+
+impl Display for Scope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Scope {{ ")?;
+        for (name, address) in self.get_map() {
+            let ty = &self.types[address];
+            write!(f, "{name}: {ty:?} @ {address};    ")?;
+        }
+        write!(f, "}}")?;
+        return Ok(());
+    }
 }
 
 impl Scope {
@@ -208,14 +220,6 @@ impl Scope {
         let i = self.next_id;
         self.next_id += 1;
         return i
-    }
-}
-
-impl PartialEq for FunctionType {
-    fn eq(&self, other: &Self) -> bool {
-        // just ignore captures
-        return (self.args == other.args)
-            && self.ret == other.ret
     }
 }
 

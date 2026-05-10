@@ -43,6 +43,7 @@ pub enum CEData {
     },
     NotFoundInScope {
         needed: String,
+        scope: Scope,
     },
     NoScopeToCapture,
     InvalidOpForType {

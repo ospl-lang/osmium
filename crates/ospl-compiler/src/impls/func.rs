@@ -1,4 +1,4 @@
-use ospl_common::{ast::{Expression, spanning::IdkWhere}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{Expression, Scope, spanning::Spannable}, inst::optimized::{Inst, InstBuilder, Opc}};
 
 use crate::{CE, CEData, Compiler, EvalResult, Res, Type, ast::FunctionValue, impls::stmt::Control};
 
@@ -6,55 +6,53 @@ impl Compiler {
     pub fn fn_literal(
         &mut self,
         func: &FunctionValue,
+        span: &dyn Spannable,
         ob: &mut Vec<Inst>
     ) -> Res<EvalResult>
     {
-        self.stack.push();
-
-        // for inference of the return type if we're returning a scope
-        let mut real_next_index = 0;
+        let mut new_scope = Scope::default();
 
         // add the aregs
         let mut arg_indexes = Vec::new();
-        for (arg, typ) in func.args.iter().zip(func.ftype.args.iter()) {
-            let variable = self.next_var();
+        for (arg, ty) in func.args.iter().zip(func.ftype.args.iter()) {
+            let variable = new_scope.next_post();
 
-            self.stack.top_mut().declare(arg.clone(), variable, typ.clone());
+            // resolve
+            let ty = self.rt(ty, span)?;
+            new_scope.declare(arg.clone(), variable, ty);
             arg_indexes.push(variable);
-
-            // don't declare args in the inferred type
-            real_next_index += 1;
         }
 
         // add the captures
         let mut capture_indexes = Vec::new();
         for capture in &func.captures {
-            let variable = self.next_var();
+            let variable = new_scope.next_post();
 
             let (u, t) = {
-                let idx = self.stack.scopes.len() - 2;
-                let scope = self.stack.scopes.get(idx)
+                let scope = self.stack.scopes.last()
                     .ok_or_else(|| CE {
-                        at: Box::new(IdkWhere),
-                        msg: Some("perhaps you failed preschool?"),
+                        at: span.spanned(),
+                        msg: None,
                         error: CEData::NoScopeToCapture,
                     })?;
 
                 scope.get_combined_copy(&capture)
                     .ok_or_else(|| CE {
-                        at: Box::new(IdkWhere),
+                        at: span.spanned(),
                         msg: Some("perhaps you meant to chain the capture across multiple scopes?"),
-                        error: CEData::NotFoundInScope { needed: capture.clone() }
+                        error: CEData::NotFoundInScope {
+                            needed: capture.clone(),
+                            scope: scope.clone()
+                        }
                     })?
             };
-            self.stack.top_mut().declare(capture.clone(), variable, t);
+            new_scope.declare(capture.clone(), variable, t);
 
             capture_indexes.push(u);
-            real_next_index += 1;
-
-            // don't declare captures in the inferred type
-            real_next_index += 1;
         }
+
+        // PUSH HERE
+        self.stack.scopes.push(new_scope);
 
         let mut insts = Vec::<Inst>::new();
         let mut has_a_return = false;
@@ -63,7 +61,6 @@ impl Compiler {
                 Control::Return(_) => has_a_return = true,
                 Control::ReturnScope => {
                     has_a_return = true;
-                    eprintln!("{:?}", self.stack.top());
                 }
                 _ => {}
             }
@@ -85,23 +82,25 @@ impl Compiler {
                 .build());
         }
 
-        // here we fix our return type types
-        let mut ftype = func.ftype.clone();
-        ftype.ret = match ftype.ret {
-            Type::Scope(s) => {
-                // all we're doing here is skipping over the arguments and captures and copying the data
-                // verbatim otherwise.
-                let mut scope_return_type = ospl_common::ast::Scope::default();
-                for (key, type_location) in s.get_map() {
-                    let ty = s.get_types().get(&type_location).expect("failed to get type? (this is an extreme bug)");
-                    scope_return_type.declare(key.clone(), real_next_index, ty.clone());
-                    real_next_index += 1;
-                };
+        // // here we fix our return type types
+        // let mut ftype = func.ftype.clone();
+        // ftype.ret = match ftype.ret {
+        //     Type::Scope(s) => {
+        //         // all we're doing here is skipping over the arguments and captures and copying the data
+        //         // verbatim otherwise.
+        //         let mut scope_return_type = ospl_common::ast::Scope::default();
+        //         for (key, type_location) in s.get_map() {
+        //             let ty = s.get_types().get(&type_location).expect("failed to get type? (this is an extreme bug)");
+        //             scope_return_type.declare(key.clone(), real_next_index, ty.clone());
+        //             real_next_index += 1;
+        //         };
 
-                Type::Scope(scope_return_type)
-            },
-            t => t,
-        };
+        //         Type::Scope(scope_return_type)
+        //     },
+        //     t => t,
+        // };
+
+        let ftype = func.ftype.clone();
 
         let inst = InstBuilder::new()
             .opcode(Opc::PushFunction)
@@ -146,7 +145,7 @@ impl Compiler {
         let mut new_args = Vec::new();
         for (arg, func_arg) in args.iter().zip(&func.args) {
             let eval = self.eval(arg, ob)?;
-            if eval.ty != *func_arg {
+            if !self.check_type(&eval.ty, func_arg, call_func)? {
                 return Err(CE {
                     at: Box::new(arg.clone()),
                     msg: Some("perhaps you meant to cast the argument?"),

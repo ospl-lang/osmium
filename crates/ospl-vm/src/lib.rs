@@ -305,6 +305,10 @@ impl VM {
     }
 
     pub fn run_all(&mut self, insts: &[Inst]) -> Control {
+        if insts == &[] {
+            return Control::Default
+        }
+
         for inst in insts.iter() {
             let control = self.run_one(inst);
             match control {

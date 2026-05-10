@@ -16,7 +16,7 @@ pub const MEMMAX: usize = 1024;
 #[derive(Default, Clone)]
 pub struct ArenaItem {
     pub inner: RuntimeValue,
-    pub refcount: usize,
+    pub refcount: u16,  // stupid to make this an usize
     next_free: Option<usize>,
 }
 

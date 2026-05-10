@@ -1,4 +1,4 @@
-use ospl_common::{ast::{Type, ops::{AssignOp, BinaryOp, BinaryOpType}}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::ops::{AssignOp, BinaryOp, BinaryOpType}, inst::optimized::{Inst, InstBuilder, Opc}};
 
 use crate::{CE, CEData, Compiler, EvalResult, Res};
 
@@ -18,7 +18,7 @@ impl Compiler {
 
             // normal typecheck
             _ => {
-                if (left.ty != right.ty) && (right.ty != Type::Undefined) {
+                if !self.check_type(&left.ty, &right.ty, &b.left)? {
                     return Err(CE {
                         at: Box::new(b.left.clone()),
                         msg: Some("Perhaps you meant to cast one type?"),

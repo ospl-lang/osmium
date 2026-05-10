@@ -130,12 +130,27 @@ impl<'a> Parser<'a> {
 
             let s = self.parse_stmt()?;
             stmts.push(s);
+
+            self.expect(tExp!(Semicolon))?;
         }
 
-        Ok(stmts)
+        return Ok(stmts)
     }
 
     pub fn parse_file(&mut self) -> Res<Vec<Statement>> {
-        return self.parse_block()
+        let mut stmts = Vec::new();
+
+        loop {
+            if self.peek().is_err() {
+                break;
+            }
+
+            let s = self.parse_stmt()?;
+            stmts.push(s);
+
+            self.expect(tExp!(Semicolon))?;
+        }
+
+        return Ok(stmts)
     }
 }

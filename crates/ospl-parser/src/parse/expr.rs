@@ -19,7 +19,7 @@ pub const EXP_LITERAL_STARTER: TokenExpectation = TokenExpectation {
             Token::False |
             Token::Nul |
             Token::Undefined |
-            Token::List
+            Token::ListT
         )
     },
     label: "literal starter (StringLit, Integer, Float, Fn, True or False)"
@@ -107,7 +107,7 @@ impl<'a> Parser<'a> {
                 });
             }
 
-            Token::List => {
+            Token::ListT => {
                 self.next()?;
 
                 // get the type

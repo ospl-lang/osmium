@@ -38,7 +38,7 @@ pub fn ifs() {
 }
 
 mod funcs;
-mod loops;
+mod cond;
 
 pub fn run_ast(f: &str, insts: &[Inst]) {
     let mut vm: VM = VM::new();

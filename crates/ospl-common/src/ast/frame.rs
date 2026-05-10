@@ -1,5 +1,5 @@
 /// Represents a frame on the callstack.
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct RuntimeFrame {
     /// Stores indexes into the arena
@@ -11,5 +11,13 @@ impl RuntimeFrame {
         indexes: Vec<usize>,
     ) -> Self {
         return Self { indexes };
+    }
+}
+
+impl Default for RuntimeFrame {
+    fn default() -> Self {
+        return Self {
+            indexes: Vec::with_capacity(32)
+        }
     }
 }

@@ -17,7 +17,7 @@ impl Compiler {
         ob: &mut Vec<Inst>
     ) -> Res<Control>
     {
-        // trace!(stmt=?s, "compiling stmt");
+        // tracing::trace!(stmt=?s, "compiling stmt");
         // note: we never match on Control so it doesn't really matter
         match &*s.inner {
             // TODO: check type
@@ -68,7 +68,7 @@ impl Compiler {
                 // honestly forgot.
                 let reval = self.eval(to, ob)?;
                 let leval = self.get_lvalue(lv, ob)?;
-                if leval.ty != reval.ty {
+                if !self.check_type(&leval.ty, &reval.ty, s)? {
                     return Err(CE {
                         at: Box::new(lv.clone()),
                         msg: Some("perhaps wrap the right-hand side's type?"),

@@ -19,4 +19,10 @@ impl VM {
             _ => unreachable_unchecked()
         } };
     }
+
+    pub fn copyof(&mut self, i: usize) {
+        let t = self.get_value_top(i);
+        let t = t.clone();
+        self.push_literal(t);
+    }
 }

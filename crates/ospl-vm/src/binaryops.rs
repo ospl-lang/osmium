@@ -154,14 +154,13 @@ impl VM {
 
             match (va, vb) {
                 (RuntimeValue::Int(x), RuntimeValue::Int(y)) => *x -= *y,
-                (RuntimeValue::List(l), v) => {
-                    let found = self.find_in_list(l, v);
-                    if let Some(found) = found {
-                        l.items.remove(found);
-                    }
+                (RuntimeValue::List(l), RuntimeValue::Address(u)) => {
+                    let u = *u as usize;
+                    self.arena.dec_refcount(l.items[u]);
+                    l.items.remove(u);
                 },
-                (RuntimeValue::Str(s1), RuntimeValue::Str(s2)) => {
-                    s1.push_str(&*s2);
+                (RuntimeValue::Str(s1), RuntimeValue::Address(i)) => {
+                    s1.remove(*i as usize);
                 },
 
                 (err_a, err_b) => panic!("can't op-assign {:?} += {:?}", err_a, err_b),

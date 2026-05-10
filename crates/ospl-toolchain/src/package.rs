@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs};
 
-use ospl_compiler::{ast::{Statement, Stmt, decl::Visibility}, package::{Export, Module, Packages}};
+use ospl_compiler::{ast::{Statement}, package::{Module, Packages}};
 use ospl_parser::{lexer::lexer::Lexer, parse::Parser};
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -47,14 +47,13 @@ impl PackageSetup {
         let mut packages = Packages::default();
         for (name, pkg) in &self.includes {
             info!(name=%name, "compiling module");
-            let mut exports: Vec<Export> = Vec::new();
             let code;
             match pkg {
                 PkgRef::File(f) => {
                     let s = fs::read_to_string(&*f)
                         .expect("local file module declaration not found");
 
-                    code = do_main_functionality(&*s, &mut exports);
+                    code = do_main_functionality(&s);
                 },
                 PkgRef::Folder(f) => {
                     // save our CWD
@@ -72,7 +71,7 @@ impl PackageSetup {
                     let p_mod = p_reg.modules.remove("library")
                         .expect("failed to find library target");
 
-                    code = p_mod.ast;
+                    code = p_mod.code;
 
                     // go back to the previous working directory
                     std::env::set_current_dir(prev_dir).expect("failed to change directories");
@@ -80,15 +79,10 @@ impl PackageSetup {
                 other => unimplemented!("PkgSource {other:?}"),
             }
 
-            packages.modules.insert(name.to_string(), Module { exports, ast: code });
+            packages.modules.insert(name.to_string(), Module { code, cached: None });
         };
 
         return packages
-    }
-
-    pub fn get_lib(&mut self) -> Option<&PkgRef> {
-        let lib = self.includes.get("library")?;
-        return Some(lib)
     }
 }
 
@@ -99,29 +93,29 @@ pub fn load_pkgsetup_from_folder(f: &str) -> PackageSetup {
     return cfg
 }
 
-pub fn do_main_functionality(s: &str, exports: &mut Vec<Export>) -> Vec<Statement> {
+pub fn do_main_functionality(s: &str) -> Vec<Statement> {
     let mut l = Lexer::new(&s);
     let t = l.all_tokens();
 
     let mut p = Parser::new(&t);
     let p = p.parse_file().expect("failed to parse module");
 
-    stmt_to_exports(p.as_slice(), exports);
+    // stmt_to_exports(p.as_slice(), exports);
     return p
 }
 
-pub fn stmt_to_exports(p: &[Statement], exports: &mut Vec<Export>) {
-    for stmt in p {
-        match &*stmt.inner {
-            Stmt::Define(dcl) => {
-                if dcl.meta.visibility != Visibility::Public { continue }
+// pub fn stmt_to_exports(p: &[Statement], exports: &mut Vec<Export>) {
+//     for stmt in p {
+//         match &*stmt.inner {
+//             Stmt::Define(dcl) => {
+//                 if dcl.meta.visibility != Visibility::Public { continue }
 
-                exports.push(Export {
-                    cached: None,
-                    decl: dcl.clone(),
-                });
-            },
-            _ => {}
-        }
-    }
-}
+//                 exports.push(Export {
+//                     cached: None,
+//                     decl: dcl.clone(),
+//                 });
+//             },
+//             _ => {}
+//         }
+//     }
+// }

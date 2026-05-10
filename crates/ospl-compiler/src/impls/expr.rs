@@ -1,4 +1,4 @@
-use ospl_common::inst::optimized::{Inst, InstBuilder, Opc};
+use ospl_common::{ast::{FunctionType, spanning::Spannable}, inst::optimized::{Inst, InstBuilder, Opc}};
 use tracing::error;
 
 use crate::{CE, CEData, Compiler, EvalResult, Res, Type, ast::{Expr, LV, LValue, Literal}};
@@ -11,7 +11,7 @@ impl Compiler {
     ) -> Res<EvalResult>
     {
         match &*expr.inner {
-            Expr::Literal(l) => self.literal(l, ob),
+            Expr::Literal(l) => self.literal(l, expr, ob),
             Expr::Call(func, args) => self.do_call(func, args, ob),
             Expr::BinaryOp(b) => self.binary_op(b, ob),
             Expr::UnaryOp(u) => self.unary_op(u, ob),
@@ -40,42 +40,65 @@ impl Compiler {
                 })
             }
             Expr::Use(pkg) => {
-                let mut scope = ospl_common::ast::Scope::default();
+                // SAFETY: I promise not to mutate p.cached or p.code inside
+                // any calls to `&mut self` methods on [`Compiler`]
+                //
+                // in other terms, I promise this code is synchronous with
+                // respect to `p`.
+                let p = &raw const *self.get_module(pkg).expect("TODO unwrap");
+                let p = unsafe{&*p};
 
-                // I know this is safe
-                let package = &raw mut *self.get_mut_module(pkg).expect("TODO unwrap");
-                let package = unsafe {&mut *package};
-
-                let mut addresses = Vec::new();
-                for export in &mut package.exports {
-                    let value = if let Some(cached) = &export.cached {
-                        cached.clone()
-                    } else {
-                        let value = self.eval(&export.decl.rhs, ob)?;
-                        export.cached = Some(value.clone());
-                        value
-                    };
-
-                    scope.declare(
-                        export.decl.name.clone(),
-                        value.address,
-                        value.ty.clone(),
-                    );
-
-                    addresses.push(value.address);
+                if let Some(cached) = &p.cached {
+                    return Ok(cached.clone())
                 }
 
-                ob.push(
-                    InstBuilder::new()
-                        .opcode(Opc::PushFrame)
-                        .indexes(&addresses)
-                        .build(),
-                );
+                // otherwise we have to construct it
+                self.stack.push();
+                let mut code = Vec::new();
+                self.compile_block(&p.code, &mut code)?;
 
-                return Ok(EvalResult {
+                // create an IIFE
+                code.push(InstBuilder::new()
+                    .opcode(Opc::RetScope)
+                    .build());
+
+                let mut iife = Vec::new();
+                iife.push(InstBuilder::new()
+                    .opcode(Opc::PushFunction)
+                    .child(code)
+                    .build());
+
+                let ret = Type::Scope(self.stack.top().clone());
+                self.stack.pop();
+                // not declared on compiler's end
+                let func_eval = EvalResult {
                     address: self.next_var(),
-                    ty: Type::Scope(scope)
-                })
+                    ty: Type::Function(Box::new(FunctionType {
+                        generics: Vec::new(),
+                        args: Vec::new(),
+                        ret,
+                    })),
+                };
+
+                iife.push(InstBuilder::new()
+                    .opcode(Opc::Call)
+                    .index(func_eval.address)
+                    .build());
+
+                let call_eval = EvalResult {
+                    address: self.next_var(),
+                    ty: if let Type::Function(ftyp) = func_eval.ty {
+                        ftyp.ret
+                    } else { unreachable!("what the helly?") }
+                };
+
+                // quickly! Ccahe it!
+                let p = self.get_mut_module(pkg).expect("TODO unwrap");
+                p.cached = Some(call_eval.clone());
+
+                ob.append(&mut iife);
+
+                return Ok(call_eval)
             }
         }
     }
@@ -83,11 +106,12 @@ impl Compiler {
     pub fn literal(
         &mut self,
         l: &Literal,
+        span: &dyn Spannable,
         ob: &mut Vec<Inst>
     ) -> Res<EvalResult>
     {
         match l {
-            Literal::Function(f) => self.fn_literal(f, ob),
+            Literal::Function(f) => self.fn_literal(f, span, ob),
 
             // no idea how to write this without duplicating code.. if anyone knows a cleaner way LMK
             Literal::Int(i) => {
@@ -122,7 +146,7 @@ impl Compiler {
                 let mut indexes = Vec::new();
                 for expr in l.iter() {
                     let eval = self.eval(expr, ob)?;
-                    if eval.ty != *lty {
+                    if !self.check_type(&eval.ty, lty, span)? {
                         /* error */
                         error!("a list literal's types must match the declared type, got {:?} expected {:?}", eval.ty, lty);
                     }
@@ -148,14 +172,18 @@ impl Compiler {
         match &*lv.inner {
             LV::Property(lv2, var) => {
                 let eval = self.get_lvalue(lv2, ob)?;
-                let x = match &eval.ty {
+                let ty = self.rt(&eval.ty, lv2)?;
+                let x = match ty {
                     Type::Scope(s) => {
                         let v = s.get_combined(var)
                             // not found in that scope
                             .ok_or_else(|| CE {
                                 at: Box::new(lv2.clone()),
                                 msg: Some("perhaps you typed the wrong name?"),
-                                error: CEData::NotFoundInScope { needed: var.to_string() }
+                                error: CEData::NotFoundInScope {
+                                    needed: var.to_string(),
+                                    scope: s.clone(),
+                                }
                             })?;
 
                         let x = EvalResult::from(v);
@@ -216,7 +244,10 @@ impl Compiler {
                     .ok_or_else(|| CE {
                         at: Box::new(lv.clone()),
                         msg: Some("Perhaps you failed preschool?"),
-                        error: CEData::NotFoundInScope { needed: var.to_string() }
+                        error: CEData::NotFoundInScope {
+                            needed: var.to_string(),
+                            scope: self.stack.top().clone()
+                        }
                     })?;
 
                 let x = EvalResult::from(v);
