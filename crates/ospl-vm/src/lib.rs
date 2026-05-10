@@ -62,7 +62,9 @@ impl VM {
         let parents = self.top().indexes.clone();
 
         // adding this makes it not behave according to spec
-        // self.arena.gc_frame_added(&parents);
+        //    ^^^ NO PAST AMBER, IT DOESN'T!
+        //        maybe it does with ifs idk, but it fixes loops
+        self.arena.gc_frame_added(&parents);
 
         self.stack.push(RuntimeFrame {
             indexes: parents,

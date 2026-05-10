@@ -128,10 +128,14 @@ impl VM {
                 values.push(self.get_value_top(*idx).clone());
             }
 
-            let ret = crate::ffi::call_foreign_function(
+            let ret = match crate::ffi::call_foreign_function(
                 &*x,
                 &values,
-            ).expect("failed to call FFI fn");
+            ) {
+                Ok(ret) => ret,
+                Err(e) => panic!("failed to call FFI function {:?}\n{:?}", *x, e),
+            };
+
             self.push_literal(ret);
         }
     }
