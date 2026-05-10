@@ -1,4 +1,4 @@
-use ospl_common::{ast::{Expression, Scope, spanning::Spannable}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{Expression, Scope, decl::Visibility, spanning::Spannable}, inst::optimized::{Inst, InstBuilder, Opc}};
 
 use crate::{CE, CEData, Compiler, EvalResult, Res, Type, ast::FunctionValue, impls::stmt::Control};
 
@@ -12,14 +12,16 @@ impl Compiler {
     {
         let mut new_scope = Scope::default();
 
-        // add the aregs
+        // add the args
         let mut arg_indexes = Vec::new();
+        assert_eq!(func.ftype.args.len(), func.args.len());
         for (arg, ty) in func.args.iter().zip(func.ftype.args.iter()) {
             let variable = new_scope.next_post();
 
             // resolve
             let ty = self.rt(ty, span)?;
-            new_scope.declare(arg.clone(), variable, ty);
+
+            new_scope.declare(arg.name.clone(), variable, ty);
             arg_indexes.push(variable);
         }
 
@@ -29,12 +31,14 @@ impl Compiler {
             let variable = new_scope.next_post();
 
             let (u, t) = {
-                let scope = self.stack.scopes.last()
-                    .ok_or_else(|| CE {
-                        at: span.spanned(),
-                        msg: None,
-                        error: CEData::NoScopeToCapture,
-                    })?;
+                // allow using the arguments here
+                let scope = 
+                    self.stack.scopes.last()
+                        .ok_or_else(|| CE {
+                            at: span.spanned(),
+                            msg: None,
+                            error: CEData::NoScopeToCapture,
+                        })?;
 
                 scope.get_combined_copy(&capture)
                     .ok_or_else(|| CE {
@@ -59,9 +63,7 @@ impl Compiler {
         for stmt in &func.block {
             match self.compile_stmt(stmt, &mut insts)? {
                 Control::Return(_) => has_a_return = true,
-                Control::ReturnScope => {
-                    has_a_return = true;
-                }
+                Control::ReturnScope => has_a_return = true,
                 _ => {}
             }
         };
@@ -82,25 +84,24 @@ impl Compiler {
                 .build());
         }
 
-        // // here we fix our return type types
-        // let mut ftype = func.ftype.clone();
-        // ftype.ret = match ftype.ret {
-        //     Type::Scope(s) => {
-        //         // all we're doing here is skipping over the arguments and captures and copying the data
-        //         // verbatim otherwise.
-        //         let mut scope_return_type = ospl_common::ast::Scope::default();
-        //         for (key, type_location) in s.get_map() {
-        //             let ty = s.get_types().get(&type_location).expect("failed to get type? (this is an extreme bug)");
-        //             scope_return_type.declare(key.clone(), real_next_index, ty.clone());
-        //             real_next_index += 1;
-        //         };
+        let mut new_scope = self.stack.scopes.pop()
+            .expect("TODO unwrap - cannot return from the top of a script");
 
-        //         Type::Scope(scope_return_type)
-        //     },
-        //     t => t,
-        // };
+        // here we fix our return type types
+        let mut ftype = func.ftype.clone();
+        ftype.ret = match ftype.ret {
+            Type::Scope(_) => {
+                for s in &func.args {
+                    if s.privacy != Visibility::Public {
+                        new_scope.delete(&s.name);
+                        unimplemented!("TODO impl - implement public/private args")
+                    }
+                }
 
-        let ftype = func.ftype.clone();
+                Type::Scope(new_scope)
+            },
+            t => t,
+        };
 
         let inst = InstBuilder::new()
             .opcode(Opc::PushFunction)
@@ -109,8 +110,6 @@ impl Compiler {
             .build();
 
         ob.push(inst);
-
-        self.stack.pop();
 
         return Ok(EvalResult {
             address: self.next_var(),

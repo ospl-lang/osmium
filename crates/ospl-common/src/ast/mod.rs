@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
-use crate::ast::{decl::Declaration, ops::AssignOp};
+use crate::ast::{decl::{Declaration, Visibility}, ops::AssignOp};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Position {
@@ -192,6 +192,24 @@ impl Scope {
         // println!("DECLARE: {:?}", self);
     }
 
+    pub fn delete(&mut self, k: &str) {
+        let Some(x) = self.map.remove(k)
+            else { panic!("TODO unwrap - tried to delete key {k} that doesn't exist from a scope type") };
+
+        self.types.remove(&x);
+    }
+
+    pub fn has(&self, key: &str) -> bool {
+        return self.map.contains_key(key)
+    }
+
+    pub fn desect(&mut self, other: &Self) {
+        for (name, address) in &other.map {
+            self.map.remove(name);
+            self.types.remove(address);
+        }
+    }
+
     pub fn get_map(&self) -> &HashMap<String, usize> {
         return &self.map
     }
@@ -229,11 +247,17 @@ pub struct FunctionValue {
 
     /// Argument names, take the index in the array of the target argument to
     /// and index into the function type's array to get the value
-    pub args: Vec<String>,
+    pub args: Vec<ArgNaming>,
 
     pub captures: Vec<String>,
 
     pub block: Vec<Statement>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ArgNaming {
+    pub name: String,
+    pub privacy: Visibility,
 }
 
 pub mod frame;

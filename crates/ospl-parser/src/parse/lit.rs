@@ -1,4 +1,4 @@
-use ospl_common::ast::{FunctionType, FunctionValue, Scope, Type};
+use ospl_common::ast::{ArgNaming, FunctionType, FunctionValue, Scope, Type, decl::Visibility};
 use crate::{lexer::token::{EXP_IDENT, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
 
 impl<'a> Parser<'a> {
@@ -15,9 +15,10 @@ impl<'a> Parser<'a> {
                     tExp!(RBracket),
                     EXP_IDENT
                 ))?;
+
                 let (_, Token::Ident(id)) = id.destructure()
                 else {
-                    // consume and break the look
+                    // consume and break the loop
                     break;
                 };
 
@@ -27,12 +28,25 @@ impl<'a> Parser<'a> {
 
         // get the args using two paralel lists: very fucking stupid
         let mut arg_types = Vec::new();
-        let mut arg_names = Vec::new();
+        let mut arg_values = Vec::new();
         self.expect(tExp!(LParen))?;
         loop {
             let (_, token) = self.expect(EXP_NAMED_ARG_MEMBER)?.destructure();
             match token {
-                Token::Ident(i) => arg_names.push(i),
+                Token::Ident(i) => arg_values.push(ArgNaming {
+                    name: i,
+                    privacy: Visibility::Public,
+                }),
+                Token::Def => {
+                    let span = self.expect(EXP_IDENT)?;
+                    let (_, Token::Ident(t)) = span.destructure()
+                        else { unreachable!() };
+                    
+                    arg_values.push(ArgNaming {
+                        name: t,
+                        privacy: Visibility::Public
+                    });
+                }
                 Token::RParen => break,
                 _ => unreachable!()
             }
@@ -52,7 +66,7 @@ impl<'a> Parser<'a> {
                 ret
             },
             block: b,
-            args: arg_names,
+            args: arg_values,
             captures,
         })
     }
@@ -188,9 +202,9 @@ const EXP_ARG_MEMBER: TokenExpectation = tComb!(
 );
 
 const EXP_NAMED_ARG_MEMBER: TokenExpectation = tComb!(
-    "Ident | RParen",
+    "Ident | Def | RParen",
     EXP_IDENT,
-    tExp!(RParen)
+    tExp!(RParen, Def)
 );
 
 pub const EXP_TYPE_STARTER: TokenExpectation = tComb!(
