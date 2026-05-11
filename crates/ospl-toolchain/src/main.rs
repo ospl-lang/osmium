@@ -2,7 +2,6 @@ use std::{fs, path::PathBuf};
 use ospl_common::inst::optimized::Inst;
 use ospl_compiler::Compiler;
 use ospl_vm::VM;
-use tracing::info;
 use tracing_subscriber::fmt::MakeWriter;
 use std::io::{Write, Read};
 use clap::{Parser, Subcommand, ValueEnum};
@@ -51,6 +50,7 @@ impl ToString for ProjTyp {
     }
 }
 
+pub mod log;
 pub mod package;
 pub mod util;
 pub mod c_extension;
@@ -149,7 +149,7 @@ fn cmd_build(output: PathBuf) {
         panic!("failed to compile\n\n{e:#?}");
     }
 
-    info!("compilation successful!");
+    Log!(Finished, "build/dist.ospb is ready");
 
     let f = fs::OpenOptions::new()
         .create(true)

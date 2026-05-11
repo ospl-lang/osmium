@@ -407,7 +407,6 @@ dependencies = [
  "ospl-vm",
  "postcard",
  "serde",
- "tracing",
  "tracing-subscriber",
  "yaml_serde",
 ]

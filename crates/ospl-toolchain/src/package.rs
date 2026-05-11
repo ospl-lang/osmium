@@ -1,9 +1,10 @@
+use crate::Log;
+
 use std::{collections::HashMap, fs};
 
 use ospl_compiler::{ast::Statement, package::{CompiledCExtension, Module, Packages}};
 use ospl_parser::{lexer::lexer::Lexer, parse::Parser};
 use serde::{Deserialize, Serialize};
-use tracing::info;
 
 use crate::{C_EXT_FOLDER, c_extension::CExtensionSetup, util::hash_file};
 
@@ -43,13 +44,12 @@ impl PackageSetup {
         };
 
         // let _span = info_span!("in", name=display_name, version=self.version);
+        Log!(Resolving, "package {display_name}");
         // let _enter = _span.enter();
-
-        info!(name=display_name, version=self.version, "generating repo");
 
         let mut packages = Packages::default();
         for (name, pkg) in &self.includes {
-            info!(name=%name, "compiling module");
+            Log!(Compiling, "module '{name}'");
             let code;
             match pkg {
                 PkgRef::File(f) => {
@@ -87,7 +87,7 @@ impl PackageSetup {
 
         let c_folder = std::path::PathBuf::from(C_EXT_FOLDER);
         for (id, ext) in &self.extensions.c {
-            info!("compiling C extension: '{id}'");
+            Log!(Compiling, "C extension '{id}'");
             // compute our filenames
             let hashvalue = hash_file(&ext.file).expect("failed to hash file");
 
@@ -97,7 +97,7 @@ impl PackageSetup {
             let mut so_file = c_folder.clone();
             so_file.push(format!("{}.so", hashvalue));
 
-            info!("invoking: cc ... -c -fPIC -o ...");
+            Log!(Invoking, "cc ... -c -fPIC -o ...");
             // assuming GCC
             let mut cc = std::process::Command::new("cc")
                 .arg(&ext.file) 
@@ -111,7 +111,7 @@ impl PackageSetup {
             cc.wait().expect("failed to wait for C compiler");
 
             // summon another cc
-            info!("invoking: cc ... -shared -o ...");
+            Log!(Invoking, "cc ... -shared -o ...");
             let mut cc = std::process::Command::new("cc")
                 .arg(&o_file)
                 .arg("-shared")
@@ -145,22 +145,5 @@ pub fn do_main_functionality(s: &str) -> Vec<Statement> {
     let mut p = Parser::new(&t);
     let p = p.parse_file().expect("failed to parse module");
 
-    // stmt_to_exports(p.as_slice(), exports);
     return p
 }
-
-// pub fn stmt_to_exports(p: &[Statement], exports: &mut Vec<Export>) {
-//     for stmt in p {
-//         match &*stmt.inner {
-//             Stmt::Define(dcl) => {
-//                 if dcl.meta.visibility != Visibility::Public { continue }
-
-//                 exports.push(Export {
-//                     cached: None,
-//                     decl: dcl.clone(),
-//                 });
-//             },
-//             _ => {}
-//         }
-//     }
-// }
