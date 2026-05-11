@@ -16,10 +16,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Cmd {
     /// Build the project in the current directory
-    Build {
-        #[arg(short)]
-        output: Option<PathBuf>,
-    },
+    Build,
 
     /// Rebuild and run the project in the current directory
     ScratchRun,
@@ -55,24 +52,40 @@ impl ToString for ProjTyp {
 }
 
 pub mod package;
+pub mod util;
+pub mod c_extension;
 
-const DEFAULT_BUILD_LOCATION: &str = "dist.ospb";
+const BUILD_FILE: &str = "build/dist.ospb";
+const C_EXT_FOLDER: &str = "build/c/";
+const BUILD_FOLDER: &str = "build/";
+
+fn ensure_build_folder() {
+    let pb = PathBuf::from(BUILD_FOLDER);
+    std::fs::remove_dir_all(&pb)
+        .expect("Failed to remove the build/ folder. Delete the folder and try again.");
+
+    std::fs::DirBuilder::new()
+        .create(&pb)
+        .expect("failed to create the build/ folder. Delete the folder and try again.");
+
+    std::fs::DirBuilder::new()
+        .create(PathBuf::from(C_EXT_FOLDER))
+        .expect("failed to create the build/c/ folder. Delete the build/ folder and try again.");
+}
 
 fn main() {
     tracing_subscriber::fmt::init();
 
+    ensure_build_folder();
+
     let cli = Cli::parse();
     match cli.command {
-        Cmd::Build { output } => {
-            let outfile = match output {
-                Some(outfile) => outfile,
-                None => PathBuf::from(DEFAULT_BUILD_LOCATION)
-            };
-            cmd_build(outfile);
+        Cmd::Build => {
+            cmd_build(PathBuf::from(BUILD_FILE));
         }
         Cmd::Exec { at } => cmd_exec(at),
         Cmd::ScratchRun => {
-            let pb = PathBuf::from(DEFAULT_BUILD_LOCATION);
+            let pb = PathBuf::from(BUILD_FILE);
             // if !pb.exists() {
                 // cmd_build(pb.clone());
             // }

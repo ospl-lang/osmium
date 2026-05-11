@@ -1,6 +1,6 @@
 use ospl_common::ast::{Expr, Expression};
 
-use crate::{lexer::token::{EXP_IDENT, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
+use crate::{lexer::token::{EXP_IDENT, Token, TokenExpectation}, parse::{Parser, Res, expr::EXP_STRING_LITERAL}, tComb, tExp};
 
 pub const EXP_INT: TokenExpectation = TokenExpectation {
     matches: |t| matches!(t, Token::Integer(_)),
@@ -67,10 +67,14 @@ impl<'a> Parser<'a> {
     fn parse_foreign_load(&mut self) -> Res<Expression> {
         self.expect(tExp!(Use))?;
 
-        let a = self.parse_atom()?;
+        // let a = self.parse_atom()?;
+        let a = self.expect(EXP_STRING_LITERAL)?;
+        let (at, Token::StringLit(x)) = a.destructure()
+            else { unreachable!() };
+
         return Ok(Expression {
-            at: a.at,
-            inner: Box::new(Expr::FFILoad(a))
+            at,
+            inner: Box::new(Expr::FFILoad(x))
         })
     }
 

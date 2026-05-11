@@ -80,7 +80,7 @@ pub enum Expr {
     UnaryOp(ops::UnaryOp),
     Cast(Expression, Type),
 
-    FFILoad(Expression),
+    FFILoad(String),
     FFIFunc(LValue, Expression, usize, Vec<usize>),
     FFICall(LValue, Vec<Expression>),
 

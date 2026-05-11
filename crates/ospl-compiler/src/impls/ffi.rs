@@ -1,22 +1,26 @@
-use ospl_common::{ast::{Expression, LValue, Type}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{Expression, LValue, Type}, inst::{RuntimeValue, optimized::{Inst, InstBuilder, Opc}}};
 
 use crate::{Compiler, EvalResult, Res};
 
 impl Compiler {
     pub fn ffi_load(
         &mut self,
-        lib_path: &Expression,
+        lib_path: &String,
         ob: &mut Vec<Inst>
     ) -> Res<EvalResult>
     {
-        let lib = self.eval(lib_path, ob)?;
-        if lib.ty != Type::Str {
-            /* error */
-        }
+        // get the thing
+        let x = self.packages.c_extensions.get(lib_path)
+            .expect("failed to get C Extension at path");
+
+        ob.push(InstBuilder::new()
+            .opcode(Opc::PushLiteral)
+            .value(RuntimeValue::Str(x.compiled_path.clone()))
+            .build());
 
         ob.push(InstBuilder::new()
             .opcode(Opc::FFILoadLib)
-            .index(lib.address)
+            .index(self.next_var())
             .build());
 
         return Ok(EvalResult {

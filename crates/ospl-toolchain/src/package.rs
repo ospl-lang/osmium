@@ -1,9 +1,11 @@
 use std::{collections::HashMap, fs};
 
-use ospl_compiler::{ast::{Statement}, package::{Module, Packages}};
+use ospl_compiler::{ast::Statement, package::{CompiledCExtension, Module, Packages}};
 use ospl_parser::{lexer::lexer::Lexer, parse::Parser};
 use serde::{Deserialize, Serialize};
 use tracing::info;
+
+use crate::{C_EXT_FOLDER, c_extension::CExtensionSetup, util::hash_file};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum PkgRef {
@@ -26,6 +28,7 @@ pub struct PackageSetup {
     pub includes: HashMap<String, PkgRef>,
     pub display: Option<String>,
     pub version: String,
+    pub extensions: CExtensionSetup,
 }
 
 impl PackageSetup {
@@ -81,6 +84,48 @@ impl PackageSetup {
 
             packages.modules.insert(name.to_string(), Module { code, cached: None });
         };
+
+        let c_folder = std::path::PathBuf::from(C_EXT_FOLDER);
+        for (id, ext) in &self.extensions.c {
+            info!("compiling C extension: '{id}'");
+            // compute our filenames
+            let hashvalue = hash_file(&ext.file).expect("failed to hash file");
+
+            let mut o_file = c_folder.clone();
+            o_file.push(format!("{}.o", hashvalue));
+
+            let mut so_file = c_folder.clone();
+            so_file.push(format!("{}.so", hashvalue));
+
+            info!("invoking: cc ... -c -fPIC -o ...");
+            // assuming GCC
+            let mut cc = std::process::Command::new("cc")
+                .arg(&ext.file) 
+                .arg("-c")
+                .arg("-fPIC")
+                .arg("-o")
+                .arg(&o_file)
+                .spawn()
+                .expect("failed to invoke C compiler");
+
+            cc.wait().expect("failed to wait for C compiler");
+
+            // summon another cc
+            info!("invoking: cc ... -shared -o ...");
+            let mut cc = std::process::Command::new("cc")
+                .arg(&o_file)
+                .arg("-shared")
+                .arg("-o")
+                .arg(&so_file)
+                .spawn()
+                .expect("failed to invoke C compiler");
+
+            cc.wait().expect("failed to wait for C compiler");
+
+            packages.c_extensions.insert(id.clone(), CompiledCExtension {
+                compiled_path: so_file.to_string_lossy().to_string(),
+            });
+        }
 
         return packages
     }
