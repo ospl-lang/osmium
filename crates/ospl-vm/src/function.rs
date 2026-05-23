@@ -52,8 +52,10 @@ impl VM {
         {
             let top = self.top();
             for arg in args {
-                let abs = top.indexes[*arg];
-                frame.indexes.push(abs);
+                let abs = top.indexes.get(*arg).unwrap_or_else(|| {
+                    panic!("argument {arg:?} was out of bounds! len={} | frame={frame:?}", top.indexes.len());
+                });
+                frame.indexes.push(*abs);
             }
         };
 
@@ -61,7 +63,7 @@ impl VM {
         let f = self.get_value_top(f);
         let f = match f.as_fn() {
             Some(o) => o,
-            None => panic!("can't call object of type {f:?}")
+            None => panic!("can't call object of type {f:?} | frame={frame:?} | vm={self:#?}")
         };
 
         frame.indexes.extend_from_slice(f.lexical_indexes.as_slice());

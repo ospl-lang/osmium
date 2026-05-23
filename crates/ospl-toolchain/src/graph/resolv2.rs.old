@@ -1,0 +1,139 @@
+use std::{collections::HashMap, fs};
+
+use ospl_common::ast::Statement;
+use ospl_parser::{lexer::lexer::Lexer, parse::Parser};
+
+use crate::{Log, graph::decl::{ModRef, PackageSetup, PkgRef, Requirement}, load_package_yml_at, resolv::ModuleNode};
+
+#[derive(Default, Debug)]
+pub struct Graph {
+    pub nodes: HashMap<String, ModuleNode>,
+}
+
+#[derive(Debug)]
+pub enum GraphError {
+    IoError(std::io::Error),
+    Generic(String),
+    PE(ospl_parser::parse::PE),
+    DuplicateModule(String),
+    PackageLoad(String, String),
+}
+
+impl From<String> for GraphError {
+    fn from(value: String) -> Self {
+        return Self::Generic(value)
+    }
+}
+
+impl From<std::io::Error> for GraphError {
+    fn from(value: std::io::Error) -> Self {
+        return Self::IoError(value)
+    }
+}
+
+impl From<ospl_parser::parse::PE> for GraphError {
+    fn from(value: ospl_parser::parse::PE) -> Self {
+        return Self::PE(value)
+    }
+}
+
+pub fn flatten(
+    setup: &PackageSetup,
+    prefix: &str,
+    into: &mut Graph,
+) -> Result<(), GraphError> {
+    // -----------------------------
+    // 1. FLATTEN MODULES
+    // -----------------------------
+    for (name, def) in &setup.includes {
+        let id = format!("{}::{}", prefix, name);
+        Log!(Resolving, "module {id}");
+
+        if into.nodes.contains_key(&id) {
+            return Err(GraphError::DuplicateModule(id));
+        }
+
+        let source = match &def.at {
+            ModRef::File(path) => path,
+        };
+
+        // wrap it
+        let mut outer_ast = Vec::new();
+        let ast = parse_file(source)?;
+        use ospl_common::ast::{Expression, Expr, Literal, FunctionType, Scope, FunctionValue, Statement, Stmt, Position, decl::{Constness, Visibility, Declaration, DeclarationMeta}};
+        outer_ast.push(Statement {
+            at: Position::default(),
+            inner: Box::new(Stmt::Define(Declaration {
+                meta: DeclarationMeta {
+                    constness: Constness::Const,
+                    visibility: Visibility::Private
+                },
+                name: name.clone(),
+                rhs: Expression {
+                    at: Position::default(),
+                    inner: Box::new(Expr::Literal(Literal::Function(FunctionValue {
+                        args: Vec::new(),
+                        captures: Vec::new(),
+                        block: ast,
+                        ftype: FunctionType {
+                            args: Vec::new(),
+                            generics: Vec::new(),
+
+                            // compiler replaces this with inferred type
+                            ret: ospl_common::ast::Type::Scope(Scope::default())
+                        }
+                    })))
+                }
+            }))
+        });
+
+        let mut requires = Vec::new();
+        for require in &def.require {
+            // hope this exists later!
+            match require {
+                Requirement::Lib(r) => requires.push(format!("{}::{}::library", prefix, r)),
+                Requirement::Mod(r) => requires.push(format!("{}::{}", prefix, r)),
+            }
+        }
+    }
+
+    // -----------------------------
+    // 3. DOWNLOAD REMOTE PACKAGES
+    // -----------------------------
+    for (rem_name, rem) in &setup.requires {
+        Log!(Resolving, "package {rem:?}");
+        match rem {
+            PkgRef::Local(folder) => do_folder(folder, rem_name, prefix, into)?,
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
+
+pub fn do_folder(f: &str, name: &str, prefix: &str, into: &mut Graph) -> Result<(), GraphError> {
+    let pwd = std::env::current_dir()?;
+    let mut nwd = pwd.clone();
+    nwd.push(f);
+
+    std::env::set_current_dir(nwd)?;
+
+    let sub_pkg = load_package_yml_at("package.yml")
+        .map_err(|e| GraphError::PackageLoad(name.to_string(), e))?;
+
+    flatten(&sub_pkg, &format!("{}::{}", prefix, name), into)?;
+
+    std::env::set_current_dir(pwd)?;
+
+    return Ok(());
+}
+
+pub fn parse_file(f: &str) -> Result<Vec<Statement>, GraphError> {
+    let s = fs::read_to_string(f)?;
+    let mut l = Lexer::new(&s);
+    let tokens = l.all_tokens();
+
+    let mut p = Parser::new(&tokens);
+    let ast = p.parse_file()?;
+    return Ok(ast)
+}

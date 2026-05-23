@@ -14,6 +14,8 @@
 //! and [`Inst`]). As well as a builder API for this new
 //! representation ([`InstBuilder`])
 
+use std::fmt::Display;
+
 use crate::inst::RuntimeValue;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,6 +49,15 @@ pub enum Opc {
     /// - **Indexes:** the captures of the function
     /// - **Child #0:** the code of the function
     PushFunction,
+
+    /// Pushes a function and then immediately invokes it.
+    /// This is the optimized path for IIFEs, good compilers should use it.
+    /// 
+    /// - **Indexes:** the args
+    /// - **Child 0:** the body
+    /// - **Push 0:** the function
+    /// - **Push 1:** the return value
+    IIFE,
 
     AssignCopy,
     AssignRef,
@@ -113,8 +124,8 @@ pub enum Opc {
     Pop,
 
     /** Get a property */ Property,
-    /** Index into an array */ IndexArray,
-    /** Slice into an array */ SliceArray,
+    /** Index into an array */ Index,
+    /** Slice into an array */ Slice,
 
     /* ********************************************************************* */
     /*           FFI STUFF                                                   */
@@ -179,6 +190,12 @@ pub struct Inst {
     /// 
     /// Mostly used for if statements and loops
     pub children: Vec<Vec<Inst>>
+}
+
+impl Display for Inst {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        return write!(f, "{:?}\t{:?}\t{:?}\t[{:#?}]", self.opcode, self.immediate, self.indexes, self.children);
+    }
 }
 
 impl Inst {

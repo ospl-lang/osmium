@@ -15,6 +15,8 @@ impl VM {
             (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => xa == xb,
             (RuntimeValue::Address(xa), RuntimeValue::Address(xb)) => xa == xb,
             (RuntimeValue::Float(xa), RuntimeValue::Float(xb)) => xa == xb,
+            (RuntimeValue::Char(xa), RuntimeValue::Char(xb)) => xa == xb,
+            (RuntimeValue::Str(s), RuntimeValue::Str(s2)) => s == s2,
             (RuntimeValue::Undefined, RuntimeValue::Undefined) => true,
             (_, RuntimeValue::Undefined) => false,
             (other1, other2) => panic!("cannot eq value {other1:?} with value {other2:?}!"),
@@ -47,6 +49,16 @@ impl VM {
 
     pub fn lt_regs(&mut self, a: usize, b: usize) {
         let x = !self._gt_regs(a, b);
+        self.push_literal(RuntimeValue::Bool(x));
+    }
+
+    pub fn gte_regs(&mut self, a: usize, b: usize) {
+        let x = self._gt_regs(a, b) | self._eq_regs(a, b);
+        self.push_literal(RuntimeValue::Bool(x));
+    }
+
+    pub fn lte_regs(&mut self, a: usize, b: usize) {
+        let x = self._gt_regs(a, b) | self._eq_regs(a, b);
         self.push_literal(RuntimeValue::Bool(x));
     }
 }
@@ -133,6 +145,9 @@ impl VM {
                 },
                 (RuntimeValue::Str(s1), RuntimeValue::Str(s2)) => {
                     s1.push_str(&*s2);
+                },
+                (RuntimeValue::Str(s1), RuntimeValue::Char(c1)) => {
+                    s1.push(*c1);
                 },
 
                 (err_a, err_b) => panic!("can't add-assign {:?} += {:?}", err_a, err_b),

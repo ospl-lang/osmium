@@ -152,6 +152,7 @@ impl<'a> Parser<'a> {
             Token::IntT => {self.next()?; return Ok(Type::Int)},
             Token::FloatT => {self.next()?; return Ok(Type::Float)},
             Token::StrT => {self.next()?; return Ok(Type::Str)},
+            Token::CharT => {self.next()?; return Ok(Type::Char)},
             Token::BoolT => {self.next()?; return Ok(Type::Bool)},
             Token::AddrT => {self.next()?; return Ok(Type::Address)},
             Token::ListT => {
@@ -208,7 +209,7 @@ const EXP_NAMED_ARG_MEMBER: TokenExpectation = tComb!(
 );
 
 pub const EXP_TYPE_STARTER: TokenExpectation = tComb!(
-    "Fn | Atsign | IntT | FloatT | StrT | BoolT | ListT | AddrT | Ident | Scope",
-    tExp!(Fn, Atsign, IntT, FloatT, StrT, BoolT, ListT, AddrT, Scope),
+    "Fn | Atsign | IntT | FloatT | StrT | CharT | BoolT | ListT | AddrT | Ident | Scope",
+    tExp!(Fn, Atsign, IntT, FloatT, StrT, CharT, BoolT, ListT, AddrT, Scope),
     EXP_IDENT,
 );

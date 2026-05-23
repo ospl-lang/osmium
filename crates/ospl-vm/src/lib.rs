@@ -10,6 +10,7 @@ mod function;
 mod unaryops;
 mod list;
 mod types;
+pub mod debug;
 pub mod arena;
 pub mod gc;
 
@@ -162,6 +163,9 @@ impl VM {
         // TL;DR the safety invariant here is that the
         // instructions are valid.
 
+        #[cfg(debug_assertions)]
+        let _dbg = debug::DbgMark::new(format!("{inst:?}"));
+
         unsafe { match &inst.opcode {
             Opc::PushLiteral => {
                 self.push_copy(
@@ -172,11 +176,11 @@ impl VM {
             },
 
             Opc::PushArray => self.push_array(&inst.indexes),
-            Opc::IndexArray => self.index_array(
+            Opc::Index => self.index(
                 inst.get_index(0),
                 inst.get_index(1),
             ),
-            Opc::SliceArray => self.slice_array(
+            Opc::Slice => self.slice(
                 inst.get_index(0),
                 inst.get_index(1),
                 inst.get_index(2),
@@ -223,6 +227,8 @@ impl VM {
 
                 // this is just legitimely fucking safe. There's no invariant here.
                 let search_in = self.raw_get_value_top(x);
+
+                // this however isn't
                 match &*search_in {
                     RuntimeValue::Scope(s) => {
                         let add_thing = s.indexes[prop];
@@ -231,7 +237,8 @@ impl VM {
                         // happens at frame boundaries.
                         self.top_mut().indexes.push(add_thing);
                     },
-                    _ => std::hint::unreachable_unchecked()
+                    // _ => std::hint::unreachable_unchecked()
+                    other => unimplemented!("cannot do access on value {other:?}, last inst {inst:?}"),
                 }
             },
 
@@ -250,10 +257,10 @@ impl VM {
             Opc::Sub => self.sub_regs(inst.get_index(0), inst.get_index(1)),
             Opc::Eq  => self.eq_regs(inst.get_index(0), inst.get_index(1)),
             Opc::Neq => self.neq_regs(inst.get_index(0), inst.get_index(1)),
-            // Opc::Gt  => self.gt_regs(inst.get_index(0), inst.get_index(1)),
-            // Opc::Lt  => self.lt_regs(inst.get_index(0), inst.get_index(1)),
-            // Opc::Gte => self.gte_regs(inst.get_index(0), inst.get_index(1)),
-            // Opc::Lte => self.lte_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::Gt  => self.gt_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::Lt  => self.lt_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::Gte => self.gte_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::Lte => self.lte_regs(inst.get_index(0), inst.get_index(1)),
 
             Opc::Decrement => self.dec_value(inst.get_index(0)),
 
@@ -277,13 +284,31 @@ impl VM {
                 let RuntimeValue::Str(s) = &*self.raw_get_value_top(inst.get_index(0))
                     else { panic!("expected str for FFI instruction") };
 
-                let l = self.ffi.load_library(s).expect("failed to load FFI");
-                self.push_literal(RuntimeValue::ForeignLib(l));
+                let lib = self.ffi.load_library(s).expect("failed to load FFI");
+
+                // check if it has an OSPL_Load function
+                if let Ok(func) = self.ffi.register_function(
+                    lib,
+                    "OSPL_Load",
+                    vec![
+                        "ptr".to_string(),  // pointer to OSPL VM
+                        "ptr".to_string(),  // pointer to OSPL heap
+                    ],
+                    "void".to_string()
+                ) {
+                    let f = self.ffi.get_function(func).unwrap();
+                    f.cif.call(f.symbol_ptr, &[
+                        libffi::middle::arg(&&raw const self),
+                        libffi::middle::arg(&&raw const self.arena),
+                    ])
+                }
+
+                self.push_literal(RuntimeValue::ForeignLib(lib));
             },
 
             Opc::FFILoadFn => {
                 let RuntimeValue::ForeignLib(lib) = *self.get_value_top(inst.get_index(0))
-                    else { unreachable!("no idea what this is") };
+                    else { panic!("no idea what this is") };
 
                 let RuntimeValue::Str(s) = &*self.raw_get_value_top(inst.get_index(1))
                     else { panic!("expected str for FFI instruction") };

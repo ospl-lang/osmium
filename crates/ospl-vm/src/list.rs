@@ -15,7 +15,7 @@ impl VM {
         self.push_literal(RuntimeValue::List(list));
     }
 
-    pub fn index_array(&mut self, array: usize, index: usize) {
+    pub fn index(&mut self, array: usize, index: usize) {
         // SAFETY: the invariant here is that the instruction is operating on a
         // valid type and the index into the array is valid.
         let x = {
@@ -23,6 +23,16 @@ impl VM {
             let index = unsafe { self.get_value_top(index).assume_int() };
             let x = match list {
                 RuntimeValue::List(l) => { l.items[index as usize] },
+                RuntimeValue::Str(s) => {
+                    let Some(x) = s.chars().nth(index as usize)
+                    else {
+                        self.push_literal(RuntimeValue::Undefined);  // out of bounds
+                        return;
+                    };
+
+                    self.push_literal(RuntimeValue::Char(x));
+                    return;
+                },
                 _ => unsafe{ std::hint::unreachable_unchecked() },
             };
 
@@ -31,13 +41,23 @@ impl VM {
         self.top_mut().indexes.push(x);
     }
 
-    pub fn slice_array(&mut self, array: usize, start: usize, end: usize) {
+    pub fn slice(&mut self, array: usize, start: usize, end: usize) {
         let x = unsafe {
             let list = self.raw_get_value_top(array);
             let start = self.get_value_top(start).assume_int() as usize;
             let end = self.get_value_top(end).assume_int() as usize;
             let x = match &*list {
                 RuntimeValue::List(l) => &l.items[start..end],
+                RuntimeValue::Str(s) => {
+                    let Some(x) = s.get(start..end)
+                    else {
+                        self.push_literal(RuntimeValue::Undefined);  // out of bounds
+                        return;
+                    };
+
+                    self.push_literal(RuntimeValue::Str(x.to_string()));
+                    return;
+                }
                 _ => std::hint::unreachable_unchecked(),
             };
 

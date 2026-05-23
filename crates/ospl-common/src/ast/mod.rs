@@ -80,12 +80,11 @@ pub enum Expr {
     UnaryOp(ops::UnaryOp),
     Cast(Expression, Type),
 
-    FFILoad(String),
+    FFILoad(Expression),
     FFIFunc(LValue, Expression, usize, Vec<usize>),
     FFICall(LValue, Vec<Expression>),
 
     LValue(LValue),
-    Use(String),
 }
 
 #[derive(Debug, Clone)]
@@ -124,6 +123,7 @@ pub enum Literal {
     Float(f64),
     Bool(bool),
     Str(String),
+    Char(char),
     List(Type, Vec<Expression>),
     Function(FunctionValue)
 }
@@ -149,7 +149,7 @@ pub enum Type {
     /// utilize it.
     Unknown,
 
-    Int, Address, Float, Str, Bool, List(Box<Type>),
+    Int, Address, Float, Char, Str, Bool, List(Box<Type>),
     Scope(Scope),
     Function(Box<FunctionType>),
 
@@ -159,6 +159,16 @@ pub enum Type {
     // virtual types
     TypeOfVar(String),
     ReturnTypeOf(Box<Type>),
+}
+
+impl Type {
+    pub fn is_indexable(&self) -> bool {
+        return matches!(self, Self::Str | Self::List(_))
+    }
+
+    pub fn is_sliceable(&self) -> bool {
+        return matches!(self, Self::Str | Self::List(_))
+    }
 }
 
 /// A single block of variables.

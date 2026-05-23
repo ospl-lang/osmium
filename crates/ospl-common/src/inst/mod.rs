@@ -4,6 +4,7 @@ use crate::{ast::frame::RuntimeFrame, inst::optimized::Inst};
 pub mod list;
 pub mod optimized;
 
+#[repr(C)]
 #[derive(Default, Debug, Clone, PartialEq)]
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum RuntimeValue {

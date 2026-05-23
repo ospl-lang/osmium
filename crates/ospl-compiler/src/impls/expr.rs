@@ -1,4 +1,4 @@
-use ospl_common::{ast::{FunctionType, spanning::Spannable}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::spanning::Spannable, inst::optimized::{Inst, InstBuilder, Opc}};
 use tracing::error;
 
 use crate::{CE, CEData, Compiler, EvalResult, Res, Type, ast::{Expr, LV, LValue, Literal}};
@@ -22,11 +22,29 @@ impl Compiler {
                     ty: store.ty.clone()
                 })
             },
+            Expr::FFILoad(f) => {
+                let fp = self.eval(f, ob)?;
+                if fp.ty != Type::Str {
+                    /* error */
+                }
+
+                let i = InstBuilder::new()
+                    .opcode(Opc::FFILoadLib)
+                    .index(fp.address)
+                    .build();
+
+                ob.push(i);
+
+                return Ok(EvalResult {
+                    address: self.next_var(),
+                    ty: Type::ForeignLibrary
+                })
+            },
             Expr::FFICall(f, args) => self.ffi_call(f, args, ob),
             Expr::FFIFunc(lib, func_name, rtype, types) => self.ffi_func(lib, func_name, *rtype, types, ob),
-            Expr::FFILoad(lib_path) => self.ffi_load(lib_path, ob),
             Expr::Cast(left, into) => {
                 let left = self.eval(left, ob)?;
+                println!("{left:?} -> {into:?}");
 
                 ob.push(InstBuilder::new()
                     .opcode(Opc::Cast)
@@ -38,67 +56,6 @@ impl Compiler {
                     address: self.next_var(),
                     ty: into.clone()
                 })
-            }
-            Expr::Use(pkg) => {
-                // SAFETY: I promise not to mutate p.cached or p.code inside
-                // any calls to `&mut self` methods on [`Compiler`]
-                //
-                // in other terms, I promise this code is synchronous with
-                // respect to `p`.
-                let p = &raw const *self.get_module(pkg).expect("TODO unwrap");
-                let p = unsafe{&*p};
-
-                if let Some(cached) = &p.cached {
-                    return Ok(cached.clone())
-                }
-
-                // otherwise we have to construct it
-                self.stack.push();
-                let mut code = Vec::new();
-                self.compile_block(&p.code, &mut code)?;
-
-                // create an IIFE
-                code.push(InstBuilder::new()
-                    .opcode(Opc::RetScope)
-                    .build());
-
-                let mut iife = Vec::new();
-                iife.push(InstBuilder::new()
-                    .opcode(Opc::PushFunction)
-                    .child(code)
-                    .build());
-
-                let ret = Type::Scope(self.stack.top().clone());
-                self.stack.pop();
-                // not declared on compiler's end
-                let func_eval = EvalResult {
-                    address: self.next_var(),
-                    ty: Type::Function(Box::new(FunctionType {
-                        generics: Vec::new(),
-                        args: Vec::new(),
-                        ret,
-                    })),
-                };
-
-                iife.push(InstBuilder::new()
-                    .opcode(Opc::Call)
-                    .index(func_eval.address)
-                    .build());
-
-                let call_eval = EvalResult {
-                    address: self.next_var(),
-                    ty: if let Type::Function(ftyp) = func_eval.ty {
-                        ftyp.ret
-                    } else { unreachable!("what the helly?") }
-                };
-
-                // quickly! Ccahe it!
-                let p = self.get_mut_module(pkg).expect("TODO unwrap");
-                p.cached = Some(call_eval.clone());
-
-                ob.append(&mut iife);
-
-                return Ok(call_eval)
             }
         }
     }
@@ -132,6 +89,10 @@ impl Compiler {
             },
             Literal::Str(s) => {
                 ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Str(s.clone())).build());
+                return Ok(EvalResult { address: self.next_var(), ty: Type::Str })
+            },
+            Literal::Char(c) => {
+                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Char(*c)).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Str })
             },
             Literal::Nul => {
@@ -189,7 +150,7 @@ impl Compiler {
                         let x = EvalResult::from(v);
                         x
                     },
-                    list_ty @ Type::List(_) => {
+                    t @ (Type::List(_) | Type::Str) => {
                         match var.as_str() {
                             "len" => {
                                 ob.push(InstBuilder::new()
@@ -203,7 +164,7 @@ impl Compiler {
                             other => return Err(CE {
                                 at: Box::new(lv2.clone()),
                                 error: CEData::UnrecognizedSpecialVar {
-                                    ty: list_ty.clone(),
+                                    ty: t.clone(),
                                     special: other.to_string()
                                 },
                                 msg: Some("valid special props here: len"),
@@ -235,8 +196,8 @@ impl Compiler {
                 })
             },
 
-            LV::Index(l, r) => self.array_index(l, r, ob),
-            LV::Slice(l, r1, r2) => self.array_slice(l, r1, r2, ob),
+            LV::Index(l, r) => self.list(l, r, ob),
+            LV::Slice(l, r1, r2) => self.slice(l, r1, r2, ob),
 
             // FIXME unwrap
             LV::Variable(var) => {

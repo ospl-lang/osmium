@@ -1,0 +1,5 @@
+##### OSPL SPECIFIC
+build/
+
+##### IDE/OS CRAP
+.vscode/

@@ -40,7 +40,8 @@ impl VM {
             self.new_scope_parental();
             let out = self.run_all(yes);
 
-            // the new if statement scope has a variable we're trying to return that doesn't exist anymore because the scope ended.
+            // the new if statement scope has a variable we're trying to return
+            // that doesn't exist anymore because the scope ended.
             self.end_scope();
             out
         } else {
@@ -62,16 +63,17 @@ impl VM {
             self.new_scope_parental();
             match self.run_all(code) {
                 Control::Break => break,
-                Control::Default => {},
-                other => {
+                Control::Continue => {
                     self.end_scope();
-                    return other
+                    continue;
                 },
+                Control::Default => {},
+                other => return other
             }
-            self.end_scope();
+            self.pop_scope();
         }
 
         self.end_scope();
-        return Control::Break
+        return Control::Default;  // break already handled
     }
 }

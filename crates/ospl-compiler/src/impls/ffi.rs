@@ -1,33 +1,34 @@
-use ospl_common::{ast::{Expression, LValue, Type}, inst::{RuntimeValue, optimized::{Inst, InstBuilder, Opc}}};
+use ospl_common::{ast::{Expression, LValue, Type}, inst::optimized::{Inst, InstBuilder, Opc}};
 
 use crate::{Compiler, EvalResult, Res};
 
 impl Compiler {
-    pub fn ffi_load(
-        &mut self,
-        lib_path: &String,
-        ob: &mut Vec<Inst>
-    ) -> Res<EvalResult>
-    {
-        // get the thing
-        let x = self.packages.c_extensions.get(lib_path)
-            .expect("failed to get C Extension at path");
+    // pub fn ffi_load(
+    //     &mut self,
+    //     lib_path: &String,
+    //     ob: &mut Vec<Inst>
+    // ) -> Res<EvalResult>
+    // {
+    //     // get the thing
+    //     eprintln!("{:?}", self.extensions.c.keys());
+    //     let Some(x) = self.extensions.c.get(lib_path)
+    //     else { panic!("failed to get C Extension at path: {lib_path}"); };
 
-        ob.push(InstBuilder::new()
-            .opcode(Opc::PushLiteral)
-            .value(RuntimeValue::Str(x.compiled_path.clone()))
-            .build());
+    //     ob.push(InstBuilder::new()
+    //         .opcode(Opc::PushLiteral)
+    //         .value(RuntimeValue::Str(x.compiled_path.clone()))
+    //         .build());
 
-        ob.push(InstBuilder::new()
-            .opcode(Opc::FFILoadLib)
-            .index(self.next_var())
-            .build());
+    //     ob.push(InstBuilder::new()
+    //         .opcode(Opc::FFILoadLib)
+    //         .index(self.next_var())
+    //         .build());
 
-        return Ok(EvalResult {
-            address: self.next_var(),
-            ty: Type::ForeignLibrary,
-        })
-    }
+    //     return Ok(EvalResult {
+    //         address: self.next_var(),
+    //         ty: Type::ForeignLibrary,
+    //     })
+    // }
 
     pub fn ffi_func(
         &mut self,

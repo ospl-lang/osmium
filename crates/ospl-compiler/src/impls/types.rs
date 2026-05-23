@@ -41,6 +41,7 @@ impl Compiler {
             (Type::Address, Type::Address) => true,
             (Type::Float, Type::Float) => true,
             (Type::Str, Type::Str) => true,
+            (Type::Char, Type::Char) => true,
             (Type::Bool, Type::Bool) => true,
 
             (Type::List(a), Type::List(b)) => a == b,

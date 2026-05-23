@@ -17,6 +17,9 @@ impl VM {
             (RuntimeValue::Address(u), Type::Float) => RuntimeValue::Float(*u as f64),
             (RuntimeValue::Float(f), Type::Address) => RuntimeValue::Address(*f as u64),
 
+            (RuntimeValue::Address(u), Type::Char) => RuntimeValue::Char(*u as u8 as char),
+            (RuntimeValue::Char(c), Type::Address) => RuntimeValue::Address(*c as u64),
+
             (r, t) => panic!("unknown type conversion {r:?} into type {t:?}")
         };
 

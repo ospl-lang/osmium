@@ -9,6 +9,7 @@ impl Type {
             Self::Float => 3,
             Self::Str => 4,
             Self::Undefined => 5,
+            Self::Char => 6,
 
             t => panic!("cannot call .to_primitive_type_id() on a non-primitive type {t:?}"),
         }
@@ -22,6 +23,8 @@ impl Type {
             3 => Self::Float,
             4 => Self::Str,
             5 => Self::Undefined,
+            6 => Self::Char,
+
             t => panic!("unknown primitive type ID: {t}")
         }
     }

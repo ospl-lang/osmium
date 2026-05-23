@@ -1,21 +1,18 @@
 use ospl_common::ast::{Scope, Type, ops::BinaryOpType};
 
-use crate::package::Packages;
-
 pub type RelativeVarID = usize;
 
 pub mod package;
 
 /// All nested scopes during compilation.
 #[derive(Debug, Default)]
-struct ScopeStack {
+pub struct ScopeStack {
     scopes: Vec<Scope>,
 }
 
 #[derive(Debug)]
 pub struct Compiler {
-    stack: ScopeStack,
-    packages: Packages,
+    pub stack: ScopeStack,
 }
 
 #[derive(Debug, Clone)]
@@ -28,6 +25,8 @@ pub struct EvalResult {
 pub enum TypeExpectation {
     Exact(Type),
     AnyList,
+    Indexable,
+    Slicable,
     AnyScope,
 }
 

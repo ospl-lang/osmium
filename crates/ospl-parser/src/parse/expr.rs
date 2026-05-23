@@ -2,10 +2,10 @@ use ospl_common::ast::{Expr, Expression, LV, LValue, Literal, ops::{BinaryOp, Bi
 
 use crate::{lexer::token::{EXP_IDENT, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
 
-pub const EXP_STRING_LITERAL: TokenExpectation = TokenExpectation {
-    matches: |t| matches!(t, Token::StringLit(_)),
-    label: "String literal"
-};
+// pub const EXP_STRING_LITERAL: TokenExpectation = TokenExpectation {
+//     matches: |t| matches!(t, Token::StringLit(_)),
+//     label: "String literal"
+// };
 
 pub const EXP_LITERAL_STARTER: TokenExpectation = TokenExpectation {
     matches: |t| -> bool {
@@ -14,6 +14,7 @@ pub const EXP_LITERAL_STARTER: TokenExpectation = TokenExpectation {
             Token::Integer(_) |
             Token::AddressLiteral(_) |
             Token::Float(_) |
+            Token::Char(_) |
             Token::Fn |
             Token::True |
             Token::False |
@@ -44,6 +45,7 @@ impl<'a> Parser<'a> {
             Token::Integer(_) |
             Token::Float(_) |
             Token::AddressLiteral(_) |
+            Token::Char(_) |
             Token::True |
             Token::False |
             Token::Undefined |
@@ -65,6 +67,11 @@ impl<'a> Parser<'a> {
                     Token::Float(f) => Expression {
                         at: t.0,
                         inner: Box::new(Expr::Literal(Literal::Float(f))),
+                    },
+
+                    Token::Char(c) => Expression {
+                        at: t.0,
+                        inner: Box::new(Expr::Literal(Literal::Char(c))),
                     },
 
                     Token::True => Expression {
@@ -160,10 +167,10 @@ impl<'a> Parser<'a> {
     }
 
     pub const EXP_EXPR_STARTER: TokenExpectation = tComb!(
-        "start of LValue | start of atom | foreign | use",
+        "start of LValue | start of atom | foreign",
         EXP_IDENT,
         EXP_LITERAL_STARTER,
-        tExp!(LParen, Foreign, Use),
+        tExp!(LParen, Foreign),
     );
 
     /// A primary is either:
@@ -179,19 +186,6 @@ impl<'a> Parser<'a> {
                     inner: Box::new(Expr::LValue(lv)),
                 }
             },
-
-            Token::Use => {
-                // this is an import
-                self.next()?;
-                let string = self.expect(EXP_STRING_LITERAL)?;
-                let (_, Token::StringLit(name)) = string.destructure()
-                    else { unreachable!() };
-
-                return Ok(Expression {
-                    at: *span.position(),
-                    inner: Box::new(Expr::Use(name))
-                })
-            }
 
             // must be atom starter now
             _ => self.parse_atom()?

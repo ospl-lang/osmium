@@ -1,10 +1,10 @@
 use std::{fs, path::PathBuf};
 use ospl_common::inst::optimized::Inst;
-use ospl_compiler::Compiler;
 use ospl_vm::VM;
-use tracing_subscriber::fmt::MakeWriter;
-use std::io::{Write, Read};
+use std::io::Read;
 use clap::{Parser, Subcommand, ValueEnum};
+
+use crate::graph::resolv::RecursionInfo;
 
 #[derive(Parser)]
 struct Cli {
@@ -15,12 +15,15 @@ struct Cli {
 #[derive(Subcommand)]
 enum Cmd {
     /// Build the project in the current directory
+    #[command(alias = "b")]
     Build,
 
     /// Rebuild and run the project in the current directory
+    #[command(alias = "sr")]
     ScratchRun,
 
     /// Run a bytecode file
+    #[command(alias = "e")]
     Exec {
         at: PathBuf,
     },
@@ -30,6 +33,11 @@ enum Cmd {
 
         #[arg(short = 'k', default_value_t = ProjTyp::Library)]
         kind: ProjTyp
+    },
+
+    #[command(alias = "dis")]
+    Disassemble {
+        file: PathBuf
     },
 }
 
@@ -51,32 +59,24 @@ impl ToString for ProjTyp {
 }
 
 pub mod log;
-pub mod package;
+pub mod graph;
 pub mod util;
-pub mod c_extension;
+pub mod init;
 
 const BUILD_FILE: &str = "build/dist.ospb";
-const C_EXT_FOLDER: &str = "build/c/";
 const BUILD_FOLDER: &str = "build/";
 
-fn ensure_build_folder() {
+pub fn ensure_build_folder() {
     let pb = PathBuf::from(BUILD_FOLDER);
-    std::fs::remove_dir_all(&pb)
-        .expect("Failed to remove the build/ folder. Delete the folder and try again.");
+    let _ = std::fs::remove_dir_all(&pb);
 
     std::fs::DirBuilder::new()
         .create(&pb)
         .expect("failed to create the build/ folder. Delete the folder and try again.");
-
-    std::fs::DirBuilder::new()
-        .create(PathBuf::from(C_EXT_FOLDER))
-        .expect("failed to create the build/c/ folder. Delete the build/ folder and try again.");
 }
 
 fn main() {
     tracing_subscriber::fmt::init();
-
-    ensure_build_folder();
 
     let cli = Cli::parse();
     match cli.command {
@@ -93,8 +93,9 @@ fn main() {
             cmd_exec(pb);
         },
         Cmd::New { name, kind } => {
-            cmd_new(name, kind.to_string());
-        }
+            init::cmd_new(name, kind.to_string());
+        },
+        Cmd::Disassemble { file } => cmd_disassemble(file)
     };
 }
 
@@ -112,52 +113,59 @@ fn cmd_exec(at: PathBuf) {
         .expect("failed to deserialize (is this program for an older OSPL version?)");
 
     let mut vm = VM::new();
+    ospl_vm::debug::setup_debug_panic_handler();
     vm.run_all(&insts);
 }
 
-fn cmd_new(name: String, kind: String) {
-    let mut path = std::env::current_dir().expect("failed to get cwd");
-    path.push(&name);
-    fs::DirBuilder::new()
-        .recursive(true)
-        .create(&path)
-        .expect("failed to create new package folder");
+fn cmd_build(_o: PathBuf) {
+    let root_pkg = load_package_yml_at("package.yml")
+        .expect("you're not even in an OSPL project, there's no package.yml");
 
-    path.push("package.yml");
-    let mut f = fs::OpenOptions::new()
-        .create_new(true)
-        .write(true)
-        .open(&path)
-        .expect("failed to open package.yml");
+    let entry_name = root_pkg.entry.clone();
+    ensure_build_folder();
 
-    writeln!(&mut f, include_str!("default_config_fstring"), name, kind)
-        .expect("failed to write default package.yml");
-}
+    // high-level
+    let mut gg = graph::resolv::HighGraph::default();
+    let pi = RecursionInfo::default();
 
-fn cmd_build(output: PathBuf) {
-    let s = fs::read_to_string("package.yml").expect("package.yml not found in package folder");
-    let cfg: package::PackageSetup = yaml_serde::from_str(&s).expect("failed to read package.yml");
+    graph::resolv::resolve_pkg(root_pkg, &mut gg, pi.clone());
 
-    let pkgs = cfg.gensrc();
-    let mut comp = Compiler::new(pkgs);
-    let mut root = Vec::new();
+    gg.main = graph::resolv2::get_package_module_with_name(&pi.pkg, &entry_name, &gg.module_index);
+    LogState!(&"");
+    Log!(Setting, "entry point to {}", gg.main);
 
-    let b = &raw const *comp.get_module("binary")
-        .expect("binary package not declared");
+    // low-level
+    let low = graph::resolv2::lower(gg);
 
-    if let Err(e) = comp.compile_block(unsafe {&(*b).code}, &mut root) {
-        panic!("failed to compile\n\n{e:#?}");
-    }
+    // compile
+    let out = graph::build::compile(&low);
 
-    Log!(Finished, "build/dist.ospb is ready");
-
-    let f = fs::OpenOptions::new()
+    // write out
+    let mut f = std::fs::OpenOptions::new()
         .create(true)
         .write(true)
         .truncate(true)
-        .open(output)
+        .open(_o)
         .expect("failed to open output file");
 
-    postcard::to_io(&root, &mut f.make_writer())
-        .expect("failed to save compiled program");
+    postcard::to_io(&out, &mut f)
+        .expect("failed to write dist.ospb");
+}
+
+/* ---------------------------------- */
+
+pub fn load_package_yml_at<P: AsRef<std::path::Path>>(path: P) -> Result<graph::decl::PackageSetup, String> {
+    let src = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    yaml_serde::from_str(&src).map_err(|e| e.to_string())
+}
+
+fn cmd_disassemble<P: AsRef<std::path::Path>>(path: P) {
+    let f = std::fs::read(path)
+        .expect("failed to read file for disasm");
+
+    let p = postcard::from_bytes::<Vec<Inst>>(&f).expect("failed to disassemble file");
+
+    for thing in p {
+        println!("{thing}");
+    }
 }

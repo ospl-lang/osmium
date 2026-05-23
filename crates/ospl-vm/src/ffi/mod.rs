@@ -49,6 +49,40 @@ impl FfiRegistry {
         self.libraries.get(handle as usize)?.as_ref()
     }
 
+    // pub fn register_function(
+    //     &mut self,
+    //     lib: LibHandle,
+    //     symbol_name: &str,
+    //     arg_types: Vec<String>,
+    //     return_type: String,
+    // ) -> Result<FuncHandle, String> {
+    //     let library = self
+    //         .get_library(lib)
+    //         .ok_or_else(|| format!("Invalid library handle {}", lib))?;
+
+    //     let symbol_ptr = unsafe {
+    //         *library
+    //             .get::<*const c_void>(symbol_name.as_bytes())
+    //             .map_err(|e| format!("Failed to load symbol '{}': {}", symbol_name, e))?
+    //     };
+
+    //     let cif = build_cif(&arg_types, &return_type)
+    //         .map_err(|e| format!("Failed to build CIF: {}", e))?;
+
+    //     let func = ForeignFunction {
+    //         symbol: symbol_name.to_string(),
+    //         symbol_ptr: CodePtr::from_ptr(symbol_ptr),
+    //         arg_types,
+    //         return_type,
+    //         cif,
+    //     };
+
+    //     let handle = self.functions.len() as FuncHandle;
+    //     self.functions.push(Some(func));
+
+    //     Ok(handle)
+    // }
+
     pub fn register_function(
         &mut self,
         lib: LibHandle,
@@ -62,7 +96,7 @@ impl FfiRegistry {
 
         let symbol_ptr = unsafe {
             *library
-                .get::<*const c_void>(symbol_name.as_bytes())
+                .get(symbol_name.as_bytes())
                 .map_err(|e| format!("Failed to load symbol '{}': {}", symbol_name, e))?
         };
 

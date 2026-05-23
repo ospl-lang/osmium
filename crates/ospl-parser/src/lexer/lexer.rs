@@ -140,8 +140,8 @@ impl<'a> Lexer<'a> {
                     },
                     _ => Token::LogicNot
                 }
-            }
-
+            },
+                                                                        
             '=' => self.do_dup(c, Token::Equals, Token::IsEqual),
 
             c if c.is_ascii_digit() => self.do_number(c),
@@ -184,26 +184,25 @@ impl<'a> Lexer<'a> {
                     "undefined" => Token::Undefined,
                     "true" => Token::True,
                     "false" => Token::False,
+                    "char" => Token::CharT,
 
                     _ => Token::Ident(s),
                 }
             }
 
             '\"' => {
-                let mut s = String::new();
-
-                loop {
-                    let x = self.peek()?;
-                    if x == '\"' {
-                        self.bump()?;  // consume closing '
-                        break
+                let s = self.do_str()?;
+                if self.peek()? == 'C' {
+                    if s.len() != 1 {
+                        println!("char literal cannot have less or more than one character");
+                        return None;
                     }
 
-                    self.bump()?;  // consume character
-                    s.push(x);
+                    self.bump()?;
+                    Token::Char(s.chars().nth(0).unwrap())
+                } else {
+                    Token::StringLit(s)
                 }
-
-                Token::StringLit(s)
             },
 
             _ => panic!("Unexpected character: {c}"),
@@ -212,6 +211,23 @@ impl<'a> Lexer<'a> {
         self.say_next_token();
 
         Some(Span::new(pos, tok))
+    }
+
+    fn do_str(&mut self) -> Option<String> {
+        let mut s = String::new();
+
+        loop {
+            let x = self.peek()?;
+            if x == '\"' {
+                self.bump()?;  // consume closing '
+                break
+            }
+
+            self.bump()?;  // consume character
+            s.push(x);
+        }
+
+        return Some(s)
     }
 
     fn do_number(&mut self, starting: char) -> Token {

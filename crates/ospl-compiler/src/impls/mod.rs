@@ -1,6 +1,6 @@
 use ospl_common::ast::Scope;
 
-use crate::{Compiler, RelativeVarID, ScopeStack, package::Packages};
+use crate::{Compiler, RelativeVarID, ScopeStack};
 
 impl Compiler {
     /// Increments to the next index, returning the previous one,
@@ -10,12 +10,11 @@ impl Compiler {
         return t.next_post()
     }
 
-    pub fn new(pkgs: Packages) -> Self {
+    pub fn new() -> Self {
         return Self {
             stack: ScopeStack { scopes: vec![
                 Scope::default()
             ] },
-            packages: pkgs
         }
     }
 }
@@ -29,6 +28,7 @@ impl ScopeStack {
         return self.scopes.last_mut().unwrap()
     }
 
+    #[allow(unused)]
     pub fn push(&mut self) {
         self.scopes.push(Scope::default());
     }

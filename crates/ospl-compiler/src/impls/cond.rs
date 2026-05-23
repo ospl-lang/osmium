@@ -40,6 +40,7 @@ impl Compiler {
         ob: &mut Vec<Inst>
     ) -> Res<()>
     {
+        self.stack.push_parental();
         let mut loop_ob = Vec::new();
         for s in inner {
             self.compile_stmt(s, &mut loop_ob)?;
@@ -51,6 +52,7 @@ impl Compiler {
             .build();
 
         ob.push(i);
+        self.stack.pop();
         return Ok(())
     }
 }
