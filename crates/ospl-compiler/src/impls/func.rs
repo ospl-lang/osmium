@@ -1,4 +1,4 @@
-use ospl_common::{ast::{Expression, Scope, decl::Visibility, spanning::Spannable}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{Expression, Scope, spanning::Spannable}, inst::optimized::{Inst, InstBuilder, Opc}};
 
 use crate::{CE, CEData, Compiler, EvalResult, Res, Type, ast::FunctionValue, impls::stmt::Control};
 
@@ -12,24 +12,16 @@ impl Compiler {
     {
         let mut new_scope = Scope::default();
 
-        // add the args
-        let mut arg_indexes = Vec::new();
-        assert_eq!(func.ftype.args.len(), func.args.len());
-        for (arg, ty) in func.args.iter().zip(func.ftype.args.iter()) {
-            let variable = new_scope.next_post();
-
-            // resolve
-            let ty = self.rt(ty, span)?;
-
-            new_scope.declare(arg.name.clone(), variable, ty);
-            arg_indexes.push(variable);
+        // add the generics
+        assert_eq!(func.ftype.generics.len(), func.generics.len());
+        for (name, function_gets_this) in func.generics.iter().zip(func.ftype.generics.iter()) {
+            let t = self.rt(&new_scope, function_gets_this, span)?;
+            new_scope.declare_non_addressable(name.clone(), t);
         }
 
         // add the captures
         let mut capture_indexes = Vec::new();
         for capture in &func.captures {
-            let variable = new_scope.next_post();
-
             let (u, t) = {
                 // allow using the arguments here
                 let scope = 
@@ -37,22 +29,47 @@ impl Compiler {
                         .ok_or_else(|| CE {
                             at: span.spanned(),
                             msg: None,
+                            during: "capture handling",
                             error: CEData::NoScopeToCapture,
                         })?;
+                
+                let x = scope.get_combined_with_nonaddressable(&capture);
+                match x {
+                    // capture nonaddressables / generics
+                    Some((None, ty)) => {
+                        new_scope.declare_non_addressable(capture.clone(), ty.clone());
+                        continue;
+                    },
 
-                scope.get_combined_copy(&capture)
-                    .ok_or_else(|| CE {
+                    Some((Some(x), ty)) => (x, ty.clone()),
+
+                    _ => return Err(CE {
                         at: span.spanned(),
                         msg: Some("perhaps you meant to chain the capture across multiple scopes?"),
+                        during: "capture handling",
                         error: CEData::NotFoundInScope {
                             needed: capture.clone(),
                             scope: scope.clone()
                         }
-                    })?
+                    }),
+                }
             };
-            new_scope.declare(capture.clone(), variable, t);
 
+            let variable = new_scope.next_post();
+            new_scope.declare(capture.clone(), variable, t);
             capture_indexes.push(u);
+        }
+
+        // add the args
+        let mut arg_indexes = Vec::new();
+        assert_eq!(func.ftype.args.len(), func.args.len());
+        for (arg, ty) in func.args.iter().zip(func.ftype.args.iter()) {
+            let variable = new_scope.next_post();
+
+            let t = self.rt(&new_scope, ty, span)?;
+
+            new_scope.declare(arg.name.clone(), variable, t);
+            arg_indexes.push(variable);
         }
 
         // PUSH HERE
@@ -84,23 +101,18 @@ impl Compiler {
                 .build());
         }
 
-        let mut new_scope = self.stack.scopes.pop()
+        let new_scope = self.stack.scopes.pop()
             .expect("TODO unwrap - cannot return from the top of a script");
 
         // here we fix our return type types
-        let mut ftype = func.ftype.clone();
-        ftype.ret = match ftype.ret {
-            Type::Scope(_) => {
-                for s in &func.args {
-                    if s.privacy != Visibility::Public {
-                        new_scope.delete(&s.name);
-                        unimplemented!("TODO impl - implement public/private args")
-                    }
-                }
+        let ftype = self.rt(&new_scope, &Type::Function(Box::new(func.ftype.clone())), span)?;
+        let Type::Function(mut ftype) = ftype
+        else { unreachable!("something is SERIOUSLY WRONG with Compiler::rt()"); };
 
-                Type::Scope(new_scope)
-            },
-            t => t,
+        // resolve the AnyScope
+        ftype.ret = match ftype.ret {
+            Type::AnyScope => Type::Scope(new_scope),
+            other => other
         };
 
         let inst = InstBuilder::new()
@@ -113,7 +125,7 @@ impl Compiler {
 
         return Ok(EvalResult {
             address: self.next_var(),
-            ty: Type::Function(Box::new(ftype))
+            ty: Type::Function(ftype)
         })
     }
 
@@ -134,6 +146,7 @@ impl Compiler {
             return Err(CE {
                 at: Box::new(call_func.clone()),
                 msg: None,
+                during: "function call instance",
                 error: CEData::WrongArgCount {
                     expected: func.args.len(),
                     got: args.len()
@@ -144,10 +157,11 @@ impl Compiler {
         let mut new_args = Vec::new();
         for (arg, func_arg) in args.iter().zip(&func.args) {
             let eval = self.eval(arg, ob)?;
-            if !self.check_type(&eval.ty, func_arg, call_func)? {
+            if !self.check_type(self.stack.top(), &eval.ty, func_arg, call_func)? {
                 return Err(CE {
                     at: Box::new(arg.clone()),
                     msg: Some("perhaps you meant to cast the argument?"),
+                    during: "function call instance",
                     error: CEData::MismatchedTypes {
                         expected: crate::TypeExpectation::Exact(func_arg.clone()),
                         got: eval.ty

@@ -59,7 +59,6 @@ pub enum Opc {
     /// - **Push 1:** the return value
     IIFE,
 
-    AssignCopy,
     AssignRef,
     AssignLiteral,
 

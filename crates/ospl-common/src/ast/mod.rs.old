@@ -176,12 +176,14 @@ impl Type {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Scope {
     /// A mapping of names to stack indexes / RelAddrs
-    map: HashMap<String, Store>,
+    map: HashMap<String, usize>,
+    
+    /// The types of each RelAddrs, starting from 0
+    types: HashMap<usize, Type>,
 
     next_id: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
 struct Store {
     address: Option<usize>,
     typ: Type,
@@ -191,7 +193,8 @@ impl Display for Scope {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Scope {{ ")?;
         for (name, address) in self.get_map() {
-            write!(f, "{name}: {:?} @ {:?};    ", address.typ, address.address)?;
+            let ty = &self.types[address];
+            write!(f, "{name}: {ty:?} @ {address};    ")?;
         }
         write!(f, "}}")?;
         return Ok(());
@@ -200,24 +203,22 @@ impl Display for Scope {
 
 impl Scope {
     pub fn declare(&mut self, key: String, address: usize, ty: Type) {
-        self.map.insert(key, Store {
-            address: Some(address),
-            typ: ty
-        });
+        self.map.insert(key, address);
+        self.types.insert(address, ty);
+        // println!("DECLARE: {:?}", self);
     }
 
-    pub fn declare_non_addressable(&mut self, key: String, ty: Type) {
-        self.map.insert(key, Store {
-            address: None,
-            typ: ty
-        });
+    pub fn declare_non_addressable(&mut self, key: String, address: usize, ty: Type) {
+        self.map.insert(key, address);
+        self.types.insert(address, ty);
+        // println!("DECLARE: {:?}", self);
     }
 
     pub fn delete(&mut self, k: &str) {
-        let Some(_) = self.map.remove(k)
-        else {
-            panic!("TODO unwrap - tried to delete key {k} that doesn't exist from a scope type")
-        };
+        let Some(x) = self.map.remove(k)
+            else { panic!("TODO unwrap - tried to delete key {k} that doesn't exist from a scope type") };
+
+        self.types.remove(&x);
     }
 
     pub fn has(&self, key: &str) -> bool {
@@ -225,28 +226,34 @@ impl Scope {
     }
 
     pub fn desect(&mut self, other: &Self) {
-        for (name, _) in &other.map {
+        for (name, address) in &other.map {
             self.map.remove(name);
+            self.types.remove(address);
         }
     }
 
-    fn get_map(&self) -> &HashMap<String, Store> {
+    pub fn get_map(&self) -> &HashMap<String, usize> {
         return &self.map
+    }
+
+    pub fn get_map_mut(&mut self) -> &mut HashMap<String, usize> {
+        return &mut self.map
     }
 
     pub fn get_combined(&self, k: &str) -> Option<(usize, &Type)> {
         let x = self.map.get(k)?;
-        return Some((x.address?, &x.typ))
+        let t = self.types.get(x)?;
+        return Some((*x, t))
     }
 
     pub fn get_combined_copy(&self, k: &str) -> Option<(usize, Type)> {
         let x = self.map.get(k)?;
-        return Some((x.address?, x.typ.clone()))
+        let t = self.types.get(x)?.clone();
+        return Some((*x, t))
     }
 
-    pub fn get_combined_with_nonaddressable(&self, k: &str) -> Option<(Option<usize>, &Type)> {
-        let x = self.map.get(k)?;
-        return Some((x.address, &x.typ))
+    pub fn get_types(&self) -> &HashMap<usize, Type> {
+        return &self.types
     }
 
     pub fn next_post(&mut self) -> usize {
@@ -263,9 +270,6 @@ pub struct FunctionValue {
     /// Argument names, take the index in the array of the target argument to
     /// and index into the function type's array to get the value
     pub args: Vec<ArgNaming>,
-
-    /// Names of generics
-    pub generics: Vec<String>,
 
     pub captures: Vec<String>,
 

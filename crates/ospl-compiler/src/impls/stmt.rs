@@ -1,4 +1,4 @@
-use ospl_common::inst::optimized::{Inst, InstBuilder, Opc};
+use ospl_common::{ast::Type, inst::optimized::{Inst, InstBuilder, Opc}};
 
 pub enum Control {
     Default,
@@ -26,6 +26,10 @@ impl Compiler {
 
                 self.stack.top_mut().declare(dcl.name.to_string(), eval.address, eval.ty);
             },
+
+            Stmt::DefineTypeAlias(dcl) => {
+                self.stack.top_mut().declare_non_addressable(dcl.name.clone(), dcl.ty.clone());
+            }
 
             Stmt::Expr(e) => {
                 let _ = self.eval(e, ob)?;
@@ -68,16 +72,20 @@ impl Compiler {
                 // honestly forgot.
                 let reval = self.eval(to, ob)?;
                 let leval = self.get_lvalue(lv, ob)?;
-                if !self.check_type(&leval.ty, &reval.ty, s)? {
-                    return Err(CE {
-                        at: Box::new(lv.clone()),
-                        msg: Some("perhaps wrap the right-hand side's type?"),
-                        error: CEData::MismatchedTypes { expected: crate::TypeExpectation::Exact(leval.ty), got: reval.ty }
-                    })
+                // don't check if we're currently of undefined type
+                if leval.ty != Type::Undefined {
+                    if !self.check_type(self.stack.top(), &leval.ty, &reval.ty, s)? {
+                        return Err(CE {
+                            at: Box::new(lv.clone()),
+                            msg: Some("perhaps wrap the right-hand side's type?"),
+                            during: "assignment operation",
+                            error: CEData::MismatchedTypes { expected: crate::TypeExpectation::Exact(leval.ty), got: reval.ty }
+                        })
+                    }
                 }
 
                 let i = InstBuilder::new()
-                    .opcode(Opc::AssignCopy)
+                    .opcode(Opc::AssignRef)
                     .index(leval.address)
                     .index(reval.address)
                     .build();

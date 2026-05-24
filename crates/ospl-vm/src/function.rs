@@ -13,23 +13,21 @@ impl VM {
     /// # Calling convention
     /// the calling convention for functions is as follows
     /// ```text,no_run
-    /// frame SP $00 --> | arg 1: ref to original value
-    ///          $01     | arg 2
-    ///          $02     | arg 3
-    ///          $03     | arg 4
-    ///          $04     | arg 5
+    /// frame SP $00 --> | capture 1: ref to original value
+    ///          $01     | capture 2
+    ///          $02     | capture 3
     ///                  |
-    ///                  | ... more arguments follow ...
-    ///                  | 
-    ///          $05     | lexically scoped variable A
-    ///          $06     | lexically scoped variable B
-    ///          $07     | lexically scoped variable C
-    ///                  | 
     ///                  | ... more captures follow ...
     ///                  | 
-    ///          $08     | local variable A
-    ///          $09     | local variable B
-    ///          $10     | local variable C
+    ///          $03     | argument 1: ref to original value
+    ///          $04     | argument 2
+    ///          $05     | argument 3
+    ///                  | 
+    ///                  | ... more arguments follow ...
+    ///                  | 
+    ///          $06     | local variable A
+    ///          $07     | local variable B
+    ///          $18     | local variable C
     ///                  | 
     ///                  | ... more locals follow ...
     ///                  | 
@@ -48,6 +46,15 @@ impl VM {
 
         let mut frame = RuntimeFrame::default();
 
+        // LEXICALS
+        let f = self.get_value_top(f);
+        let f = match f.as_fn() {
+            Some(o) => o,
+            None => panic!("can't call object of type {f:?} | frame={frame:?} | vm={self:#?}")
+        };
+
+        frame.indexes.extend_from_slice(f.lexical_indexes.as_slice());
+
         // ARGUMENTS
         {
             let top = self.top();
@@ -58,15 +65,6 @@ impl VM {
                 frame.indexes.push(*abs);
             }
         };
-
-        // LEXICALS
-        let f = self.get_value_top(f);
-        let f = match f.as_fn() {
-            Some(o) => o,
-            None => panic!("can't call object of type {f:?} | frame={frame:?} | vm={self:#?}")
-        };
-
-        frame.indexes.extend_from_slice(f.lexical_indexes.as_slice());
 
         // INVARIANT: I guarantee that the number of args passed in matches the
         // function's expectations. If this invariant is broken, then the OSPL

@@ -44,7 +44,6 @@ impl Compiler {
             Expr::FFIFunc(lib, func_name, rtype, types) => self.ffi_func(lib, func_name, *rtype, types, ob),
             Expr::Cast(left, into) => {
                 let left = self.eval(left, ob)?;
-                println!("{left:?} -> {into:?}");
 
                 ob.push(InstBuilder::new()
                     .opcode(Opc::Cast)
@@ -107,7 +106,7 @@ impl Compiler {
                 let mut indexes = Vec::new();
                 for expr in l.iter() {
                     let eval = self.eval(expr, ob)?;
-                    if !self.check_type(&eval.ty, lty, span)? {
+                    if !self.check_type(self.stack.top(), &eval.ty, lty, span)? {
                         /* error */
                         error!("a list literal's types must match the declared type, got {:?} expected {:?}", eval.ty, lty);
                     }
@@ -119,7 +118,7 @@ impl Compiler {
                     .indexes(&indexes)
                     .build());
 
-                return Ok(EvalResult { address: self.next_var(), ty: Type::List(Box::new(lty.clone())) })
+                return Ok(EvalResult { address: self.next_var(), ty: Type::List(Box::new(self.rt(self.stack.top(), lty, span)?)) })
             }
         }
     }
@@ -133,13 +132,14 @@ impl Compiler {
         match &*lv.inner {
             LV::Property(lv2, var) => {
                 let eval = self.get_lvalue(lv2, ob)?;
-                let ty = self.rt(&eval.ty, lv2)?;
+                let ty = self.rt(self.stack.top(), &eval.ty, lv2)?;
                 let x = match ty {
                     Type::Scope(s) => {
                         let v = s.get_combined(var)
                             // not found in that scope
                             .ok_or_else(|| CE {
                                 at: Box::new(lv2.clone()),
+                                during: "LValue retrival - scope access",
                                 msg: Some("perhaps you typed the wrong name?"),
                                 error: CEData::NotFoundInScope {
                                     needed: var.to_string(),
@@ -163,6 +163,7 @@ impl Compiler {
 
                             other => return Err(CE {
                                 at: Box::new(lv2.clone()),
+                                during: "LValue retrival - special var access",
                                 error: CEData::UnrecognizedSpecialVar {
                                     ty: t.clone(),
                                     special: other.to_string()
@@ -174,6 +175,7 @@ impl Compiler {
                     other => return Err(CE {
                         at: Box::new(lv2.clone()),
                         msg: Some("perhaps you're accessing the wrong value?"),
+                        during: "LValue retrival - property access (invalid)",
                         error: CEData::MismatchedTypes {
                             expected: crate::TypeExpectation::AnyScope,
                             got: other.clone()
@@ -196,15 +198,16 @@ impl Compiler {
                 })
             },
 
-            LV::Index(l, r) => self.list(l, r, ob),
-            LV::Slice(l, r1, r2) => self.slice(l, r1, r2, ob),
+            LV::Index(l, r) => self.c_index(l, r, ob),
+            LV::Slice(l, r1, r2) => self.c_slice(l, r1, r2, ob),
 
             // FIXME unwrap
             LV::Variable(var) => {
                 let v = self.stack.top().get_combined(var)
                     .ok_or_else(|| CE {
                         at: Box::new(lv.clone()),
-                        msg: Some("Perhaps you failed preschool?"),
+                        msg: Some("Did you type the wrong variable name"),
+                        during: "LValue retrival - variable access",
                         error: CEData::NotFoundInScope {
                             needed: var.to_string(),
                             scope: self.stack.top().clone()
@@ -216,22 +219,4 @@ impl Compiler {
             },
         }
     }
-
-    // pub fn literal_generic(
-    //     &mut self,
-    //     l: RuntimeValue,
-    //     ob: &mut Vec<Inst>
-    // ) -> EvalResult
-    // {
-    //     let i = InstBuilder::new()
-    //         .opcode(Opc::PushLiteral)
-    //         .value(l)
-    //         .build();
-
-    //     ob.push(i);
-    //     return EvalResult {
-    //         address: self.next_var(),
-    //         ty: Type::from_runtime(l)
-    //     }
-    // }
 }

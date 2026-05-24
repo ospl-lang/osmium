@@ -17,12 +17,32 @@ impl<'a> Parser<'a> {
                 ))?;
 
                 let (_, Token::Ident(id)) = id.destructure()
-                else {
-                    // consume and break the loop
-                    break;
-                };
+                else { break; };
 
                 captures.push(id);
+            }
+        }
+
+        let mut generics = Vec::new();
+        let mut generic_names = Vec::new();
+        if let Token::LAngle = self.peek()?.token() {
+            self.next()?;  // consume `<`
+            loop {
+                let id = self.expect(tComb!(
+                    "identifier | RAngle",
+                    tExp!(RAngle),
+                    EXP_IDENT
+                ))?;
+
+                let (_, Token::Ident(id)) = id.destructure()
+                else { break; };
+
+                self.expect(tExp!(Colon))?;
+
+                let t = self.parse_type()?;
+
+                generics.push(t);
+                generic_names.push(id);
             }
         }
 
@@ -62,10 +82,10 @@ impl<'a> Parser<'a> {
         return Ok(FunctionValue {
             ftype: FunctionType {
                 args: arg_types,
-                generics: Vec::new(),
-                ret
+                generics, ret
             },
             block: b,
+            generics: generic_names,
             args: arg_values,
             captures,
         })
@@ -160,26 +180,35 @@ impl<'a> Parser<'a> {
                 let list_typ = self.parse_type()?;
                 return Ok(Type::List(Box::new(list_typ)))
             },
+            Token::UnknownT => {
+                self.next()?;
+                return Ok(Type::Unknown)
+            }
 
-            Token::Scope => return Ok(Type::Scope(self.parse_scope_type()?)),
+            Token::Scope => return Ok(self.parse_scope_type()?),
             other => unreachable!("{other:?}")
         }
     }
 
-    pub fn parse_scope_type(&mut self) -> Res<Scope> {
+    pub fn parse_scope_type(&mut self) -> Res<Type> {
         self.expect(tExp!(Scope))?;
-        self.expect(tExp!(LSquirly))?;
+
+        if *self.peek()?.token() != Token::LParen {
+            return Ok(Type::AnyScope)
+        }
+
+        self.expect(tExp!(LParen))?;
         let mut scope = Scope::default();
         let mut current = 0;  // imitate addresses being correct
         loop {
             let (_, token) = self.expect(tComb!(
-                "Ident | RSquirly | Semicolon",
+                "Ident | RParen | Semicolon",
                 EXP_IDENT,
-                tExp!(RSquirly, Semicolon),
+                tExp!(RParen, Semicolon),
             ))?.destructure();
             let name = match token {
                 Token::Ident(i) => i,
-                Token::RSquirly => break,
+                Token::RParen => break,
                 Token::Semicolon => continue,
                 _ => unreachable!()
             };
@@ -192,7 +221,7 @@ impl<'a> Parser<'a> {
             current += 1;
         }  // NOTE: we consumed RParen in the loop
 
-        return Ok(scope)
+        return Ok(Type::Scope(scope))
     }
 }
 
@@ -209,7 +238,7 @@ const EXP_NAMED_ARG_MEMBER: TokenExpectation = tComb!(
 );
 
 pub const EXP_TYPE_STARTER: TokenExpectation = tComb!(
-    "Fn | Atsign | IntT | FloatT | StrT | CharT | BoolT | ListT | AddrT | Ident | Scope",
-    tExp!(Fn, Atsign, IntT, FloatT, StrT, CharT, BoolT, ListT, AddrT, Scope),
+    "Fn | Atsign | IntT | FloatT | StrT | CharT | BoolT | ListT | AddrT | UnknownT | Ident | Scope",
+    tExp!(Fn, Atsign, IntT, FloatT, StrT, CharT, BoolT, ListT, AddrT, UnknownT, Scope),
     EXP_IDENT,
 );

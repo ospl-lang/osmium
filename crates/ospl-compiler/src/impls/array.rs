@@ -3,7 +3,7 @@ use ospl_common::{ast::{Expression, Type}, inst::optimized::{Inst, InstBuilder, 
 use crate::{CE, CEData, Compiler, EvalResult, Res, TypeExpectation};
 
 impl Compiler {
-    pub fn list(
+    pub fn c_index(
         &mut self,
         l: &Expression,
         r: &Expression,
@@ -12,9 +12,15 @@ impl Compiler {
     {
         let left = self.eval(l, ob)?;
         let right = self.eval(r, ob)?;
-        if !self.rt(&left.ty, l)?.is_indexable() {
+        if !self.rt(self.stack.top(), &left.ty, l)?.is_indexable() {
             todo!("TODO unwrap - unindexable");
         }
+
+        let return_type = match left.ty {
+            Type::List(lty) => *lty,
+            Type::Str => Type::Char,
+            _ => unreachable!("you didn't handle all the indexable cases!")
+        };
 
         ob.push(InstBuilder::new()
             .opcode(Opc::Index)
@@ -24,11 +30,11 @@ impl Compiler {
 
         return Ok(EvalResult {
             address: self.next_var(),
-            ty: left.ty,
+            ty: return_type,
         })
     }
 
-    pub fn slice(
+    pub fn c_slice(
         &mut self,
         l: &Expression,
         r1: &Expression,
@@ -39,7 +45,7 @@ impl Compiler {
         let left = self.eval(l, ob)?;
         let right_start = self.eval(r1, ob)?;
         let right_end = self.eval(r2, ob)?;
-        if !self.rt(&left.ty, r1)?.is_sliceable() {
+        if !self.rt(self.stack.top(), &left.ty, r1)?.is_sliceable() {
             todo!("TODO unwrap - unsliceable");
         }
 
@@ -82,6 +88,7 @@ impl Compiler {
             /* error */
             return Err(CE {
                 at: Box::new(l.clone()),
+                during: "array operation - beginning - type check",
                 error: CEData::MismatchedTypes {
                     expected: TypeExpectation::Indexable,
                     got: left.ty

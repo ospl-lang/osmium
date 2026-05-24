@@ -1,42 +1,47 @@
-use ospl_common::ast::{Type, spanning::Spannable};
+use ospl_common::ast::{FunctionType, Scope, Type, spanning::Spannable};
 
 use crate::{CE, CEData, Compiler, Res};
 
 impl Compiler {
-    fn check_type_of_var(&self, a1: &String, a2: &Type, _span: &dyn Spannable) -> Res<bool> {
-        let (_, t) = self.stack.top().get_combined(a1).expect("TODO unwrap");
+    fn check_type_of_var(&self, scope: &Scope, a1: &String, a2: &Type, _span: &dyn Spannable) -> Res<bool> {
+        let (_, t) = scope.get_combined_with_nonaddressable(a1).expect("TODO unwrap");
         return Ok(t == a2)
     }
 
-    fn check_rt_of_fn(&self, a1: &Type, a2: &Type, span: &dyn Spannable) -> Res<bool> {
+    fn check_rt_of_fn(&self, scope: &Scope, a1: &Type, a2: &Type, span: &dyn Spannable) -> Res<bool> {
         match a1 {
             Type::Function(f) => {
-                self.check_type(&f.ret, a2, span)
+                self.check_type(scope, &f.ret, a2, span)
             }
 
             Type::TypeOfVar(name) => {
-                let (_, t) = self.stack.top()
-                    .get_combined(name)
+                let (_, t) = scope
+                    .get_combined_with_nonaddressable(name)
                     .expect("TODO proper CE");
 
-                self.check_rt_of_fn(&t, a2, span)
+                self.check_rt_of_fn(scope, &t, a2, span)
             }
 
             _ => todo!("emit proper CE"),
         }
     }
 
-    pub fn check_type(&self, t1: &Type, t2: &Type, span: &dyn Spannable) -> Res<bool> {
-        let t1 = &self.rt(t1, span)?;
-        let t2 = &self.rt(t2, span)?;
+    pub fn check_type(&self, scope: &Scope, t1: &Type, t2: &Type, span: &dyn Spannable) -> Res<bool> {
+        let t1 = &self.rt(scope, t1, span)?;
+        let t2 = &self.rt(scope, t2, span)?;
 
         return Ok(match (t1, t2) {
             // special rule: Unknown matches everything
             (Type::Unknown, _) | (_, Type::Unknown) => true,
 
+            // special rule: Undefined only matches itself
+            // but is legal to compare to all other objects
+            (Type::Undefined, Type::Undefined) => true,
+            (Type::Undefined, _) => false,
+            (_, Type::Undefined) => false,
+
             // normal structural equality
             (Type::Nul, Type::Nul) => true,
-            (Type::Undefined, Type::Undefined) => true,
             (Type::Int, Type::Int) => true,
             (Type::Address, Type::Address) => true,
             (Type::Float, Type::Float) => true,
@@ -54,39 +59,54 @@ impl Compiler {
                 args1 == args2 && ret1 == ret2
             }
 
-            (Type::TypeOfVar(a1), a2) => self.check_type_of_var(a1, a2, span)?,
-            (a2, Type::TypeOfVar(a1)) => self.check_type_of_var(a1, a2, span)?,
+            (Type::TypeOfVar(a1), a2) => self.check_type_of_var(scope, a1, a2, span)?,
+            (a2, Type::TypeOfVar(a1)) => self.check_type_of_var(scope, a1, a2, span)?,
 
-            (Type::ReturnTypeOf(a1), a2) => self.check_rt_of_fn(a1, a2, span)?,
-            (a2, Type::ReturnTypeOf(a1)) => self.check_rt_of_fn(a1, a2, span)?,
+            (Type::ReturnTypeOf(a1), a2) => self.check_rt_of_fn(scope, a1, a2, span)?,
+            (a2, Type::ReturnTypeOf(a1)) => self.check_rt_of_fn(scope, a1, a2, span)?,
 
             _ => false,
         });
     }
 
-    pub fn rt(&self, ty: &Type, span: &dyn Spannable) -> Res<Type> {
+    pub fn rt(&self, scope: &Scope, ty: &Type, span: &dyn Spannable) -> Res<Type> {
         match ty {
             Type::TypeOfVar(name) => {
-                let Some((_, t)) = self.stack.top().get_combined(name)
+                let Some((_, t)) = scope.get_combined_with_nonaddressable(name)
                 else { return Err(CE {
                     at: span.spanned(),
-                    error: CEData::NotFoundInScope { needed: name.clone(), scope: self.stack.top().clone() },
+                    during: "Type resolution - TypeOfVar",
+                    error: CEData::NotFoundInScope { needed: name.clone(), scope: scope.clone() },
                     msg: None,
                 }) };
 
-                self.rt(&t, span)
+                self.rt(scope, &t, span)
             }
 
             Type::ReturnTypeOf(inner) => {
-                let resolved = self.rt(inner, span)?;
+                let resolved = self.rt(scope, inner, span)?;
 
                 match resolved {
                     Type::Function(f) => {
-                        self.rt(&f.ret, span)
+                        self.rt(scope, &f.ret, span)
                     }
 
                     _ => todo!("TODO error"),
                 }
+            }
+
+            Type::Function(f) => {
+                let mut rargs = Vec::new();
+                for arg in &f.args {
+                    rargs.push(self.rt(scope, arg, span)?);
+                }
+
+                let rret = self.rt(scope, &f.ret, span)?;
+                return Ok(Type::Function(Box::new(FunctionType {
+                    ret: rret,
+                    generics: Vec::new(),  // TODO generics
+                    args: rargs,
+                })));
             }
 
             _ => Ok(ty.clone()),

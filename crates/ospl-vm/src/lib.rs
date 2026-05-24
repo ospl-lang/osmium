@@ -144,10 +144,8 @@ impl VM {
         return self.arena.get_mut(self.top().indexes[i])
     }
 
-    fn assign_copy(&mut self, reg: usize, new: usize) {
-        let x = self.get_value_top(new).clone();
-        let b = self.get_mut_value_top(reg);
-        *b = x;
+    fn assign_ref(&mut self, reg: usize, new: usize) {
+        self.top_mut().indexes[reg] = new;
     }
 
     pub fn run_one(&mut self, inst: &Inst) -> Control {
@@ -215,7 +213,7 @@ impl VM {
                 &inst.children.get_unchecked(1),
             ),
 
-            Opc::AssignCopy => self.assign_copy(inst.get_index(0), inst.get_index(1)),
+            Opc::AssignRef => self.assign_ref(inst.get_index(0), inst.get_index(1)),
 
             Opc::AssignLiteral => {
                 // don't even fuck with this one lmao.

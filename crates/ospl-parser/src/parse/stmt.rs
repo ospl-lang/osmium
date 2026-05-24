@@ -1,4 +1,4 @@
-use ospl_common::ast::{LValue, Statement, Stmt, decl::{Declaration, DeclarationMeta}, ops::AssignOp};
+use ospl_common::ast::{LValue, Statement, Stmt, decl::{AliasDeclaration, Declaration, DeclarationMeta}, ops::AssignOp};
 
 use crate::{lexer::token::{EXP_IDENT, EXP_KEYWORD, Span, Token, TokenExpectation}, parse::{Parser, Res, expr::{EXP_BINARY_OPERATION, token_to_binaryop}}, tComb, tExp};
 
@@ -17,24 +17,45 @@ impl<'a> Parser<'a> {
                 let (_, Token::Ident(id)) = _id.destructure()
                     else { unreachable!() };
 
-                self.expect(tExp!(Equals))?;
-                let rvalue = self.parse_expr()?;
-
                 let visibility = if let Token::Let = t.token() {
                     ospl_common::ast::decl::Visibility::Private
                 } else { ospl_common::ast::decl::Visibility::Public };
 
-                return Ok(Statement {
-                    inner: Box::new(Stmt::Define(Declaration {
-                        meta: DeclarationMeta {
-                            constness: ospl_common::ast::decl::Constness::Mut,
-                            visibility
-                        },
-                        name: id,
-                        rhs: rvalue,
-                    })),
-                    at: *t.position()
-                })
+                let span = self.expect(tExp!(Equals, Colon))?;
+                match span.token() {
+                    Token::Equals => {
+                        let rvalue = self.parse_expr()?;
+
+                        return Ok(Statement {
+                            inner: Box::new(Stmt::Define(Declaration {
+                                meta: DeclarationMeta {
+                                    constness: ospl_common::ast::decl::Constness::Mut,
+                                    visibility
+                                },
+                                name: id,
+                                rhs: rvalue,
+                                ty: None,
+                            })),
+                            at: *t.position()
+                        });
+                    },
+                    Token::Colon => {
+                        let rvalue = self.parse_type()?;
+
+                        return Ok(Statement {
+                            inner: Box::new(Stmt::DefineTypeAlias(AliasDeclaration {
+                                meta: DeclarationMeta {
+                                    constness: ospl_common::ast::decl::Constness::Const,
+                                    visibility
+                                },
+                                name: id,
+                                ty: rvalue,
+                            })),
+                            at: *t.position()
+                        })
+                    }
+                    _ => unreachable!()
+                }
             },
             Token::Return => {
                 self.next()?;  // consume `t`

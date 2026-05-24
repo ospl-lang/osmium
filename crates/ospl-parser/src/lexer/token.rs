@@ -25,7 +25,7 @@ pub enum Token {
     False,
 
     /* types */
-    IntT, FloatT, StrT, BoolT, ListT, AddrT,
+    IntT, FloatT, StrT, BoolT, ListT, AddrT, UnknownT,
 
     /* punctuation */
     Atsign, Comma, Dot, Colon, Semicolon, Question,

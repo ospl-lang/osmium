@@ -62,6 +62,7 @@ pub enum CEData {
 pub struct CE {
     pub at: Box<dyn ospl_common::ast::spanning::Spannable>,
     pub error: CEData,
+    pub during: &'static str,
     pub msg: Option<&'static str>,
 }
 

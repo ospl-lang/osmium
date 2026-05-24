@@ -1,4 +1,4 @@
-use crate::ast::Expression;
+use crate::ast::{Expression, Type};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Visibility {
@@ -16,7 +16,17 @@ pub enum Constness {
 pub struct Declaration {
     pub meta: DeclarationMeta,
     pub name: String,
-    pub rhs: Expression
+    pub rhs: Expression,
+
+    /// [`None`] means we need to infer it
+    pub ty: Option<Type>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AliasDeclaration {
+    pub meta: DeclarationMeta,
+    pub name: String,
+    pub ty: Type,
 }
 
 #[derive(Debug, Clone)]

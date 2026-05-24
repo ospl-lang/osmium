@@ -182,6 +182,7 @@ impl<'a> Lexer<'a> {
                     /* values */
                     "nul" => Token::Nul,
                     "undefined" => Token::Undefined,
+                    "unknown" => Token::UnknownT,
                     "true" => Token::True,
                     "false" => Token::False,
                     "char" => Token::CharT,

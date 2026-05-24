@@ -18,11 +18,11 @@ impl Compiler {
 
             // normal typecheck
             _ => {
-                if !self.check_type(&left.ty, &right.ty, &b.left)? {
-                    println!("{:?} == {:?}", left.ty, right.ty);
+                if !self.check_type(self.stack.top(), &left.ty, &right.ty, &b.left)? {
                     return Err(CE {
                         at: Box::new(b.left.clone()),
                         msg: Some("Perhaps you meant to cast one type?"),
+                        during: "binary operation - type check",
                         error: CEData::MismatchedTypes {
                             expected: crate::TypeExpectation::Exact(left.ty),
                             got: right.ty
@@ -83,6 +83,7 @@ impl Compiler {
             other => return Err(CE {
                 at: Box::new(b.left.clone()),
                 error: CEData::InvalidAssignOp { op: other.clone() },
+                during: "assign operation (illegal)",
                 msg: Some("perhaps you want to use def 'X = X op Y'")
             })
         };
