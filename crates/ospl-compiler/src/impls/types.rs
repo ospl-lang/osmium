@@ -1,36 +1,10 @@
-use ospl_common::ast::{FunctionType, Scope, Type, spanning::Spannable};
+use ospl_common::ast::{Scope, spanning::Spannable, types::{FunctionType, Type, UType}};
 
 use crate::{CE, CEData, Compiler, Res};
 
 impl Compiler {
-    fn check_type_of_var(&self, scope: &Scope, a1: &String, a2: &Type, _span: &dyn Spannable) -> Res<bool> {
-        let (_, t) = scope.get_combined_with_nonaddressable(a1).expect("TODO unwrap");
-        return Ok(t == a2)
-    }
-
-    fn check_rt_of_fn(&self, scope: &Scope, a1: &Type, a2: &Type, span: &dyn Spannable) -> Res<bool> {
-        match a1 {
-            Type::Function(f) => {
-                self.check_type(scope, &f.ret, a2, span)
-            }
-
-            Type::TypeOfVar(name) => {
-                let (_, t) = scope
-                    .get_combined_with_nonaddressable(name)
-                    .expect("TODO proper CE");
-
-                self.check_rt_of_fn(scope, &t, a2, span)
-            }
-
-            _ => todo!("emit proper CE"),
-        }
-    }
-
-    pub fn check_type(&self, scope: &Scope, t1: &Type, t2: &Type, span: &dyn Spannable) -> Res<bool> {
-        let t1 = &self.rt(scope, t1, span)?;
-        let t2 = &self.rt(scope, t2, span)?;
-
-        return Ok(match (t1, t2) {
+    pub fn check_type(&self, t1: &Type, t2: &Type) -> bool {
+        return match (t1, t2) {
             // special rule: Unknown matches everything
             (Type::Unknown, _) | (_, Type::Unknown) => true,
 
@@ -51,7 +25,7 @@ impl Compiler {
 
             (Type::List(a), Type::List(b)) => a == b,
             (Type::Scope(a), Type::Scope(b)) => a == b,
-            (Type::Function(a), Type::Function(b)) => a == b,
+            (Type::CallableFunction(a), Type::CallableFunction(b)) => a == b,
 
             (Type::ForeignLibrary, Type::ForeignLibrary) => true,
 
@@ -59,57 +33,88 @@ impl Compiler {
                 args1 == args2 && ret1 == ret2
             }
 
-            (Type::TypeOfVar(a1), a2) => self.check_type_of_var(scope, a1, a2, span)?,
-            (a2, Type::TypeOfVar(a1)) => self.check_type_of_var(scope, a1, a2, span)?,
-
-            (Type::ReturnTypeOf(a1), a2) => self.check_rt_of_fn(scope, a1, a2, span)?,
-            (a2, Type::ReturnTypeOf(a1)) => self.check_rt_of_fn(scope, a1, a2, span)?,
-
             _ => false,
-        });
+        }
     }
+}
 
-    pub fn rt(&self, scope: &Scope, ty: &Type, span: &dyn Spannable) -> Res<Type> {
+pub trait TypeResolver<U, T> {
+    fn resolve(&self, ty: &U, span: &dyn Spannable) -> Res<Option<T>>;
+}
+
+pub struct AtomicResolver;
+
+impl TypeResolver<UType, Type> for AtomicResolver {
+    fn resolve(&self, ty: &UType, _: &dyn Spannable) -> Res<Option<Type>> {
         match ty {
-            Type::TypeOfVar(name) => {
-                let Some((_, t)) = scope.get_combined_with_nonaddressable(name)
+            UType::PreResolved(p) => return Ok(Some(p.clone())),
+            _ => Ok(None),
+        }        
+    }
+}
+
+pub struct DefaultResolver<'a, T>(pub &'a Scope<T>);
+
+impl<'a> TypeResolver<UType, Type> for DefaultResolver<'a, Type> {
+    fn resolve(&self, ty: &UType, span: &dyn Spannable) -> Res<Option<Type>> {
+        match ty {
+            UType::Typeof(name) => {
+                let Some(s) = self.0.get_store(name)
                 else { return Err(CE {
                     at: span.spanned(),
                     during: "Type resolution - TypeOfVar",
-                    error: CEData::NotFoundInScope { needed: name.clone(), scope: scope.clone() },
+
+                    // TODO harcoding
+                    error: CEData::NotFoundInScope { needed: name.clone(), scope: Scope::default() },
                     msg: None,
                 }) };
 
-                self.rt(scope, &t, span)
+                // let t = match self.resolve(ty, span) {
+                //     Some(Ok(x)) => x,
+                //     e @ Some(Err(_)) => return e,
+                //     None => return None
+                // };
+
+                return Ok(Some(s.typ.clone()))
             }
 
-            Type::ReturnTypeOf(inner) => {
-                let resolved = self.rt(scope, inner, span)?;
+            UType::ReturnTypeof(inner) => {
+                let Some(resolved) = self.resolve(inner, span)?
+                else { return Err(CE {
+                    at: span.spanned(),
+                    during: "Type resolution - DefaultResolver - ReturnTypeof",
+                    msg: None,
+                    error: CEData::UnresolvableUType { t: Box::new(*inner.clone()) },
+                })};
 
                 match resolved {
-                    Type::Function(f) => {
-                        self.rt(scope, &f.ret, span)
-                    }
-
+                    Type::CallableFunction(f) => self.resolve(&f.ret.into(), span),
                     _ => todo!("TODO error"),
                 }
             }
 
-            Type::Function(f) => {
+            UType::Function(f) => {
                 let mut rargs = Vec::new();
                 for arg in &f.args {
-                    rargs.push(self.rt(scope, arg, span)?);
+                    rargs.push(self.resolve(arg, span)?.expect("todo unwrap"));
                 }
 
-                let rret = self.rt(scope, &f.ret, span)?;
-                return Ok(Type::Function(Box::new(FunctionType {
+                let rret = self.resolve(&f.ret, span)?.expect("todo unwrap");
+                return Ok(Some(Type::CallableFunction(Box::new(FunctionType {
                     ret: rret,
                     generics: Vec::new(),  // TODO generics
                     args: rargs,
-                })));
-            }
+                }))));
+            },
 
-            _ => Ok(ty.clone()),
+            _ => return AtomicResolver.resolve(ty, span),
+
+            // other => return Err(CE {
+            //     at: span.spanned(),
+            //     during: "Type resolution",
+            //     error: CEData::UnresolvableType { t: other.clone() },
+            //     msg: Some("Report this one, it's probably a compiler bug. (note to devs: you need to implement this type's resolution in the function it's used)")
+            // })
         }
     }
 }

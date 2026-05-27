@@ -1,7 +1,7 @@
-use ospl_common::{ast::spanning::Spannable, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{spanning::Spannable, types::{FunctionType, UType}}, inst::optimized::{Inst, InstBuilder, Opc}};
 use tracing::error;
 
-use crate::{CE, CEData, Compiler, EvalResult, Res, Type, ast::{Expr, LV, LValue, Literal}};
+use crate::{CE, CEData, Compiler, EvalResult, Res, Type, ast::{Expr, LV, LValue, Literal}, impls::{func::ATypeResolver, types::{self, DefaultResolver, TypeResolver}}};
 
 impl Compiler {
     pub fn eval(
@@ -12,7 +12,45 @@ impl Compiler {
     {
         match &*expr.inner {
             Expr::Literal(l) => self.literal(l, expr, ob),
-            Expr::Call(func, args) => self.do_call(func, args, ob),
+            Expr::Call { args, func, generics } => {
+                let func = self.eval(func, ob)?;
+                let Type::ResolvingFunction(ftype) = func.ty
+                else { return Err(CE {
+                    at: expr.spanned(),
+                    during: "function call - type resolution",
+                    error: CEData::UncallableType { ty: func.ty.clone() },
+                    msg: Some("you probably typed in the wrong name!")
+                }); };
+
+                let mut function_arg_evals = Vec::new();
+                let mut new_function_proto = Vec::new();
+                for (expr, t) in args.iter().zip(ftype.args) {
+                    let eval = self.eval(expr, ob)?;
+
+                    let x = ATypeResolver::<UType, _>(generics.as_slice(), &DefaultResolver(self.stack.top()))
+                        .resolve(&t, expr)?
+                        .expect("ATypeResolver, or a subresolver of it, is not exhaustive (this is a bug)");
+
+                    tracing::debug!("Got from ATypeResolver in specialize_fn: {x:?}");
+                    new_function_proto.push(x);
+                    function_arg_evals.push(eval);
+                }
+
+                let ret = ATypeResolver::<UType, _>(generics.as_slice(), &DefaultResolver(self.stack.top()))
+                    .resolve(&ftype.ret, expr)?
+                    .expect("ATypeResolver, or a subresolver of it, is not exhaustive (this is a bug)");
+
+                let eval = EvalResult {
+                    address: func.address,
+                    ty: Type::CallableFunction(Box::new(FunctionType {
+                        args: new_function_proto,
+                        generics: Vec::new(),
+                        ret: ret
+                    }))
+                };
+
+                return self.do_call_resolved_fn(expr, &eval, &function_arg_evals, ob);
+            }
             Expr::BinaryOp(b) => self.binary_op(b, ob),
             Expr::UnaryOp(u) => self.unary_op(u, ob),
             Expr::LValue(lv) => {
@@ -44,6 +82,8 @@ impl Compiler {
             Expr::FFIFunc(lib, func_name, rtype, types) => self.ffi_func(lib, func_name, *rtype, types, ob),
             Expr::Cast(left, into) => {
                 let left = self.eval(left, ob)?;
+                let Some(into) = types::DefaultResolver(self.stack.top()).resolve(into, expr)?
+                else { todo!("unwrap") };
 
                 ob.push(InstBuilder::new()
                     .opcode(Opc::Cast)
@@ -55,7 +95,7 @@ impl Compiler {
                     address: self.next_var(),
                     ty: into.clone()
                 })
-            }
+            },
         }
     }
 
@@ -104,9 +144,12 @@ impl Compiler {
             },
             Literal::List(lty, l) => {
                 let mut indexes = Vec::new();
+                let Some(lty) = types::DefaultResolver(self.stack.top()).resolve(lty, span)?
+                else { todo!("unwrap") };
+
                 for expr in l.iter() {
                     let eval = self.eval(expr, ob)?;
-                    if !self.check_type(self.stack.top(), &eval.ty, lty, span)? {
+                    if !self.check_type(&eval.ty, &lty) {
                         /* error */
                         error!("a list literal's types must match the declared type, got {:?} expected {:?}", eval.ty, lty);
                     }
@@ -118,7 +161,7 @@ impl Compiler {
                     .indexes(&indexes)
                     .build());
 
-                return Ok(EvalResult { address: self.next_var(), ty: Type::List(Box::new(self.rt(self.stack.top(), lty, span)?)) })
+                return Ok(EvalResult { address: self.next_var(), ty: Type::List(Box::new(lty)) })
             }
         }
     }
@@ -132,8 +175,7 @@ impl Compiler {
         match &*lv.inner {
             LV::Property(lv2, var) => {
                 let eval = self.get_lvalue(lv2, ob)?;
-                let ty = self.rt(self.stack.top(), &eval.ty, lv2)?;
-                let x = match ty {
+                let x = match eval.ty {
                     Type::Scope(s) => {
                         let v = s.get_combined(var)
                             // not found in that scope

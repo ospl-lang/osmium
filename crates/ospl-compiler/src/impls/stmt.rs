@@ -1,4 +1,4 @@
-use ospl_common::{ast::Type, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{StoreAddress, Type}, inst::optimized::{Inst, InstBuilder, Opc}};
 
 pub enum Control {
     Default,
@@ -8,7 +8,7 @@ pub enum Control {
     ReturnScope,
 }
 
-use crate::{CE, CEData, Compiler, Res, ast::{Statement, Stmt}};
+use crate::{CE, CEData, Compiler, Res, ast::{Statement, Stmt}, impls::types::{DefaultResolver, TypeResolver}};
 
 impl Compiler {
     pub fn compile_stmt(
@@ -28,7 +28,11 @@ impl Compiler {
             },
 
             Stmt::DefineTypeAlias(dcl) => {
-                self.stack.top_mut().declare_non_addressable(dcl.name.clone(), dcl.ty.clone());
+                let Some(t) = DefaultResolver(self.stack.top()).resolve(&dcl.ty, s)?
+                else { todo!("todo unwrap"); };
+
+                let var = self.stack.top_mut().next_post();
+                self.stack.top_mut().direct_dcl(dcl.name.clone(), StoreAddress::With(var), t);
             }
 
             Stmt::Expr(e) => {
@@ -74,7 +78,7 @@ impl Compiler {
                 let leval = self.get_lvalue(lv, ob)?;
                 // don't check if we're currently of undefined type
                 if leval.ty != Type::Undefined {
-                    if !self.check_type(self.stack.top(), &leval.ty, &reval.ty, s)? {
+                    if !self.check_type(&leval.ty, &reval.ty) {
                         return Err(CE {
                             at: Box::new(lv.clone()),
                             msg: Some("perhaps wrap the right-hand side's type?"),

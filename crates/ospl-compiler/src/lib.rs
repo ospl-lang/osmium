@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use ospl_common::ast::{Scope, Type, ops::BinaryOpType};
 
 pub type RelativeVarID = usize;
@@ -7,7 +9,7 @@ pub mod package;
 /// All nested scopes during compilation.
 #[derive(Debug, Default)]
 pub struct ScopeStack {
-    scopes: Vec<Scope>,
+    scopes: Vec<Scope<Type>>,
 }
 
 #[derive(Debug)]
@@ -36,13 +38,17 @@ pub enum CEData {
         expected: TypeExpectation,
         got: Type
     },
+    UnresolvableUType {
+        // ew but have to do it...
+        t: Box<dyn std::any::Any>
+    },
     WrongArgCount {
         expected: usize,
         got: usize,
     },
     NotFoundInScope {
         needed: String,
-        scope: Scope,
+        scope: Scope<Type>,
     },
     NoScopeToCapture,
     InvalidOpForType {
@@ -55,6 +61,9 @@ pub enum CEData {
     UnrecognizedSpecialVar {
         ty: Type,
         special: String,
+    },
+    UncallableType {
+        ty: Type,
     }
 }
 

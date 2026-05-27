@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
-
-use crate::ast::{decl::{AliasDeclaration, Declaration, Visibility}, ops::AssignOp};
+use crate::ast::{decl::{AliasDeclaration, Declaration, Visibility}, ops::AssignOp, types::{FunctionType, UType}};
+pub use types::Type;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Position {
@@ -76,10 +76,14 @@ impl Expression {
 #[derive(Debug, Clone)]
 pub enum Expr {
     Literal(Literal),
-    Call(Expression, Vec<Expression>),
+    Call {
+        func: Expression,
+        args: Vec<Expression>,
+        generics: Vec<UType>,
+    },
     BinaryOp(ops::BinaryOp),
     UnaryOp(ops::UnaryOp),
-    Cast(Expression, Type),
+    Cast(Expression, UType),
 
     FFILoad(Expression),
     FFIFunc(LValue, Expression, usize, Vec<usize>),
@@ -125,90 +129,51 @@ pub enum Literal {
     Bool(bool),
     Str(String),
     Char(char),
-    List(Type, Vec<Expression>),
+    List(UType, Vec<Expression>),
     Function(FunctionValue)
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FunctionType {
-    /// Relative var ID
-    // pub captures: Vec<usize>,
-
-    pub generics: Vec<Type>,
-    pub args: Vec<Type>,
-    pub ret: Type,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Type {
-    Nul, Undefined,
-
-    /// A type-erased type.
-    /// 
-    /// It has an unknown runtime type. It cannot be operated upon but any
-    /// creator of the value is aware as to what type it is and can fully
-    /// utilize it.
-    Unknown,
-
-    Int, Address, Float, Char, Str, Bool, List(Box<Type>),
-    Scope(Scope), AnyScope,
-    Function(Box<FunctionType>),
-
-    ForeignLibrary,
-    ForeignFunction(Vec<Type>, Box<Type>),
-
-    // virtual types
-    TypeOfVar(String),
-    ReturnTypeOf(Box<Type>),
-}
-
-impl Type {
-    pub fn is_indexable(&self) -> bool {
-        return matches!(self, Self::Str | Self::List(_))
-    }
-
-    pub fn is_sliceable(&self) -> bool {
-        return matches!(self, Self::Str | Self::List(_))
-    }
-}
-
 /// A single block of variables.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Scope {
-    /// A mapping of names to stack indexes / RelAddrs
-    map: HashMap<String, Store>,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Scope<T> {
+    map: HashMap<String, Store<T>>,
 
     next_id: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct Store {
-    address: Option<usize>,
-    typ: Type,
-}
-
-impl Display for Scope {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Scope {{ ")?;
-        for (name, address) in self.get_map() {
-            write!(f, "{name}: {:?} @ {:?};    ", address.typ, address.address)?;
+impl<T> Default for Scope<T> {
+    fn default() -> Self {
+        return Self {
+            map: HashMap::new(),
+            next_id: 0
         }
-        write!(f, "}}")?;
-        return Ok(());
     }
 }
 
-impl Scope {
-    pub fn declare(&mut self, key: String, address: usize, ty: Type) {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Store<T> {
+    pub address: StoreAddress,
+    pub typ: T,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StoreAddress {
+    None,
+    Generic(usize),
+    With(usize),
+}
+
+impl<T: Clone> Scope<T> {
+    pub fn declare(&mut self, key: String, address: usize, ty: T) {
         self.map.insert(key, Store {
-            address: Some(address),
+            address: StoreAddress::With(address),
             typ: ty
         });
     }
 
-    pub fn declare_non_addressable(&mut self, key: String, ty: Type) {
+    pub fn direct_dcl(&mut self, key: String, address: StoreAddress, ty: T) {
         self.map.insert(key, Store {
-            address: None,
+            address,
             typ: ty
         });
     }
@@ -220,33 +185,28 @@ impl Scope {
         };
     }
 
+    /* #[allow(private_interfaces)]
+    pub fn keys(&self) -> std::collections::hash_map::Keys<'_, String, Store<T>> {
+        return self.map.keys()
+    } */
+
+    pub fn keys_cloned(&self) -> Vec<String> {
+        return self.map.keys().cloned().collect()
+    }
+
     pub fn has(&self, key: &str) -> bool {
         return self.map.contains_key(key)
     }
 
-    pub fn desect(&mut self, other: &Self) {
-        for (name, _) in &other.map {
-            self.map.remove(name);
-        }
-    }
-
-    fn get_map(&self) -> &HashMap<String, Store> {
-        return &self.map
-    }
-
-    pub fn get_combined(&self, k: &str) -> Option<(usize, &Type)> {
+    pub fn get_combined(&self, k: &str) -> Option<(usize, &T)> {
         let x = self.map.get(k)?;
-        return Some((x.address?, &x.typ))
+        if let StoreAddress::With(w) = &x.address {
+            return Some((*w, &x.typ))
+        } else { return None }
     }
 
-    pub fn get_combined_copy(&self, k: &str) -> Option<(usize, Type)> {
-        let x = self.map.get(k)?;
-        return Some((x.address?, x.typ.clone()))
-    }
-
-    pub fn get_combined_with_nonaddressable(&self, k: &str) -> Option<(Option<usize>, &Type)> {
-        let x = self.map.get(k)?;
-        return Some((x.address, &x.typ))
+    pub fn get_store(&self, k: &str) -> Option<&Store<T>> {
+        return self.map.get(k)
     }
 
     pub fn next_post(&mut self) -> usize {
@@ -258,7 +218,7 @@ impl Scope {
 
 #[derive(Debug, Clone)]
 pub struct FunctionValue {
-    pub ftype: FunctionType,
+    pub ftype: FunctionType<UType>,
 
     /// Argument names, take the index in the array of the target argument to
     /// and index into the function type's array to get the value
@@ -282,4 +242,4 @@ pub mod frame;
 pub mod ops;
 pub mod spanning;
 pub mod decl;
-mod types;
+pub mod types;

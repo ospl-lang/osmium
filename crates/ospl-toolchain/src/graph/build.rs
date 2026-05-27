@@ -101,7 +101,9 @@ pub fn compile(graph: &Graph) -> Vec<Inst> {
         input_code.extend_from_slice(&node.ast);
 
         let mut output_code: Vec<Inst> = Vec::new();
-        local_compiler.compile_all(&input_code, &mut output_code).expect("failed to compile");
+        if let Err(e) = local_compiler.compile_all(&input_code, &mut output_code) {
+            panic!("{e:#?}");
+        }
 
         finished_compilations.insert(node_id, output_code);
         finished.insert(node_id, input_code);

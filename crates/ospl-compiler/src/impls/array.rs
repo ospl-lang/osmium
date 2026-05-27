@@ -12,7 +12,7 @@ impl Compiler {
     {
         let left = self.eval(l, ob)?;
         let right = self.eval(r, ob)?;
-        if !self.rt(self.stack.top(), &left.ty, l)?.is_indexable() {
+        if !left.ty.is_indexable() {
             todo!("TODO unwrap - unindexable");
         }
 
@@ -45,7 +45,7 @@ impl Compiler {
         let left = self.eval(l, ob)?;
         let right_start = self.eval(r1, ob)?;
         let right_end = self.eval(r2, ob)?;
-        if !self.rt(self.stack.top(), &left.ty, r1)?.is_sliceable() {
+        if !left.ty.is_sliceable() {
             todo!("TODO unwrap - unsliceable");
         }
 

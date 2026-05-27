@@ -50,7 +50,7 @@ impl VM {
         let f = self.get_value_top(f);
         let f = match f.as_fn() {
             Some(o) => o,
-            None => panic!("can't call object of type {f:?} | frame={frame:?} | vm={self:#?}")
+            None => panic!("can't call object of type {f:?} | frame={frame:?} | vm={self:?}")
         };
 
         frame.indexes.extend_from_slice(f.lexical_indexes.as_slice());

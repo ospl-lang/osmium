@@ -34,7 +34,6 @@ impl<'a> Parser<'a> {
                                 },
                                 name: id,
                                 rhs: rvalue,
-                                ty: None,
                             })),
                             at: *t.position()
                         });

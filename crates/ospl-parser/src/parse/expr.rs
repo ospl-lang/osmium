@@ -1,6 +1,6 @@
 use ospl_common::ast::{Expr, Expression, LV, LValue, Literal, ops::{BinaryOp, BinaryOpType, UnaryOp, UnaryOpType}};
 
-use crate::{lexer::token::{EXP_IDENT, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
+use crate::{lexer::token::{EXP_IDENT, Token, TokenExpectation}, parse::{Parser, Res, lit::EXP_TYPE_STARTER}, tComb, tExp};
 
 // pub const EXP_STRING_LITERAL: TokenExpectation = TokenExpectation {
 //     matches: |t| matches!(t, Token::StringLit(_)),
@@ -33,13 +33,15 @@ pub const EXP_BINARY_OPERATION: TokenExpectation = tExp!(
 
 pub const EXP_UNARY_OPERATION: TokenExpectation = tExp!(Increment, Decrement);
 
+pub const EXP_ATOM_STARTER: TokenExpectation = tComb!(
+    "EXP_LITERAL_STARTER | LParen | Foreign",
+    tExp!(LParen, Foreign),
+    EXP_LITERAL_STARTER
+);
+
 impl<'a> Parser<'a> {
     pub fn parse_atom(&mut self) -> Res<Expression> {
-        let t = self.expect_peek(tComb!(
-            "EXP_LITERAL_STARTER | LParen | Foreign",
-            tExp!(LParen, Foreign),
-            EXP_LITERAL_STARTER
-        ))?;
+        let t = self.expect_peek(EXP_ATOM_STARTER)?;
 
         match t.token() {
             Token::Integer(_) |
@@ -168,8 +170,8 @@ impl<'a> Parser<'a> {
 
     pub const EXP_EXPR_STARTER: TokenExpectation = tComb!(
         "start of LValue | start of atom | foreign",
-        EXP_IDENT,
-        EXP_LITERAL_STARTER,
+        EXP_IDENT,  // LValue
+        EXP_ATOM_STARTER,
         tExp!(LParen, Foreign),
     );
 
@@ -272,9 +274,31 @@ impl<'a> Parser<'a> {
             if *span.token() == Token::LParen {
                 // this is a fn call
                 let args = self.parse_fn_call_args()?;
+
+                let types = if let Token::LAngle = self.peek()?.token() {
+                    self.next()?;
+
+                    let mut types = Vec::new();
+                    loop {
+                        let s = self.expect_peek(tComb!("RAngle | EXP_TYPE_STARTER", EXP_TYPE_STARTER, tExp!(RAngle)))?;
+                        if *s.token() == Token::RAngle {
+                            self.next()?;
+                            break
+                        }
+
+                        types.push(self.parse_type()?);
+                    }
+
+                    types
+                } else { Vec::new() };
+
                 a1 = Expression {
                     at: a1.at,
-                    inner: Box::new(Expr::Call(a1, args)),
+                    inner: Box::new(Expr::Call {
+                        func: a1,
+                        args,
+                        generics: types
+                    }),
                 };
             }
 

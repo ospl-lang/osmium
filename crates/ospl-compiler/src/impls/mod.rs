@@ -1,4 +1,4 @@
-use ospl_common::ast::Scope;
+use ospl_common::ast::{Scope, Type};
 
 use crate::{Compiler, RelativeVarID, ScopeStack};
 
@@ -20,11 +20,11 @@ impl Compiler {
 }
 
 impl ScopeStack {
-    pub fn top(&self) -> &Scope {
+    pub fn top(&self) -> &Scope<Type> {
         return self.scopes.last().unwrap()
     }
 
-    pub fn top_mut(&mut self) -> &mut Scope {
+    pub fn top_mut(&mut self) -> &mut Scope<Type> {
         return self.scopes.last_mut().unwrap()
     }
 
@@ -51,5 +51,4 @@ mod array;
 mod binaryop;
 mod unaryop;
 mod ffi;
-mod pkg;
-mod types;
+pub mod types;
