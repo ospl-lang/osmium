@@ -131,10 +131,6 @@ pub enum Literal {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionType {
-    /// Relative var ID
-    // pub captures: Vec<usize>,
-
-    pub generics: Vec<Type>,
     pub args: Vec<Type>,
     pub ret: Type,
 }
@@ -161,6 +157,7 @@ pub enum Type {
     TypeOfVar(String),
     ReturnTypeOf(Box<Type>),
 }
+
 
 impl Type {
     pub fn is_indexable(&self) -> bool {
@@ -263,9 +260,6 @@ pub struct FunctionValue {
     /// Argument names, take the index in the array of the target argument to
     /// and index into the function type's array to get the value
     pub args: Vec<ArgNaming>,
-
-    /// Names of generics
-    pub generics: Vec<String>,
 
     pub captures: Vec<String>,
 

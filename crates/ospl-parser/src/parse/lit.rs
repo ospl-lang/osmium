@@ -23,29 +23,6 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let mut generics = Vec::new();
-        let mut generic_names = Vec::new();
-        if let Token::LAngle = self.peek()?.token() {
-            self.next()?;  // consume `<`
-            loop {
-                let id = self.expect(tComb!(
-                    "identifier | RAngle",
-                    tExp!(RAngle),
-                    EXP_IDENT
-                ))?;
-
-                let (_, Token::Ident(id)) = id.destructure()
-                else { break; };
-
-                self.expect(tExp!(Colon))?;
-
-                let t = self.parse_type()?;
-
-                generics.push(t);
-                generic_names.push(id);
-            }
-        }
-
         // get the args using two paralel lists: very fucking stupid
         let mut arg_types = Vec::new();
         let mut arg_values = Vec::new();
@@ -82,10 +59,9 @@ impl<'a> Parser<'a> {
         return Ok(FunctionValue {
             ftype: FunctionType {
                 args: arg_types,
-                generics, ret
+                ret
             },
             block: b,
-            generics: generic_names,
             args: arg_values,
             captures,
         })
@@ -139,7 +115,6 @@ impl<'a> Parser<'a> {
         return Ok(FunctionType {
             args,
             ret,
-            generics: Vec::new()
         });
     }
 

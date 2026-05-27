@@ -12,13 +12,6 @@ impl Compiler {
     {
         let mut new_scope = Scope::default();
 
-        // add the generics
-        assert_eq!(func.ftype.generics.len(), func.generics.len());
-        for (name, function_gets_this) in func.generics.iter().zip(func.ftype.generics.iter()) {
-            let t = self.rt(&new_scope, function_gets_this, span)?;
-            new_scope.declare_non_addressable(name.clone(), t);
-        }
-
         // add the captures
         let mut capture_indexes = Vec::new();
         for capture in &func.captures {
@@ -35,7 +28,7 @@ impl Compiler {
                 
                 let x = scope.get_combined_with_nonaddressable(&capture);
                 match x {
-                    // capture nonaddressables / generics
+                    // capture nonaddressables
                     Some((None, ty)) => {
                         new_scope.declare_non_addressable(capture.clone(), ty.clone());
                         continue;

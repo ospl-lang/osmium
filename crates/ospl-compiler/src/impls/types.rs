@@ -104,7 +104,6 @@ impl Compiler {
                 let rret = self.rt(scope, &f.ret, span)?;
                 return Ok(Type::Function(Box::new(FunctionType {
                     ret: rret,
-                    generics: Vec::new(),  // TODO generics
                     args: rargs,
                 })));
             }

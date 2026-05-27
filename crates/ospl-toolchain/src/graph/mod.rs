@@ -32,10 +32,8 @@ pub fn wrap_in_iife_declaration(name: &str, mut v: Vec<Statement>) -> Statement 
                             captures: Vec::new(),
                             ftype: FunctionType {
                                 args: Vec::new(),
-                                generics: Vec::new(),
                                 ret: Type::AnyScope,  // compiler infer
                             },
-                            generics: Vec::new()
                         }))),
                     },
                     Vec::new(),
