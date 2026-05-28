@@ -1,4 +1,4 @@
-use ospl_common::{ast::{Expression, Scope, spanning::Spannable}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{Expression, FunctionType, Scope, spanning::Spannable}, inst::optimized::{Inst, InstBuilder, Opc}};
 
 use crate::{CE, CEData, Compiler, EvalResult, Res, Type, ast::FunctionValue, impls::stmt::Control};
 
@@ -54,6 +54,7 @@ impl Compiler {
         }
 
         // add the args
+        let mut arg_types = Vec::new();
         let mut arg_indexes = Vec::new();
         assert_eq!(func.ftype.args.len(), func.args.len());
         for (arg, ty) in func.args.iter().zip(func.ftype.args.iter()) {
@@ -61,7 +62,8 @@ impl Compiler {
 
             let t = self.rt(&new_scope, ty, span)?;
 
-            new_scope.declare(arg.name.clone(), variable, t);
+            new_scope.declare(arg.name.clone(), variable, t.clone());
+            arg_types.push(t);
             arg_indexes.push(variable);
         }
 
@@ -97,15 +99,31 @@ impl Compiler {
         let new_scope = self.stack.scopes.pop()
             .expect("TODO unwrap - cannot return from the top of a script");
 
-        // here we fix our return type types
-        let ftype = self.rt(&new_scope, &Type::Function(Box::new(func.ftype.clone())), span)?;
-        let Type::Function(mut ftype) = ftype
-        else { unreachable!("something is SERIOUSLY WRONG with Compiler::rt()"); };
+        // here we fix our function type
+        let ret = self.rt(&new_scope, &func.ftype.ret, span)?;
+        let ret = match ret {
+            Type::Scope(v) => {
+                let mut s2 = new_scope.clone();
 
-        // resolve the AnyScope
-        ftype.ret = match ftype.ret {
-            Type::AnyScope => Type::Scope(new_scope),
-            other => other
+                let mut to_remove: Vec<String> = Vec::new();
+
+                for (k, _) in s2.get_inner() {
+                    if !v.has(k) {
+                        to_remove.push(k.clone());
+                    }
+                }
+
+                for k in to_remove {
+                    s2.delete(&k);
+                }
+
+                Type::Scope(s2)
+            }
+            _ => ret,
+        };
+        let new_type = FunctionType {
+            args: arg_types,
+            ret
         };
 
         let inst = InstBuilder::new()
@@ -118,7 +136,7 @@ impl Compiler {
 
         return Ok(EvalResult {
             address: self.next_var(),
-            ty: Type::Function(ftype)
+            ty: Type::Function(Box::new(new_type))
         })
     }
 
@@ -150,7 +168,7 @@ impl Compiler {
         let mut new_args = Vec::new();
         for (arg, func_arg) in args.iter().zip(&func.args) {
             let eval = self.eval(arg, ob)?;
-            if !self.check_type(self.stack.top(), &eval.ty, func_arg, call_func)? {
+            if !self.check_type(&eval.ty, func_arg) {
                 return Err(CE {
                     at: Box::new(arg.clone()),
                     msg: Some("perhaps you meant to cast the argument?"),

@@ -1,6 +1,6 @@
-use ospl_common::ast::{Expr, Expression, LV, LValue, Literal, ops::{BinaryOp, BinaryOpType, UnaryOp, UnaryOpType}};
+use ospl_common::ast::{Expr, Expression, LV, LValue, Literal, UType, ops::{BinaryOp, BinaryOpType, UnaryOp, UnaryOpType}};
 
-use crate::{lexer::token::{EXP_IDENT, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
+use crate::{lexer::token::{EXP_IDENT, Token, TokenExpectation}, parse::{PE, Parser, Res}, tComb, tExp};
 
 // pub const EXP_STRING_LITERAL: TokenExpectation = TokenExpectation {
 //     matches: |t| matches!(t, Token::StringLit(_)),
@@ -263,9 +263,13 @@ impl<'a> Parser<'a> {
                 self.next()?;                
                 let t = self.parse_type()?;
 
-                a1 = Expression {
-                    at: a1.at,
-                    inner: Box::new(Expr::Cast(a1, t))
+                if let UType::Resolved(t) = t {
+                    a1 = Expression {
+                        at: a1.at,
+                        inner: Box::new(Expr::Cast(a1, t))
+                    }
+                } else {
+                    return Err(PE::RequiredPrimitiveType);
                 }
             }
 

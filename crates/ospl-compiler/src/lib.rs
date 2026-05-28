@@ -7,7 +7,7 @@ pub mod package;
 /// All nested scopes during compilation.
 #[derive(Debug, Default)]
 pub struct ScopeStack {
-    scopes: Vec<Scope>,
+    scopes: Vec<Scope<Type>>,
 }
 
 #[derive(Debug)]
@@ -42,7 +42,7 @@ pub enum CEData {
     },
     NotFoundInScope {
         needed: String,
-        scope: Scope,
+        scope: Scope<Type>,
     },
     NoScopeToCapture,
     InvalidOpForType {

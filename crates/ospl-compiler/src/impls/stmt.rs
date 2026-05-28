@@ -28,7 +28,8 @@ impl Compiler {
             },
 
             Stmt::DefineTypeAlias(dcl) => {
-                self.stack.top_mut().declare_non_addressable(dcl.name.clone(), dcl.ty.clone());
+                let t = self.rt(self.stack.top(), &dcl.ty, s)?;
+                self.stack.top_mut().declare_non_addressable(dcl.name.clone(), t);
             }
 
             Stmt::Expr(e) => {
@@ -74,7 +75,7 @@ impl Compiler {
                 let leval = self.get_lvalue(lv, ob)?;
                 // don't check if we're currently of undefined type
                 if leval.ty != Type::Undefined {
-                    if !self.check_type(self.stack.top(), &leval.ty, &reval.ty, s)? {
+                    if !self.check_type(&leval.ty, &reval.ty) {
                         return Err(CE {
                             at: Box::new(lv.clone()),
                             msg: Some("perhaps wrap the right-hand side's type?"),

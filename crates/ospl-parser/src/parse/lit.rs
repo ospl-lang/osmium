@@ -1,4 +1,4 @@
-use ospl_common::ast::{ArgNaming, FunctionType, FunctionValue, Scope, Type, decl::Visibility};
+use ospl_common::ast::{ArgNaming, FunctionType, FunctionValue, Scope, Type, UType, decl::Visibility};
 use crate::{lexer::token::{EXP_IDENT, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
 
 impl<'a> Parser<'a> {
@@ -67,7 +67,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    pub fn parse_function_generics(&mut self) -> Res<Vec<(String, Type)>> {
+    pub fn parse_function_generics(&mut self) -> Res<Vec<(String, UType)>> {
         let mut types = Vec::new();
         loop {
             let span = self.expect_peek(tComb!(
@@ -92,7 +92,7 @@ impl<'a> Parser<'a> {
         return Ok(types)
     }
 
-    pub fn parse_function_type(&mut self) -> Res<FunctionType> {
+    pub fn parse_function_type(&mut self) -> Res<FunctionType<UType>> {
         self.expect(tExp!(Fn))?;
 
         // arg types
@@ -118,46 +118,46 @@ impl<'a> Parser<'a> {
         });
     }
 
-    pub fn parse_function_return_type(&mut self) -> Res<Type> {
+    pub fn parse_function_return_type(&mut self) -> Res<UType> {
         // get return type (defaults to nul)
         let ret = if let Token::Arrow = self.peek()?.token() {
             self.next()?;  // take arrow
             self.parse_type()?
         } else {
-            Type::Nul
+            UType::Resolved(Type::Nul)
         };
 
         return Ok(ret)
     }
 
-    pub fn parse_type(&mut self) -> Res<Type> {
+    pub fn parse_type(&mut self) -> Res<UType> {
         let span = self.expect_peek(EXP_TYPE_STARTER)?;
         let (_, t) = span.destructure();
 
         match t {
-            Token::Fn => Ok(Type::Function(Box::new(self.parse_function_type()?))),
-            Token::Ident(i) => {self.next()?; return Ok(Type::TypeOfVar(i))},
+            Token::Fn => Ok(UType::Function(Box::new(self.parse_function_type()?))),
+            Token::Ident(i) => {self.next()?; return Ok(UType::Typeof(i))},
             Token::Atsign => {
                 self.next()?;
                 let t = self.parse_type()?;
-                return Ok(Type::ReturnTypeOf(Box::new(t)))
+                return Ok(UType::Returnof(Box::new(t)))
             }
 
             /* primitives */
-            Token::IntT => {self.next()?; return Ok(Type::Int)},
-            Token::FloatT => {self.next()?; return Ok(Type::Float)},
-            Token::StrT => {self.next()?; return Ok(Type::Str)},
-            Token::CharT => {self.next()?; return Ok(Type::Char)},
-            Token::BoolT => {self.next()?; return Ok(Type::Bool)},
-            Token::AddrT => {self.next()?; return Ok(Type::Address)},
+            Token::IntT => {self.next()?; return Ok(UType::Resolved(Type::Int))},
+            Token::FloatT => {self.next()?; return Ok(UType::Resolved(Type::Float))},
+            Token::StrT => {self.next()?; return Ok(UType::Resolved(Type::Str))},
+            Token::CharT => {self.next()?; return Ok(UType::Resolved(Type::Char))},
+            Token::BoolT => {self.next()?; return Ok(UType::Resolved(Type::Bool))},
+            Token::AddrT => {self.next()?; return Ok(UType::Resolved(Type::Address))},
             Token::ListT => {
                 self.next()?;
                 let list_typ = self.parse_type()?;
-                return Ok(Type::List(Box::new(list_typ)))
+                return Ok(UType::List(Box::new(list_typ)))
             },
             Token::UnknownT => {
                 self.next()?;
-                return Ok(Type::Unknown)
+                return Ok(UType::Resolved(Type::Unknown))
             }
 
             Token::Scope => return Ok(self.parse_scope_type()?),
@@ -165,15 +165,15 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse_scope_type(&mut self) -> Res<Type> {
+    pub fn parse_scope_type(&mut self) -> Res<UType> {
         self.expect(tExp!(Scope))?;
 
         if *self.peek()?.token() != Token::LParen {
-            return Ok(Type::AnyScope)
+            return Ok(UType::InferScope)
         }
 
         self.expect(tExp!(LParen))?;
-        let mut scope = Scope::default();
+        let mut scope: Scope<UType> = Scope::default();
         let mut current = 0;  // imitate addresses being correct
         loop {
             let (_, token) = self.expect(tComb!(
@@ -196,7 +196,7 @@ impl<'a> Parser<'a> {
             current += 1;
         }  // NOTE: we consumed RParen in the loop
 
-        return Ok(Type::Scope(scope))
+        return Ok(UType::Scope(scope))
     }
 }
 

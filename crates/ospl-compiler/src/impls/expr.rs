@@ -103,10 +103,11 @@ impl Compiler {
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Undefined })
             },
             Literal::List(lty, l) => {
+                let lty = self.rt(self.stack.top(), lty, span)?;
                 let mut indexes = Vec::new();
                 for expr in l.iter() {
                     let eval = self.eval(expr, ob)?;
-                    if !self.check_type(self.stack.top(), &eval.ty, lty, span)? {
+                    if !self.check_type(&eval.ty, &lty) {
                         /* error */
                         error!("a list literal's types must match the declared type, got {:?} expected {:?}", eval.ty, lty);
                     }
@@ -118,7 +119,7 @@ impl Compiler {
                     .indexes(&indexes)
                     .build());
 
-                return Ok(EvalResult { address: self.next_var(), ty: Type::List(Box::new(self.rt(self.stack.top(), lty, span)?)) })
+                return Ok(EvalResult { address: self.next_var(), ty: Type::List(Box::new(lty)) })
             }
         }
     }
@@ -132,8 +133,7 @@ impl Compiler {
         match &*lv.inner {
             LV::Property(lv2, var) => {
                 let eval = self.get_lvalue(lv2, ob)?;
-                let ty = self.rt(self.stack.top(), &eval.ty, lv2)?;
-                let x = match ty {
+                let x = match eval.ty {
                     Type::Scope(s) => {
                         let v = s.get_combined(var)
                             // not found in that scope

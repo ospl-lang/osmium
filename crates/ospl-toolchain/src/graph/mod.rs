@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use ospl_common::ast::{Expr, Expression, FunctionType, FunctionValue, Literal, Position, Statement, Stmt, Type, decl::{Declaration, DeclarationMeta}};
+use ospl_common::ast::{Expr, Expression, FunctionType, FunctionValue, Literal, Position, Statement, Stmt, UType, decl::{Declaration, DeclarationMeta}};
 
 pub mod resolv;
 pub mod resolv2;
@@ -32,14 +32,13 @@ pub fn wrap_in_iife_declaration(name: &str, mut v: Vec<Statement>) -> Statement 
                             captures: Vec::new(),
                             ftype: FunctionType {
                                 args: Vec::new(),
-                                ret: Type::AnyScope,  // compiler infer
+                                ret: UType::InferScope
                             },
                         }))),
                     },
                     Vec::new(),
                 ))
             },
-            ty: None,
         }))
     }
 }
@@ -57,7 +56,6 @@ pub fn create_ffi(name: &str, file: &Path) -> Statement {
                     inner: Box::new(Expr::Literal(Literal::Str(file.to_string_lossy().to_string()))),
                 }))
             },
-            ty: None
         }))
     }
 }

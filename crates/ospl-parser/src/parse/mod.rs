@@ -3,6 +3,7 @@ use crate::lexer::token::{Span, TokenExpectation};
 #[derive(Debug)]
 pub enum PE {
     Expected(TokenExpected),
+    RequiredPrimitiveType,
     UnexpectedEOF,
 }
 
