@@ -1,6 +1,6 @@
 use std::hint::unreachable_unchecked;
 
-use ospl_common::inst::RuntimeValue;
+use ospl_common::inst::{RuntimeValue, list::List};
 
 use crate::VM;
 
@@ -16,6 +16,13 @@ impl VM {
                 // scope, so we just do nothing with the refcount
                 self.top_mut().indexes.push(i);
             },
+            RuntimeValue::Scope(s) => {
+                let l = RuntimeValue::List(List {
+                    items: s.indexes.clone()
+                });
+
+                self.push_literal(l);
+            }
             _ => unreachable_unchecked()
         } };
     }

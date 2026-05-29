@@ -72,9 +72,10 @@ pub fn resolve_pkg(p: PackageSetup, q: &mut HighGraph, mut re: RecursionInfo) {
 
         let ast = match &mdl.at {
             ModSrc::File(f) => {
-                re.current_folder.push(f);
-                let code = parse_file(&re.current_folder);
-                re.current_folder.pop();
+                let mut p = re.current_folder.clone();
+                p.push(f);
+                let code = parse_file(&p);
+
                 code
             }
         };

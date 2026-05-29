@@ -168,7 +168,7 @@ impl Compiler {
         let mut new_args = Vec::new();
         for (arg, func_arg) in args.iter().zip(&func.args) {
             let eval = self.eval(arg, ob)?;
-            if !self.check_type(&eval.ty, func_arg) {
+            if eval.ty != *func_arg {
                 return Err(CE {
                     at: Box::new(arg.clone()),
                     msg: Some("perhaps you meant to cast the argument?"),

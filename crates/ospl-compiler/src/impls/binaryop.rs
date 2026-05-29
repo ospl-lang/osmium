@@ -18,7 +18,7 @@ impl Compiler {
 
             // normal typecheck
             _ => {
-                if !self.check_type(&left.ty, &right.ty) {
+                if left.ty != right.ty {
                     return Err(CE {
                         at: Box::new(b.left.clone()),
                         msg: Some("Perhaps you meant to cast one type?"),

@@ -3,40 +3,6 @@ use ospl_common::ast::{FunctionType, Scope, Type, UType, spanning::Spannable};
 use crate::{CE, CEData, Compiler, Res};
 
 impl Compiler {
-    pub fn check_type(&self, t1: &Type, t2: &Type) -> bool {
-        return match (t1, t2) {
-            // special rule: Unknown matches everything
-            (Type::Unknown, _) | (_, Type::Unknown) => true,
-
-            // special rule: Undefined only matches itself
-            // but is legal to compare to all other objects
-            (Type::Undefined, Type::Undefined) => true,
-            (Type::Undefined, _) => false,
-            (_, Type::Undefined) => false,
-
-            // normal structural equality
-            (Type::Nul, Type::Nul) => true,
-            (Type::Int, Type::Int) => true,
-            (Type::Address, Type::Address) => true,
-            (Type::Float, Type::Float) => true,
-            (Type::Str, Type::Str) => true,
-            (Type::Char, Type::Char) => true,
-            (Type::Bool, Type::Bool) => true,
-
-            (Type::List(a), Type::List(b)) => a == b,
-            (Type::Scope(a), Type::Scope(b)) => a >= b,
-            (Type::Function(a), Type::Function(b)) => a == b,
-
-            (Type::ForeignLibrary, Type::ForeignLibrary) => true,
-
-            (Type::ForeignFunction(args1, ret1), Type::ForeignFunction(args2, ret2)) => {
-                args1 == args2 && ret1 == ret2
-            }
-
-            _ => false,
-        };
-    }
-
     pub fn rt(&self, scope: &Scope<Type>, ty: &UType, span: &dyn Spannable) -> Res<Type> {
         match ty {
             UType::Typeof(name) => {
@@ -60,6 +26,29 @@ impl Compiler {
                     }
 
                     _ => todo!("TODO error"),
+                }
+            },
+
+            UType::Property(b, p) => {
+                let br = self.rt(scope, &b, span)?;
+                match br {
+                    Type::Scope(s) => {
+                        let Some(bv) = s.get_inner().get(p)
+                        else { return Err(CE {
+                            at: span.spanned(),
+                            during: "Type resolution - Property",
+                            error: CEData::NotFoundInScope { needed: p.clone(), scope: s.clone() },
+                            msg: None,
+                        }) };
+
+                        return Ok(bv.get_type().clone())
+                    },
+                    _ => return Err(CE {
+                        at: span.spanned(),
+                        during: "Type resolution - Property",
+                        error: CEData::MismatchedTypes { expected: crate::TypeExpectation::AnyScope, got: br.clone() },
+                        msg: None,
+                    }) 
                 }
             }
 

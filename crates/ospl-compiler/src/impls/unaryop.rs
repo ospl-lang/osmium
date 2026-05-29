@@ -10,15 +10,23 @@ impl Compiler {
     ) -> Res<EvalResult>
     {
         let eval = self.eval(&u.expr, ob)?;
+
+        let new_ty = match (&eval.ty, &u.kind) {
+            (Type::List(lty), UnaryOpType::Increment) => *lty.clone(),
+            (Type::Scope(_), UnaryOpType::Increment) => {
+                unimplemented!();
+                // return Ok(EvalResult {
+                //     address: self.next_var(),
+                //     ty: Type::List(Box::new(Type::Str))
+                // })
+            },
+            _ => panic!("TODO - add error for invalid unary op type")
+        };
+
         ob.push(InstBuilder::new()
             .opcode(unary_op_to_opc(&u.kind))
             .index(eval.address)
             .build());
-
-        let new_ty = match &eval.ty {
-            Type::List(lty) => *lty.clone(),
-            _ => panic!("TODO - add error for invalid unary op type")
-        };
 
         return Ok(EvalResult {
             address: self.next_var(),

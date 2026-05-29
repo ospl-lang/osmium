@@ -135,7 +135,7 @@ pub struct FunctionType<T> {
     pub ret: T,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub enum Type {
     Nul, Undefined,
 
@@ -154,10 +154,47 @@ pub enum Type {
     ForeignFunction(Vec<Self>, Box<Self>),
 }
 
+impl PartialEq for Type {
+    fn eq(&self, t2: &Type) -> bool {
+        return match (self, t2) {
+            // special rule: Unknown matches everything
+            (Type::Unknown, _) | (_, Type::Unknown) => true,
+
+            // special rule: Undefined only matches itself
+            // but is legal to compare to all other objects
+            (Type::Undefined, Type::Undefined) => true,
+            (Type::Undefined, _) => false,
+            (_, Type::Undefined) => false,
+
+            // normal structural equality
+            (Type::Nul, Type::Nul) => true,
+            (Type::Int, Type::Int) => true,
+            (Type::Address, Type::Address) => true,
+            (Type::Float, Type::Float) => true,
+            (Type::Str, Type::Str) => true,
+            (Type::Char, Type::Char) => true,
+            (Type::Bool, Type::Bool) => true,
+
+            (Type::List(a), Type::List(b)) => a == b,
+            (Type::Scope(a), Type::Scope(b)) => a >= b,
+            (Type::Function(a), Type::Function(b)) => a == b,
+
+            (Type::ForeignLibrary, Type::ForeignLibrary) => true,
+
+            (Type::ForeignFunction(args1, ret1), Type::ForeignFunction(args2, ret2)) => {
+                args1 == args2 && ret1 == ret2
+            }
+
+            _ => false,
+        };
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UType {
     Resolved(Type),
     Typeof(String),
+    Property(Box<Self>, String),
     Returnof(Box<Self>),
     Function(Box<FunctionType<Self>>),
     List(Box<Self>),

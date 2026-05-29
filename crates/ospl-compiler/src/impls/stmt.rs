@@ -75,7 +75,7 @@ impl Compiler {
                 let leval = self.get_lvalue(lv, ob)?;
                 // don't check if we're currently of undefined type
                 if leval.ty != Type::Undefined {
-                    if !self.check_type(&leval.ty, &reval.ty) {
+                    if leval.ty != reval.ty {
                         return Err(CE {
                             at: Box::new(lv.clone()),
                             msg: Some("perhaps wrap the right-hand side's type?"),

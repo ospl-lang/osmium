@@ -107,7 +107,7 @@ impl Compiler {
                 let mut indexes = Vec::new();
                 for expr in l.iter() {
                     let eval = self.eval(expr, ob)?;
-                    if !self.check_type(&eval.ty, &lty) {
+                    if eval.ty != lty {
                         /* error */
                         error!("a list literal's types must match the declared type, got {:?} expected {:?}", eval.ty, lty);
                     }

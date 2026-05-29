@@ -130,39 +130,57 @@ impl<'a> Parser<'a> {
         return Ok(ret)
     }
 
+    pub fn parse_type_atom(&mut self, t: Token) -> Res<UType> {
+        return Ok(match t {
+            Token::Fn => UType::Function(Box::new(self.parse_function_type()?)),
+            Token::Ident(i) => {self.next()?; UType::Typeof(i)},
+            Token::Atsign => {
+                self.next()?;
+                let t = self.parse_type()?;
+                UType::Returnof(Box::new(t))
+            }
+
+            /* primitives */
+            Token::IntT => {self.next()?; UType::Resolved(Type::Int)},
+            Token::FloatT => {self.next()?; UType::Resolved(Type::Float)},
+            Token::StrT => {self.next()?; UType::Resolved(Type::Str)},
+            Token::CharT => {self.next()?; UType::Resolved(Type::Char)},
+            Token::BoolT => {self.next()?; UType::Resolved(Type::Bool)},
+            Token::AddrT => {self.next()?; UType::Resolved(Type::Address)},
+            Token::ListT => {
+                self.next()?;
+                let list_typ = self.parse_type()?;
+                UType::List(Box::new(list_typ))
+            },
+            Token::UnknownT => {
+                self.next()?;
+                UType::Resolved(Type::Unknown)
+            }
+
+            Token::Scope => self.parse_scope_type()?,
+            other => unreachable!("{other:?}")
+        });
+    }
+
     pub fn parse_type(&mut self) -> Res<UType> {
         let span = self.expect_peek(EXP_TYPE_STARTER)?;
         let (_, t) = span.destructure();
 
-        match t {
-            Token::Fn => Ok(UType::Function(Box::new(self.parse_function_type()?))),
-            Token::Ident(i) => {self.next()?; return Ok(UType::Typeof(i))},
-            Token::Atsign => {
-                self.next()?;
-                let t = self.parse_type()?;
-                return Ok(UType::Returnof(Box::new(t)))
-            }
+        let mut working_type = self.parse_type_atom(t)?;
 
-            /* primitives */
-            Token::IntT => {self.next()?; return Ok(UType::Resolved(Type::Int))},
-            Token::FloatT => {self.next()?; return Ok(UType::Resolved(Type::Float))},
-            Token::StrT => {self.next()?; return Ok(UType::Resolved(Type::Str))},
-            Token::CharT => {self.next()?; return Ok(UType::Resolved(Type::Char))},
-            Token::BoolT => {self.next()?; return Ok(UType::Resolved(Type::Bool))},
-            Token::AddrT => {self.next()?; return Ok(UType::Resolved(Type::Address))},
-            Token::ListT => {
+        loop {
+            if let Token::Dot = self.peek()?.token() {
                 self.next()?;
-                let list_typ = self.parse_type()?;
-                return Ok(UType::List(Box::new(list_typ)))
-            },
-            Token::UnknownT => {
-                self.next()?;
-                return Ok(UType::Resolved(Type::Unknown))
-            }
 
-            Token::Scope => return Ok(self.parse_scope_type()?),
-            other => unreachable!("{other:?}")
+                let initial_span = self.expect(EXP_IDENT)?;
+                let (_, Token::Ident(id)) = initial_span.destructure()
+                    else { unreachable!() };
+
+                working_type = UType::Property(Box::new(working_type), id);
+            } else { break; }
         }
+
+        return Ok(working_type)
     }
 
     pub fn parse_scope_type(&mut self) -> Res<UType> {
