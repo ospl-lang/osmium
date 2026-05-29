@@ -93,15 +93,6 @@ impl VM {
                     self.push_literal(RuntimeValue::Undefined);
                 }
             },
-            (RuntimeValue::Map(m), _) => {
-                if let Some(x) = m.iter()
-                    .find_map(|(key, idx)| if *idx == b { Some(key) } else { None })
-                {
-                    self.push_literal(RuntimeValue::Str(x.clone()));
-                } else {
-                    self.push_literal(RuntimeValue::Undefined);
-                }
-            }
             (u1, u2) => unimplemented!("unknown a?b op: {u1:?} and {u2:?}")
         }
     }
@@ -158,10 +149,6 @@ impl VM {
                 (RuntimeValue::Str(s1), RuntimeValue::Char(c1)) => {
                     s1.push(*c1);
                 },
-                (RuntimeValue::Map(m), RuntimeValue::Str(s)) => {
-                    let i = self.arena.push(RuntimeValue::Undefined);
-                    m.insert(s.clone(), i);
-                }
 
                 (err_a, err_b) => panic!("can't add-assign {:?} += {:?}", err_a, err_b),
             }
@@ -190,9 +177,6 @@ impl VM {
                 (RuntimeValue::Str(s1), RuntimeValue::Address(i)) => {
                     s1.remove(*i as usize);
                 },
-                (RuntimeValue::Map(m), RuntimeValue::Str(key)) => {
-                    m.remove(key);
-                }
 
                 (err_a, err_b) => panic!("can't op-assign {:?} += {:?}", err_a, err_b),
             }

@@ -236,12 +236,6 @@ impl VM {
                         self.top_mut().indexes.push(add_thing);
                     },
 
-                    RuntimeValue::Map(t) => {
-                        let key = self.get_value_top(prop).as_str().expect("failed to index hashmap: index was not a string");
-                        let idx = t.get(key).expect("failed to index hashmap, missing key?");
-                        self.top_mut().indexes.push(*idx);
-                    },
-
                     // _ => std::hint::unreachable_unchecked()
                     other => unimplemented!("cannot do access on value {other:?}"),
                 }

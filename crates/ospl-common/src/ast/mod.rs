@@ -126,7 +126,6 @@ pub enum Literal {
     Str(String),
     Char(char),
     List(UType, Vec<Expression>),
-    Map(HashMap<String, Expression>),
     Function(FunctionValue)
 }
 
@@ -150,7 +149,6 @@ pub enum Type {
     Int, Address, Float, Char, Str, Bool, List(Box<Self>),
     Scope(Scope<Self>),
     Function(Box<FunctionType<Self>>),
-    Map,
 
     ForeignLibrary,
     ForeignFunction(Vec<Self>, Box<Self>),

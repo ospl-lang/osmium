@@ -25,10 +25,6 @@ impl VM {
                     let index = unsafe { self.get_value_top(index).assume_int() };
                     l.items[index as usize]
                 },
-                RuntimeValue::Map(m) => {
-                    let key = self.get_value_top(index).as_str().expect("map indexed by not a string");
-                    *m.get(key).expect("failed to index map: key not found?")
-                },
                 RuntimeValue::Str(s) => {
                     let index = unsafe { self.get_value_top(index).assume_int() };
                     let Some(x) = s.chars().nth(index as usize)

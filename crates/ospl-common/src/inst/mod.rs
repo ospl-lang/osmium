@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 // use crate::inst::unoptimized::VMInstruction;
 use crate::{ast::frame::RuntimeFrame, inst::optimized::Inst};
 
@@ -20,7 +18,6 @@ pub enum RuntimeValue {
     List(list::List),
     Function(RuntimeFunction),
     Scope(RuntimeFrame),
-    Map(HashMap<String, usize>),
 
     ForeignLib(u32),
     ForeignFn(u32),
@@ -90,7 +87,7 @@ impl RuntimeValue {
         return match self {
             Self::List(i) => i.items.len(),
             Self::Str(s) => s.len(),
-            Self::Map(m) => m.len(),
+            Self::Scope(s) => s.indexes.len(),
             t => panic!("can't get the len of value of type {t:?}")
         }
     }
