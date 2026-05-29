@@ -23,7 +23,6 @@ impl VM {
         }
 
         return true
-
     }
 
     /// Takes a branch, the `yes` branch is taken if `cond` is truthy,

@@ -1,4 +1,6 @@
-use ospl_common::{ast::spanning::Spannable, inst::optimized::{Inst, InstBuilder, Opc}};
+use std::collections::HashMap;
+
+use ospl_common::{ast::spanning::Spannable, inst::{RuntimeValue, optimized::{Inst, InstBuilder, Opc}}};
 use tracing::error;
 
 use crate::{CE, CEData, Compiler, EvalResult, Res, Type, ast::{Expr, LV, LValue, Literal}};
@@ -120,6 +122,54 @@ impl Compiler {
                     .build());
 
                 return Ok(EvalResult { address: self.next_var(), ty: Type::List(Box::new(lty)) })
+            },
+            Literal::Map(m) => {
+                /* makes no sense to push a map directly but we will anyway */
+                ob.push(InstBuilder::new()
+                    .opcode(Opc::PushLiteral)
+                    .value(RuntimeValue::Map(HashMap::new()))
+                    .build());
+
+                let map = EvalResult {
+                    address: self.next_var(),
+                    ty: Type::Map,
+                };
+
+                for (key, expr) in m {
+                    let eval = self.eval(expr, ob)?;
+
+                    /* push the key */
+                    ob.push(InstBuilder::new()
+                        .opcode(Opc::PushLiteral)
+                        .value(RuntimeValue::Str(key.clone()))
+                        .build());
+
+                    let key_address = self.next_var();
+
+                    /* add it */
+                    ob.push(InstBuilder::new()
+                        .opcode(Opc::Addl)
+                        .index(map.address)
+                        .index(key_address)
+                        .build());
+
+                    /* set it */
+                    ob.push(InstBuilder::new()
+                        .opcode(Opc::Property)
+                        .index(map.address)
+                        .index(key_address)
+                        .build());
+                    
+                    let prop_address = self.next_var();
+
+                    ob.push(InstBuilder::new()
+                        .opcode(Opc::AssignRef)
+                        .index(prop_address)
+                        .index(eval.address)
+                        .build());
+                }
+
+                return Ok(map)
             }
         }
     }

@@ -235,8 +235,15 @@ impl VM {
                         // happens at frame boundaries.
                         self.top_mut().indexes.push(add_thing);
                     },
+
+                    RuntimeValue::Map(t) => {
+                        let key = self.get_value_top(prop).as_str().expect("failed to index hashmap: index was not a string");
+                        let idx = t.get(key).expect("failed to index hashmap, missing key?");
+                        self.top_mut().indexes.push(*idx);
+                    },
+
                     // _ => std::hint::unreachable_unchecked()
-                    other => unimplemented!("cannot do access on value {other:?}, last inst {inst:?}"),
+                    other => unimplemented!("cannot do access on value {other:?}"),
                 }
             },
 
@@ -263,6 +270,7 @@ impl VM {
             Opc::Decrement => self.dec_value(inst.get_index(0)),
 
             Opc::Addl => self.add_assign(inst.get_index(0), inst.get_index(1)),
+            Opc::Subl => self.sub_assign(inst.get_index(0), inst.get_index(1)),
 
             Opc::Call => return self.call_fn(
                 inst.get_index(0),

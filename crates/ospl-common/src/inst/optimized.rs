@@ -16,7 +16,7 @@
 
 use std::fmt::Display;
 
-use crate::inst::RuntimeValue;
+use crate::inst::{RuntimeValue, symbols::DebugSymbolTable};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -49,15 +49,6 @@ pub enum Opc {
     /// - **Indexes:** the captures of the function
     /// - **Child #0:** the code of the function
     PushFunction,
-
-    /// Pushes a function and then immediately invokes it.
-    /// This is the optimized path for IIFEs, good compilers should use it.
-    /// 
-    /// - **Indexes:** the args
-    /// - **Child 0:** the body
-    /// - **Push 0:** the function
-    /// - **Push 1:** the return value
-    IIFE,
 
     AssignRef,
     AssignLiteral,
@@ -188,7 +179,9 @@ pub struct Inst {
     /// Children (child instructions) for this, if any.
     /// 
     /// Mostly used for if statements and loops
-    pub children: Vec<Vec<Inst>>
+    pub children: Vec<Vec<Inst>>,
+
+    pub debug_symbol: Option<usize>,
 }
 
 impl Display for Inst {
@@ -221,6 +214,7 @@ impl InstBuilder {
                 indexes: Vec::new(),
                 immediate: None,
                 children: Vec::new(),
+                debug_symbol: None,
             }
         }
     }
@@ -248,6 +242,13 @@ impl InstBuilder {
 
     pub fn value(mut self, x: RuntimeValue) -> Self {
         self.inner.immediate = Some(x);
+
+        return self
+    }
+
+    pub fn debug_symbol(mut self, table: &mut DebugSymbolTable, s: String) -> Self {
+        let x = table.get_or_add(s);
+        self.inner.debug_symbol = Some(x);
 
         return self
     }

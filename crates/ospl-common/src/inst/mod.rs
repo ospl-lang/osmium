@@ -1,8 +1,11 @@
+use std::collections::HashMap;
+
 // use crate::inst::unoptimized::VMInstruction;
 use crate::{ast::frame::RuntimeFrame, inst::optimized::Inst};
 
 pub mod list;
 pub mod optimized;
+pub mod symbols;
 
 #[repr(C)]
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -17,6 +20,7 @@ pub enum RuntimeValue {
     List(list::List),
     Function(RuntimeFunction),
     Scope(RuntimeFrame),
+    Map(HashMap<String, usize>),
 
     ForeignLib(u32),
     ForeignFn(u32),
@@ -57,6 +61,13 @@ impl RuntimeValue {
         }
     }
 
+    pub fn as_str(&self) -> Option<&String> {
+        return match self {
+            Self::Str(x) => Some(x),
+            _ => None
+        }
+    }
+
     /// Unsafely returns the int value (if there is), or garbage data.
     #[cfg(not(debug_assertions))]
     pub unsafe fn assume_int(&self) -> i64 {
@@ -79,6 +90,7 @@ impl RuntimeValue {
         return match self {
             Self::List(i) => i.items.len(),
             Self::Str(s) => s.len(),
+            Self::Map(m) => m.len(),
             t => panic!("can't get the len of value of type {t:?}")
         }
     }

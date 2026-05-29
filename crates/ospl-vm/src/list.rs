@@ -19,11 +19,18 @@ impl VM {
         // SAFETY: the invariant here is that the instruction is operating on a
         // valid type and the index into the array is valid.
         let x = {
-            let list = self.get_value_top(array);
-            let index = unsafe { self.get_value_top(index).assume_int() };
-            let x = match list {
-                RuntimeValue::List(l) => { l.items[index as usize] },
+            let indexable = self.get_value_top(array);
+            let x = match indexable {
+                RuntimeValue::List(l) => {
+                    let index = unsafe { self.get_value_top(index).assume_int() };
+                    l.items[index as usize]
+                },
+                RuntimeValue::Map(m) => {
+                    let key = self.get_value_top(index).as_str().expect("map indexed by not a string");
+                    *m.get(key).expect("failed to index map: key not found?")
+                },
                 RuntimeValue::Str(s) => {
+                    let index = unsafe { self.get_value_top(index).assume_int() };
                     let Some(x) = s.chars().nth(index as usize)
                     else {
                         self.push_literal(RuntimeValue::Undefined);  // out of bounds

@@ -1,4 +1,4 @@
-use ospl_common::ast::{Scope, Type};
+use ospl_common::{ast::{Scope, Type}};
 
 use crate::{Compiler, RelativeVarID, ScopeStack};
 

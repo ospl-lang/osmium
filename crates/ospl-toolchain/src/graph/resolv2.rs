@@ -99,5 +99,5 @@ pub fn get_package_module_with_name(
                 None
             }
         })
-        .nth(0).unwrap()
+        .nth(0).expect("this package is not executable")
 }
