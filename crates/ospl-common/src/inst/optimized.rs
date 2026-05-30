@@ -246,7 +246,7 @@ impl InstBuilder {
         return self
     }
 
-    pub fn debug_symbol(mut self, table: &mut DebugSymbolTable, s: String) -> Self {
+    pub fn symbol(mut self, table: &mut DebugSymbolTable, s: String) -> Self {
         let x = table.get_or_add(s);
         self.inner.debug_symbol = Some(x);
 

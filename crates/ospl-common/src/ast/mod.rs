@@ -298,6 +298,14 @@ impl<T: Clone> Scope<T> {
         });
     }
 
+    pub fn jump(&mut self, to: usize) {
+        self.next_id = to;
+    }
+
+    pub fn tell(&self) -> usize {
+        return self.next_id;
+    }
+
     pub fn declare_non_addressable(&mut self, key: String, ty: T) {
         self.map.insert(key, Store {
             address: None,

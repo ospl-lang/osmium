@@ -16,7 +16,6 @@ impl Compiler {
         let mut capture_indexes = Vec::new();
         for capture in &func.captures {
             let (u, t) = {
-                // allow using the arguments here
                 let scope = 
                     self.stack.scopes.last()
                         .ok_or_else(|| CE {
@@ -25,7 +24,7 @@ impl Compiler {
                             during: "capture handling",
                             error: CEData::NoScopeToCapture,
                         })?;
-                
+
                 let x = scope.get_combined_with_nonaddressable(&capture);
                 match x {
                     // capture nonaddressables
@@ -55,7 +54,6 @@ impl Compiler {
 
         // add the args
         let mut arg_types = Vec::new();
-        let mut arg_indexes = Vec::new();
         assert_eq!(func.ftype.args.len(), func.args.len());
         for (arg, ty) in func.args.iter().zip(func.ftype.args.iter()) {
             let variable = new_scope.next_post();
@@ -64,7 +62,6 @@ impl Compiler {
 
             new_scope.declare(arg.name.clone(), variable, t.clone());
             arg_types.push(t);
-            arg_indexes.push(variable);
         }
 
         // PUSH HERE
@@ -111,6 +108,7 @@ impl Compiler {
         let ret = match &ret {
             Type::Scope(v) => if !has_a_scope_return { ret } else {
                 let mut s2 = Scope::default();
+                s2.jump(new_scope.tell());
 
                 for (k, store) in new_scope.get_inner() {
                     if v.has(&k) {
@@ -122,7 +120,7 @@ impl Compiler {
                 }
 
                 tracing::trace!("keys at mask time: {:?}", v.get_inner().keys());
-                tracing::trace!("keys at delete time: {:?}", s2.get_inner().keys());
+                // println!("keys at delete time: {:?}", s2.get_inner().keys());
                 Type::Scope(s2)
             }
             _ => ret,
@@ -138,6 +136,7 @@ impl Compiler {
             .opcode(Opc::PushFunction)
             .child(insts)
             .indexes(&capture_indexes)
+            .symbol(&mut *self.symbols.lock()?, span.user_symbol())
             .build();
 
         ob.push(inst);
@@ -189,10 +188,12 @@ impl Compiler {
             }
             new_args.push(eval.address);
         }
+
         let i = InstBuilder::new()
             .opcode(Opc::Call)
             .index(f.address)  // right here
             .indexes(&new_args)
+            .symbol(&mut *self.symbols.lock()?, call_func.user_symbol())
             .build();
 
         ob.push(i);

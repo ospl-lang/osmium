@@ -1,4 +1,6 @@
-use ospl_common::{ast::{Scope, Type}};
+use std::sync::{Arc, Mutex};
+
+use ospl_common::{ast::{Scope, Type}, inst::symbols::DebugSymbolTable};
 
 use crate::{Compiler, RelativeVarID, ScopeStack};
 
@@ -10,11 +12,12 @@ impl Compiler {
         return t.next_post()
     }
 
-    pub fn new() -> Self {
+    pub fn new(symbols: Arc<Mutex<DebugSymbolTable>>) -> Self {
         return Self {
             stack: ScopeStack { scopes: vec![
                 Scope::default()
             ] },
+            symbols
         }
     }
 }

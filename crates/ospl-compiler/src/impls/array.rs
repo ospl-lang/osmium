@@ -1,4 +1,4 @@
-use ospl_common::{ast::{Expression, Type}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{Expression, Type, spanning::Spannable}, inst::optimized::{Inst, InstBuilder, Opc}};
 
 use crate::{CE, CEData, Compiler, EvalResult, Res, TypeExpectation};
 
@@ -7,6 +7,7 @@ impl Compiler {
         &mut self,
         l: &Expression,
         r: &Expression,
+        span: &dyn Spannable,
         ob: &mut Vec<Inst>
     ) -> Res<EvalResult>
     {
@@ -26,6 +27,7 @@ impl Compiler {
             .opcode(Opc::Index)
             .index(left.address)
             .index(right.address)
+            .symbol(&mut *self.symbols.lock()?, span.user_symbol())
             .build());
 
         return Ok(EvalResult {
@@ -39,6 +41,7 @@ impl Compiler {
         l: &Expression,
         r1: &Expression,
         r2: &Expression,
+        span: &dyn Spannable,
         ob: &mut Vec<Inst>
     ) -> Res<EvalResult>
     {
@@ -54,6 +57,7 @@ impl Compiler {
             .index(left.address)
             .index(right_start.address)
             .index(right_end.address)
+            .symbol(&mut *self.symbols.lock()?, span.user_symbol())
             .build());
 
         return Ok(EvalResult {

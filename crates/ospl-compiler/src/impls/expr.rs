@@ -31,6 +31,7 @@ impl Compiler {
                 let i = InstBuilder::new()
                     .opcode(Opc::FFILoadLib)
                     .index(fp.address)
+                    .symbol(&mut *self.symbols.lock()?, expr.user_symbol())
                     .build();
 
                 ob.push(i);
@@ -49,6 +50,7 @@ impl Compiler {
                     .opcode(Opc::Cast)
                     .index(left.address)
                     .index(into.to_primitive_type_id())
+                    .symbol(&mut *self.symbols.lock()?, expr.user_symbol())
                     .build());
 
                 return Ok(EvalResult {
@@ -187,6 +189,7 @@ impl Compiler {
                     .opcode(Opc::Property)
                     .index(eval.address)
                     .index(x.address)
+                    .symbol(&mut *self.symbols.lock()?, lv.user_symbol())
                     .build();
 
                 ob.push(i);
@@ -198,8 +201,8 @@ impl Compiler {
                 })
             },
 
-            LV::Index(l, r) => self.c_index(l, r, ob),
-            LV::Slice(l, r1, r2) => self.c_slice(l, r1, r2, ob),
+            LV::Index(l, r) => self.c_index(l, r, lv, ob),
+            LV::Slice(l, r1, r2) => self.c_slice(l, r1, r2, lv, ob),
 
             // FIXME unwrap
             LV::Variable(var) => {

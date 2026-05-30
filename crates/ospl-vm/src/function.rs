@@ -33,26 +33,17 @@ impl VM {
     ///                  | 
     /// ```
     /// 
-    /// OSPL passes all arguments by reference, and all returns by value.
-    /// 
-    /// # Safety
-    /// YOU CANNOT MUTATE THE CODE OF THE FUNCTION YOU ARE CALLING, OR ANY PARENT FUNCTION,
-    /// WITHOUT UNDEFINED BEHAVOIUR. PLEASE DO NOT DO THIS! IT'S A VERY BAD IDEA!!
-    pub fn call_fn(&mut self, f: usize, args: &[ArenaIndex]) -> Control {
-        // here, it is important that we push the lexical regs to the frame
-        // AFTER we push the arguments, this is just the calling convention
-        // we're gonna use, because it makes things easier for you and the
-        // compiler.
-
+    /// OSPL passes all arguments by reference, and all returns by reference as well.
+    pub fn call_fn(&mut self, at: usize, args: &[ArenaIndex]) -> Control {
         let mut frame = RuntimeFrame::default();
 
-        // LEXICALS
-        let f = self.get_value_top(f);
+        let f = self.get_value_top(at);
         let f = match f.as_fn() {
             Some(o) => o,
-            None => panic!("can't call object of type {f:?} | frame={frame:?} | vm={self:#?}")
+            None => panic!("can't call object of type {f:?} | at={at} | top={:?}", self.top())
         };
 
+        // CAPTURES
         frame.indexes.extend_from_slice(f.lexical_indexes.as_slice());
 
         // ARGUMENTS
