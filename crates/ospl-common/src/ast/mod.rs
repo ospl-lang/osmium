@@ -189,7 +189,7 @@ impl PartialEq for Type {
             (Type::Bool, Type::Bool) => true,
 
             (Type::List(a), Type::List(b)) => a == b,
-            (Type::Scope(a), Type::Scope(b)) => a >= b,
+            (Type::Scope(a), Type::Scope(b)) => a == b,
             (Type::Function(a), Type::Function(b)) => a == b,
 
             (Type::ForeignLibrary, Type::ForeignLibrary) => true,

@@ -69,13 +69,11 @@ impl Compiler {
 
         let mut insts = Vec::<Inst>::new();
         let mut has_a_return = false;
-        let mut has_a_scope_return = false;
         for stmt in &func.block {
             match self.compile_stmt(stmt, &mut insts)? {
                 Control::Return(_) => has_a_return = true,
                 Control::ReturnScope => {
                     has_a_return = true;
-                    has_a_scope_return = true;
                 }
                 _ => {}
             }
@@ -105,26 +103,6 @@ impl Compiler {
 
         tracing::trace!("before fixing: {ret:?}");
 
-        let ret = match &ret {
-            Type::Scope(v) => if !has_a_scope_return { ret } else {
-                let mut s2 = Scope::default();
-                s2.jump(new_scope.tell());
-
-                for (k, store) in new_scope.get_inner() {
-                    if v.has(&k) {
-                        tracing::trace!("including: {k:?}");
-                        s2.direct_declare(k.clone(), store.get_address(), store.get_type().clone());
-                    } else {
-                        tracing::trace!("excluding: {k:?}");
-                    }
-                }
-
-                tracing::trace!("keys at mask time: {:?}", v.get_inner().keys());
-                // println!("keys at delete time: {:?}", s2.get_inner().keys());
-                Type::Scope(s2)
-            }
-            _ => ret,
-        };
         let new_type = FunctionType {
             args: arg_types,
             ret

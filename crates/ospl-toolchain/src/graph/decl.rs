@@ -42,6 +42,8 @@ pub enum ModRef {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ModDef {
     pub at: ModSrc,
+
+    #[serde(default)]
     pub require: HashMap<String, ModRef>,
 
     #[serde(default)]
