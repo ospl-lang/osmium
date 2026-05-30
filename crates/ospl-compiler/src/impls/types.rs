@@ -41,6 +41,8 @@ impl Compiler {
                             msg: None,
                         }) };
 
+                        tracing::debug!("getting type property: {bv:?}");
+
                         return Ok(bv.get_type().clone())
                     },
                     _ => return Err(CE {

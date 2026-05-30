@@ -92,7 +92,7 @@ pub fn compile(graph: &Graph) -> Vec<Inst> {
                 .wait()
                 .expect("failed to wait for cc")
                 .success()
-            { panic!("cc failed to run") }
+            { panic!("CC failed to run") }
 
             let s = super::create_ffi(&cxx.required_as, &so_file);
             input_code.push(s);
@@ -101,7 +101,10 @@ pub fn compile(graph: &Graph) -> Vec<Inst> {
         input_code.extend_from_slice(&node.ast);
 
         let mut output_code: Vec<Inst> = Vec::new();
-        local_compiler.compile_all(&input_code, &mut output_code).expect("failed to compile");
+        if let Err(e) = local_compiler.compile_all(&input_code, &mut output_code) {
+            crate::util::print_diag(e);
+            std::process::exit(101);
+        }
 
         finished_compilations.insert(node_id, output_code);
         finished.insert(node_id, input_code);

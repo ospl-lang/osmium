@@ -72,10 +72,14 @@ impl Compiler {
 
         let mut insts = Vec::<Inst>::new();
         let mut has_a_return = false;
+        let mut has_a_scope_return = false;
         for stmt in &func.block {
             match self.compile_stmt(stmt, &mut insts)? {
                 Control::Return(_) => has_a_return = true,
-                Control::ReturnScope => has_a_return = true,
+                Control::ReturnScope => {
+                    has_a_return = true;
+                    has_a_scope_return = true;
+                }
                 _ => {}
             }
         };
@@ -101,22 +105,24 @@ impl Compiler {
 
         // here we fix our function type
         let ret = self.rt(&new_scope, &func.ftype.ret, span)?;
-        let ret = match ret {
-            Type::Scope(v) => {
-                let mut s2 = new_scope.clone();
 
-                let mut to_remove: Vec<String> = Vec::new();
+        tracing::trace!("before fixing: {ret:?}");
 
-                for (k, _) in s2.get_inner() {
-                    if !v.has(k) {
-                        to_remove.push(k.clone());
+        let ret = match &ret {
+            Type::Scope(v) => if !has_a_scope_return { ret } else {
+                let mut s2 = Scope::default();
+
+                for (k, store) in new_scope.get_inner() {
+                    if v.has(&k) {
+                        tracing::trace!("including: {k:?}");
+                        s2.direct_declare(k.clone(), store.get_address(), store.get_type().clone());
+                    } else {
+                        tracing::trace!("excluding: {k:?}");
                     }
                 }
 
-                for k in to_remove {
-                    s2.delete(&k);
-                }
-
+                tracing::trace!("keys at mask time: {:?}", v.get_inner().keys());
+                tracing::trace!("keys at delete time: {:?}", s2.get_inner().keys());
                 Type::Scope(s2)
             }
             _ => ret,
@@ -125,6 +131,8 @@ impl Compiler {
             args: arg_types,
             ret
         };
+
+        tracing::trace!("function {new_type}");
 
         let inst = InstBuilder::new()
             .opcode(Opc::PushFunction)

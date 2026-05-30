@@ -1,4 +1,5 @@
 use blake3::Hash;
+use ospl_compiler::CE;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
@@ -20,4 +21,11 @@ pub fn hash_file(path: impl AsRef<Path>) -> std::io::Result<Hash> {
     }
 
     Ok(hasher.finalize())
+}
+
+pub fn print_diag(c: CE) {
+    println!("at: {:?}", c.at.spanned().get_pos());
+    println!("in: {}", c.during);
+    println!("> {:?}", c.msg.unwrap_or("no message"));
+    println!("{:#?}", c.error);
 }

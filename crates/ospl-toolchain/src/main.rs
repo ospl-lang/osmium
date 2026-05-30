@@ -117,7 +117,7 @@ fn cmd_exec(at: PathBuf) {
     vm.run_all(&insts);
 }
 
-fn cmd_build(_o: PathBuf) {
+fn cmd_build(out_path: PathBuf) {
     let root_pkg = load_package_yml_at("package.yml")
         .expect("you're not even in an OSPL project, there's no package.yml");
 
@@ -145,7 +145,7 @@ fn cmd_build(_o: PathBuf) {
         .create(true)
         .write(true)
         .truncate(true)
-        .open(_o)
+        .open(out_path)
         .expect("failed to open output file");
 
     postcard::to_io(&out, &mut f)

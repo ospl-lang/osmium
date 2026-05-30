@@ -22,6 +22,8 @@ impl Compiler {
         match &*s.inner {
             // TODO: check type
             Stmt::Define(dcl) => {
+                let _span = tracing::debug_span!("dcl", id=dcl.name);
+                let _enter = _span.enter();
                 let eval = self.eval(&dcl.rhs, ob)?;
 
                 self.stack.top_mut().declare(dcl.name.to_string(), eval.address, eval.ty);

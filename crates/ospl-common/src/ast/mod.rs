@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::HashMap, fmt::Display};
+use std::{cmp::Ordering, collections::HashMap, fmt::{Debug, Display}};
 
 use crate::ast::{decl::{AliasDeclaration, Declaration, Visibility}, ops::AssignOp};
 
@@ -133,6 +133,19 @@ pub enum Literal {
 pub struct FunctionType<T> {
     pub args: Vec<T>,
     pub ret: T,
+}
+
+impl<T: Debug> Display for FunctionType<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "fn(")?;
+        for arg in &self.args {
+            write!(f, "{arg:?}")?;
+        }
+
+        write!(f, ") -> {:?}", self.ret)?;
+
+        return Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Eq)]
@@ -301,12 +314,6 @@ impl<T: Clone> Scope<T> {
 
     pub fn has(&self, key: &str) -> bool {
         return self.map.contains_key(key)
-    }
-
-    pub fn desect(&mut self, other: &Self) {
-        for (name, _) in &other.map {
-            self.map.remove(name);
-        }
     }
 
     /// This function may be removed in the future! DO NOT USE unless you
