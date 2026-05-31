@@ -1,4 +1,6 @@
-use ospl_common::ast::{Expr, Expression, LV, LValue, Literal, ops::{BinaryOp, BinaryOpType, UnaryOp, UnaryOpType}};
+use std::collections::HashMap;
+
+use ospl_common::ast::{Expr, Expression, LV, LValue, Literal, UType, ops::{BinaryOp, BinaryOpType, UnaryOp, UnaryOpType}};
 
 use crate::{lexer::token::{EXP_IDENT, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
 
@@ -211,6 +213,30 @@ impl<'a> Parser<'a> {
         return Ok(args)
     }
 
+    /// Returns the args to the call
+    pub fn parse_fn_specialization(&mut self) -> Res<HashMap<String, UType>> {
+        self.expect(tExp!(LSquirly))?;
+        let mut map = HashMap::new();
+        loop {
+            if *self.peek()?.token() == Token::RSquirly {
+                self.next()?;
+                break;
+            }
+
+            let _id = self.expect(EXP_IDENT)?;
+            let (_, Token::Ident(i)) = _id.destructure()
+            else { unreachable!() };
+
+            self.expect(tExp!(Colon))?;
+
+            let t = self.parse_type()?;
+
+            map.insert(i, t);
+        }
+
+        return Ok(map)
+    }
+
     /// An expression is either:
     /// - a primary
     /// - or a chained binary operation on a primary.
@@ -260,13 +286,22 @@ impl<'a> Parser<'a> {
             }
 
             else if let Token::As = span.token() {
-                self.next()?;                
+                self.next()?; 
                 let t = self.parse_type()?;
 
                 a1 = Expression {
                     at: a1.at,
                     inner: Box::new(Expr::Cast(a1, t))
                 }
+            }
+
+            else if *span.token() == Token::LSquirly {
+                // function specialization
+                let map = self.parse_fn_specialization()?;
+                a1 = Expression {
+                    at: a1.at,
+                    inner: Box::new(Expr::Apply(a1, map))
+                };
             }
 
             if *span.token() == Token::LParen {

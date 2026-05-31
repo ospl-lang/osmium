@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::HashMap, fmt::{Debug, Display}};
+use std::{cmp::Ordering, collections::HashMap, fmt::{Debug, Display}, hash::Hash};
 use crate::ast::{decl::{AliasDeclaration, Declaration}, ops::AssignOp};
 
 pub use types::*;
@@ -82,6 +82,7 @@ pub enum Expr {
     BinaryOp(ops::BinaryOp),
     UnaryOp(ops::UnaryOp),
     Cast(Expression, UType),
+    Apply(Expression, HashMap<String, UType>),
 
     FFILoad(Expression),
     FFIFunc(LValue, Expression, usize, Vec<usize>),
@@ -192,7 +193,7 @@ impl<T: PartialEq + Eq> PartialOrd for Scope<T> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Store<T> {
     address: Option<usize>,
     typ: T,
