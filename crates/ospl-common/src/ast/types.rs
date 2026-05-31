@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone, Eq, Hash)]
 pub enum Type {
     Nul, Undefined,
 
@@ -108,7 +108,7 @@ impl Type {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum UType {
     Resolved(Type),
     Nominal(Box<UType>),

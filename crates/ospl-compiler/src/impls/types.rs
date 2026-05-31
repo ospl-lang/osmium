@@ -23,7 +23,11 @@ impl Compiler {
                 match resolved {
                     Type::Function(f) => {
                         return Ok(f.ret.clone())
-                    }
+                    },
+
+                    Type::Nominal(_, curr) => {
+                        return Ok(*curr.clone())
+                    },
 
                     _ => todo!("TODO error"),
                 }

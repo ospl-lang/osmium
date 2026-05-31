@@ -214,7 +214,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Returns the args to the call
-    pub fn parse_fn_specialization(&mut self) -> Res<HashMap<String, UType>> {
+    pub fn parse_fn_specialization(&mut self) -> Res<HashMap<UType, UType>> {
         self.expect(tExp!(LSquirly))?;
         let mut map = HashMap::new();
         loop {
@@ -223,15 +223,13 @@ impl<'a> Parser<'a> {
                 break;
             }
 
-            let _id = self.expect(EXP_IDENT)?;
-            let (_, Token::Ident(i)) = _id.destructure()
-            else { unreachable!() };
+            let t1 = self.parse_type()?;
 
             self.expect(tExp!(Colon))?;
 
-            let t = self.parse_type()?;
+            let t2 = self.parse_type()?;
 
-            map.insert(i, t);
+            map.insert(t1, t2);
         }
 
         return Ok(map)

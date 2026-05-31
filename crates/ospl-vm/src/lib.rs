@@ -188,8 +188,12 @@ impl VM {
 
             Opc::PushFunction => {
                 let new_indexes = inst.indexes.iter().map(|x| {
-                    // RelAddr -> AbsAddr
-                    return self.top().indexes[*x]
+                    let idx = self.top().indexes[*x];
+
+                    // captures have to stay alive
+                    self.arena.inc_refcount(idx);
+
+                    return idx;
                 }).collect();
                 let f_code = inst.children.get_unchecked(0);
                 
@@ -223,16 +227,17 @@ impl VM {
             Opc::Property => {
                 let (x, prop) = (inst.get_index(0), inst.get_index(1));
 
-                // this is just legitimely fucking safe. There's no invariant here.
-                let search_in = self.raw_get_value_top(x);
+                let search_in = self.get_value_top(x);
 
                 // this however isn't
                 match &*search_in {
                     RuntimeValue::Scope(s) => {
                         let add_thing = s.indexes[prop];
+                        // println!("{add_thing:?} {:?}", self.arena.get(add_thing));
 
-                        // we don't incremenet the refcount because that only
-                        // happens at frame boundaries.
+                        // apparently this fixes some bug
+                        self.arena.inc_refcount(add_thing);
+
                         self.top_mut().indexes.push(add_thing);
                     },
 
@@ -246,7 +251,7 @@ impl VM {
             Opc::GetLength => {
                 let x = self.get_value_top(inst.get_index(0));
                 let l = x.get_length();
-                let l = RuntimeValue::Int(l as i64);
+                let l = RuntimeValue::Address(l as u64);
                 self.push_literal(l);
             }
 

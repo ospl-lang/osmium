@@ -49,20 +49,21 @@ impl Compiler {
                 else { panic!("TODO unrwap - cannot apply on a non-function type") };
 
                 for (nom, repl) in nominals_to_replacements {
-                    let Some((None, Type::Nominal(nom_nom, _))) = self.stack.top().get_combined_with_nonaddressable(nom)
+                    // let Some((None, Type::Nominal(nom_nom, _))) = self.stack.top().get_combined_with_nonaddressable(nom)
+                    let Type::Nominal(nom_nom, _) = self.rt(self.stack.top(), nom, expr)?
                     else { panic!("TODO unwrap - a nominal replacement is needed") };
 
                     let repl = self.rt(self.stack.top(), repl, expr)?;
                     ftype.args.iter_mut().for_each(|x| {
                         if let Type::Nominal(nom_nom_nom, _) = x {
-                            if *nom_nom_nom == *nom_nom {  // yummy!
+                            if *nom_nom_nom == nom_nom {  // yummy!
                                 *x = repl.clone();
                             }
                         }
                     });
 
                     if let Type::Nominal(nom_nom_nom, _) = ftype.ret {
-                        if nom_nom_nom == *nom_nom {  // y-y-y-y-yummy!
+                        if nom_nom_nom == nom_nom {  // y-y-y-y-yummy!
                             // I'm going fucking crazy iykyk
                             //   -- Amber
 
@@ -78,8 +79,10 @@ impl Compiler {
             }
             Expr::Cast(left, into) => {
                 let left = self.eval(left, ob)?;
-                let into = self.rt(self.stack.top(), into, expr)?;
-                if let Type::Nominal(_, p) = &into {
+                let new_into = self.rt(self.stack.top(), into, expr)?;
+
+                // for turning INTO a nominal
+                if let Type::Nominal(_, p) = &new_into {
                     if left.ty != **p {
                         return Err(CE {
                             at: expr.spanned(),
@@ -94,19 +97,41 @@ impl Compiler {
 
                     return Ok(EvalResult {
                         address: left.address,
-                        ty: into.clone()
+                        ty: new_into.clone()
                     })
-                } else {
+                }
+
+                // for UNWRAPPING a nominal
+                else if let Type::Nominal(_, p) = &left.ty {
+                    if new_into != **p {
+                        return Err(CE {
+                            at: expr.spanned(),
+                            error: CEData::MismatchedTypes {
+                                expected: TypeExpectation::Exact(new_into.clone()),
+                                got: *p.clone()
+                            },
+                            during: "Nominal unwrap cast - type check",
+                            msg: None
+                        })
+                    }
+
+                    return Ok(EvalResult {
+                        address: left.address,
+                        ty: new_into.clone(),
+                    })
+                }
+                
+                else {
                     ob.push(InstBuilder::new()
                         .opcode(Opc::Cast)
                         .index(left.address)
-                        .index(into.to_primitive_type_id())
+                        .index(new_into.to_primitive_type_id())
                         .symbol(&mut *self.bd.symbols.lock()?, expr.user_symbol())
                         .build());
 
                     return Ok(EvalResult {
                         address: self.next_var(),
-                        ty: into.clone()
+                        ty: new_into.clone()
                     })
                 }
             }

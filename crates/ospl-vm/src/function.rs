@@ -104,6 +104,12 @@ impl VM {
     pub fn retscope(&mut self) {
         // may or may not work...
         let s = unsafe{self.pop_scope_without_gc()};
+
+        // because of the caller, we might (maybe? Probably?) need to INC
+        // https://chatgpt.com/c/6a1c3aa7-9098-83ea-bbb3-e3b3137f348a
+
+        self.arena.gc_frame_added(&s.indexes);
+
         self.push_literal(RuntimeValue::Scope(s));
     }
 

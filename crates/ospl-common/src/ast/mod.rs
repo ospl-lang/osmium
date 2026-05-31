@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::HashMap, fmt::{Debug, Display}, hash::Hash};
+use std::{cmp::Ordering, collections::HashMap, fmt::{Debug, Display}, hash::{Hash, Hasher}};
 use crate::ast::{decl::{AliasDeclaration, Declaration}, ops::AssignOp};
 
 pub use types::*;
@@ -82,7 +82,7 @@ pub enum Expr {
     BinaryOp(ops::BinaryOp),
     UnaryOp(ops::UnaryOp),
     Cast(Expression, UType),
-    Apply(Expression, HashMap<String, UType>),
+    Apply(Expression, HashMap<UType, UType>),
 
     FFILoad(Expression),
     FFIFunc(LValue, Expression, usize, Vec<usize>),
@@ -138,6 +138,13 @@ pub struct FunctionType<T> {
     pub ret: T,
 }
 
+impl<T: Hash> Hash for FunctionType<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.args.hash(state);
+        self.ret.hash(state);
+    }
+}
+
 impl<T: Debug> Display for FunctionType<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "fn(")?;
@@ -154,10 +161,25 @@ impl<T: Debug> Display for FunctionType<T> {
 /// A single block of variables.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Scope<T> {
-    /// A mapping of names to stack indexes / RelAddrs
     map: HashMap<String, Store<T>>,
 
     next_id: usize,
+}
+
+impl<T: Hash> Hash for Scope<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.next_id.hash(state);
+
+        // Hash the map in a deterministic way
+        // HashMap iteration order is NOT stable, so you must normalize it
+        let mut entries: Vec<_> = self.map.iter().collect();
+        entries.sort_by(|a, b| a.0.cmp(b.0));
+
+        for (k, v) in entries {
+            k.hash(state);
+            v.hash(state);
+        }
+    }
 }
 
 impl<T> Default for Scope<T> {
