@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use ospl_common::ast::{Expr, Expression, FunctionType, FunctionValue, Literal, Position, Statement, Stmt, UType, decl::{Declaration, DeclarationMeta}};
+use ospl_common::ast::{Expr, Expression, FunctionType, FunctionValue, Literal, Position, Statement, Stmt, UType, decl::Declaration};
 
 pub mod resolv;
 pub mod resolv2;
@@ -16,10 +16,6 @@ pub fn wrap_in_iife_declaration(name: &str, mut v: Vec<Statement>) -> Statement 
     return Statement {
         at: Position::default(),
         inner: Box::new(Stmt::Define(Declaration {
-            meta: DeclarationMeta {
-                constness: ospl_common::ast::decl::Constness::Const,
-                visibility: ospl_common::ast::decl::Visibility::Private
-            },
             name: name.to_string(),
             rhs: Expression {
                 at: Position::default(),
@@ -47,7 +43,6 @@ pub fn create_ffi(name: &str, file: &Path) -> Statement {
     return Statement {
         at: Position::default(),
         inner: Box::new(Stmt::Define(Declaration {
-            meta: DeclarationMeta { visibility: ospl_common::ast::decl::Visibility::Private, constness: ospl_common::ast::decl::Constness::Const },
             name: name.to_string(),
             rhs: Expression {
                 at: Position::default(),

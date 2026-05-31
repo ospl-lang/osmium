@@ -114,7 +114,7 @@ impl Compiler {
             .opcode(Opc::PushFunction)
             .child(insts)
             .indexes(&capture_indexes)
-            .symbol(&mut *self.symbols.lock()?, span.user_symbol())
+            .symbol(&mut *self.bd.symbols.lock()?, span.user_symbol())
             .build();
 
         ob.push(inst);
@@ -171,7 +171,7 @@ impl Compiler {
             .opcode(Opc::Call)
             .index(f.address)  // right here
             .indexes(&new_args)
-            .symbol(&mut *self.symbols.lock()?, call_func.user_symbol())
+            .symbol(&mut *self.bd.symbols.lock()?, call_func.user_symbol())
             .build();
 
         ob.push(i);

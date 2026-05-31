@@ -32,6 +32,11 @@ impl Compiler {
             Stmt::DefineTypeAlias(dcl) => {
                 let t = self.rt(self.stack.top(), &dcl.ty, s)?;
                 self.stack.top_mut().declare_non_addressable(dcl.name.clone(), t);
+            },
+
+            Stmt::DefineNominalTypeAlias(dcl) => {
+                let t = self.rt(self.stack.top(), &dcl.ty, s)?;
+                self.stack.top_mut().declare_non_addressable(dcl.name.clone(), t);
             }
 
             Stmt::Expr(e) => {

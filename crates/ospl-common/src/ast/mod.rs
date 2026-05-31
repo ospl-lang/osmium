@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, collections::HashMap, fmt::{Debug, Display}};
+use crate::ast::{decl::{AliasDeclaration, Declaration}, ops::AssignOp};
 
-use crate::ast::{decl::{AliasDeclaration, Declaration, Visibility}, ops::AssignOp};
+pub use types::*;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Position {
@@ -48,6 +49,7 @@ pub enum Stmt {
     // Define(String, Expression),
     Define(Declaration),
     DefineTypeAlias(AliasDeclaration),
+    DefineNominalTypeAlias(AliasDeclaration),
     Assign(LValue, Expression),
     Return(Expression),
     Break,
@@ -79,7 +81,7 @@ pub enum Expr {
     Call(Expression, Vec<Expression>),
     BinaryOp(ops::BinaryOp),
     UnaryOp(ops::UnaryOp),
-    Cast(Expression, Type),
+    Cast(Expression, UType),
 
     FFILoad(Expression),
     FFIFunc(LValue, Expression, usize, Vec<usize>),
@@ -145,83 +147,6 @@ impl<T: Debug> Display for FunctionType<T> {
         write!(f, ") -> {:?}", self.ret)?;
 
         return Ok(())
-    }
-}
-
-#[derive(Debug, Clone, Eq)]
-pub enum Type {
-    Nul, Undefined,
-
-    /// A type-erased type.
-    /// 
-    /// It has an unknown runtime type. It cannot be operated upon but any
-    /// creator of the value is aware as to what type it is and can fully
-    /// utilize it.
-    Unknown,
-
-    Int, Address, Float, Char, Str, Bool, List(Box<Self>),
-    Scope(Scope<Self>),
-    Function(Box<FunctionType<Self>>),
-
-    ForeignLibrary,
-    ForeignFunction(Vec<Self>, Box<Self>),
-}
-
-impl PartialEq for Type {
-    fn eq(&self, t2: &Type) -> bool {
-        return match (self, t2) {
-            // special rule: Unknown matches everything
-            (Type::Unknown, _) | (_, Type::Unknown) => true,
-
-            // special rule: Undefined only matches itself
-            // but is legal to compare to all other objects
-            (Type::Undefined, Type::Undefined) => true,
-            (Type::Undefined, _) => false,
-            (_, Type::Undefined) => false,
-
-            // normal structural equality
-            (Type::Nul, Type::Nul) => true,
-            (Type::Int, Type::Int) => true,
-            (Type::Address, Type::Address) => true,
-            (Type::Float, Type::Float) => true,
-            (Type::Str, Type::Str) => true,
-            (Type::Char, Type::Char) => true,
-            (Type::Bool, Type::Bool) => true,
-
-            (Type::List(a), Type::List(b)) => a == b,
-            (Type::Scope(a), Type::Scope(b)) => a == b,
-            (Type::Function(a), Type::Function(b)) => a == b,
-
-            (Type::ForeignLibrary, Type::ForeignLibrary) => true,
-
-            (Type::ForeignFunction(args1, ret1), Type::ForeignFunction(args2, ret2)) => {
-                args1 == args2 && ret1 == ret2
-            }
-
-            _ => false,
-        };
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum UType {
-    Resolved(Type),
-    Typeof(String),
-    Property(Box<Self>, String),
-    Returnof(Box<Self>),
-    Function(Box<FunctionType<Self>>),
-    List(Box<Self>),
-    Scope(Scope<Self>),
-    InferScope,
-}
-
-impl Type {
-    pub fn is_indexable(&self) -> bool {
-        return matches!(self, Self::Str | Self::List(_))
-    }
-
-    pub fn is_sliceable(&self) -> bool {
-        return matches!(self, Self::Str | Self::List(_))
     }
 }
 
@@ -368,7 +293,6 @@ pub struct FunctionValue {
 #[derive(Debug, Clone)]
 pub struct ArgNaming {
     pub name: String,
-    pub privacy: Visibility,
 }
 
 pub mod frame;

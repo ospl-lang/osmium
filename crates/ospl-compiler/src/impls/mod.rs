@@ -1,8 +1,8 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use ospl_common::{ast::{Scope, Type}, inst::symbols::DebugSymbolTable};
+use ospl_common::ast::{Scope, Type};
 
-use crate::{Compiler, RelativeVarID, ScopeStack};
+use crate::{BuildData, Compiler, RelativeVarID, ScopeStack};
 
 impl Compiler {
     /// Increments to the next index, returning the previous one,
@@ -12,12 +12,12 @@ impl Compiler {
         return t.next_post()
     }
 
-    pub fn new(symbols: Arc<Mutex<DebugSymbolTable>>) -> Self {
+    pub fn new(bd: Arc<BuildData>) -> Self {
         return Self {
             stack: ScopeStack { scopes: vec![
                 Scope::default()
             ] },
-            symbols
+            bd
         }
     }
 }

@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError, atomic::AtomicUsize};
 
 use ospl_common::{ast::{Scope, Type, ops::BinaryOpType, spanning::UnknownLocation}, inst::symbols::DebugSymbolTable};
 
@@ -15,7 +15,13 @@ pub struct ScopeStack {
 #[derive(Debug)]
 pub struct Compiler {
     pub stack: ScopeStack,
-    pub symbols: Arc<Mutex<DebugSymbolTable>>,
+    pub bd: Arc<BuildData>,
+}
+
+#[derive(Debug)]
+pub struct BuildData {
+    pub symbols: Mutex<DebugSymbolTable>,
+    pub next_resource_id: AtomicUsize,
 }
 
 #[derive(Debug, Clone)]

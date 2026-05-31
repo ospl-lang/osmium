@@ -27,7 +27,7 @@ impl Compiler {
             .opcode(Opc::Index)
             .index(left.address)
             .index(right.address)
-            .symbol(&mut *self.symbols.lock()?, span.user_symbol())
+            .symbol(&mut *self.bd.symbols.lock()?, span.user_symbol())
             .build());
 
         return Ok(EvalResult {
@@ -57,7 +57,7 @@ impl Compiler {
             .index(left.address)
             .index(right_start.address)
             .index(right_end.address)
-            .symbol(&mut *self.symbols.lock()?, span.user_symbol())
+            .symbol(&mut *self.bd.symbols.lock()?, span.user_symbol())
             .build());
 
         return Ok(EvalResult {

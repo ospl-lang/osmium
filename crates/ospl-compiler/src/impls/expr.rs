@@ -1,7 +1,7 @@
 use ospl_common::{ast::spanning::Spannable, inst::optimized::{Inst, InstBuilder, Opc}};
 use tracing::error;
 
-use crate::{CE, CEData, Compiler, EvalResult, Res, Type, ast::{Expr, LV, LValue, Literal}};
+use crate::{CE, CEData, Compiler, EvalResult, Res, Type, TypeExpectation, ast::{Expr, LV, LValue, Literal}};
 
 impl Compiler {
     pub fn eval(
@@ -31,7 +31,7 @@ impl Compiler {
                 let i = InstBuilder::new()
                     .opcode(Opc::FFILoadLib)
                     .index(fp.address)
-                    .symbol(&mut *self.symbols.lock()?, expr.user_symbol())
+                    .symbol(&mut *self.bd.symbols.lock()?, expr.user_symbol())
                     .build();
 
                 ob.push(i);
@@ -45,18 +45,37 @@ impl Compiler {
             Expr::FFIFunc(lib, func_name, rtype, types) => self.ffi_func(lib, func_name, *rtype, types, ob),
             Expr::Cast(left, into) => {
                 let left = self.eval(left, ob)?;
+                let into = self.rt(self.stack.top(), into, expr)?;
+                if let Type::Nominal(_, p) = &into {
+                    if left.ty != **p {
+                        return Err(CE {
+                            at: expr.spanned(),
+                            error: CEData::MismatchedTypes {
+                                expected: TypeExpectation::Exact(*p.clone()),
+                                got: left.ty
+                            },
+                            during: "Nominal cast - type check",
+                            msg: None
+                        })
+                    }
 
-                ob.push(InstBuilder::new()
-                    .opcode(Opc::Cast)
-                    .index(left.address)
-                    .index(into.to_primitive_type_id())
-                    .symbol(&mut *self.symbols.lock()?, expr.user_symbol())
-                    .build());
+                    return Ok(EvalResult {
+                        address: left.address,
+                        ty: into.clone()
+                    })
+                } else {
+                    ob.push(InstBuilder::new()
+                        .opcode(Opc::Cast)
+                        .index(left.address)
+                        .index(into.to_primitive_type_id())
+                        .symbol(&mut *self.bd.symbols.lock()?, expr.user_symbol())
+                        .build());
 
-                return Ok(EvalResult {
-                    address: self.next_var(),
-                    ty: into.clone()
-                })
+                    return Ok(EvalResult {
+                        address: self.next_var(),
+                        ty: into.clone()
+                    })
+                }
             }
         }
     }
@@ -189,7 +208,7 @@ impl Compiler {
                     .opcode(Opc::Property)
                     .index(eval.address)
                     .index(x.address)
-                    .symbol(&mut *self.symbols.lock()?, lv.user_symbol())
+                    .symbol(&mut *self.bd.symbols.lock()?, lv.user_symbol())
                     .build();
 
                 ob.push(i);

@@ -1,6 +1,6 @@
-use std::{collections::{HashMap, VecDeque}, hash::Hash, path::PathBuf, sync::{Arc, Mutex}};
+use std::{collections::{HashMap, VecDeque}, hash::Hash, path::PathBuf, sync::{Arc, Mutex, atomic::AtomicUsize}};
 use ospl_common::{ast::Statement, inst::{optimized::Inst, symbols::DebugSymbolTable}};
-use ospl_compiler::Compiler;
+use ospl_compiler::{BuildData, Compiler};
 
 use crate::{Log, LogState};
 
@@ -49,7 +49,10 @@ pub fn compile(graph: &Graph) -> Vec<Inst> {
     let mut finished: HashMap<ModuleId, Vec<Statement>> = HashMap::new();
     let mut finished_compilations: HashMap<ModuleId, Vec<Inst>> = HashMap::new();
 
-    let debug_symbols = Arc::new(Mutex::new(DebugSymbolTable::default()));
+    let bd = Arc::new(BuildData {
+        next_resource_id: AtomicUsize::new(0),
+        symbols: Mutex::new(DebugSymbolTable::default())
+    });
 
     for node_id in order {
         let node = &graph.modules[&node_id];
@@ -58,7 +61,7 @@ pub fn compile(graph: &Graph) -> Vec<Inst> {
 
         Log!(Compiling, "node {node:?}");
 
-        let mut local_compiler = Compiler::new(debug_symbols.clone());
+        let mut local_compiler = Compiler::new(bd.clone());
         let mut input_code = Vec::new();
         for req in &node.deps {
             Log!(Linking, "node #{}", req.id);

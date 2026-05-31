@@ -29,6 +29,12 @@ impl Compiler {
                 }
             },
 
+            UType::Nominal(n) => {
+                let typ = self.rt(scope, &**n, span)?;
+                let nom = self.bd.next_resource_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                return Ok(Type::Nominal(nom, Box::new(typ)));
+            }
+
             UType::Property(b, p) => {
                 let br = self.rt(scope, &b, span)?;
                 match br {

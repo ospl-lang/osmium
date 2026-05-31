@@ -108,7 +108,10 @@ impl<'a> Lexer<'a> {
             '%' => Token::Percent,
 
             ',' => Token::Comma,
-            '.' => Token::Dot,
+            '.' => if self.peek()? == '.' {
+                self.bump()?;
+                Token::Ellipsis
+            } else  { Token::Dot }
             '@' => Token::Atsign,
             ';' => Token::Semicolon,
             ':' => Token::Colon,
@@ -178,14 +181,15 @@ impl<'a> Lexer<'a> {
                     "bool" => Token::BoolT,
                     "list" => Token::ListT,
                     "addr" => Token::AddrT,
+                    "unknown" => Token::UnknownT,
+                    "any" => Token::AnyT,
+                    "char" => Token::CharT,
 
                     /* values */
                     "nul" => Token::Nul,
                     "undefined" => Token::Undefined,
-                    "unknown" => Token::UnknownT,
                     "true" => Token::True,
                     "false" => Token::False,
-                    "char" => Token::CharT,
 
                     _ => Token::Ident(s),
                 }

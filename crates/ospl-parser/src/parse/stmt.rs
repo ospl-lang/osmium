@@ -1,4 +1,4 @@
-use ospl_common::ast::{LValue, Statement, Stmt, decl::{AliasDeclaration, Declaration, DeclarationMeta}, ops::AssignOp};
+use ospl_common::ast::{LValue, Statement, Stmt, UType, decl::{AliasDeclaration, Declaration}, ops::AssignOp};
 
 use crate::{lexer::token::{EXP_IDENT, EXP_KEYWORD, Span, Token, TokenExpectation}, parse::{Parser, Res, expr::{EXP_BINARY_OPERATION, token_to_binaryop}}, tComb, tExp};
 
@@ -9,17 +9,13 @@ impl<'a> Parser<'a> {
         let t = self.expect_peek(Self::EXP_STMT_STARTER)?;
 
         match t.token() {
-            Token::Def | Token::Let => {
+            Token::Def => {
                 self.next()?;  // consume `t`
 
                 // ugly way of this...
                 let _id = self.expect(EXP_IDENT)?;
                 let (_, Token::Ident(id)) = _id.destructure()
                     else { unreachable!() };
-
-                let visibility = if let Token::Let = t.token() {
-                    ospl_common::ast::decl::Visibility::Private
-                } else { ospl_common::ast::decl::Visibility::Public };
 
                 let span = self.expect(tExp!(Equals, Colon))?;
                 match span.token() {
@@ -28,10 +24,6 @@ impl<'a> Parser<'a> {
 
                         return Ok(Statement {
                             inner: Box::new(Stmt::Define(Declaration {
-                                meta: DeclarationMeta {
-                                    constness: ospl_common::ast::decl::Constness::Mut,
-                                    visibility
-                                },
                                 name: id,
                                 rhs: rvalue,
                             })),
@@ -43,10 +35,6 @@ impl<'a> Parser<'a> {
 
                         return Ok(Statement {
                             inner: Box::new(Stmt::DefineTypeAlias(AliasDeclaration {
-                                meta: DeclarationMeta {
-                                    constness: ospl_common::ast::decl::Constness::Const,
-                                    visibility
-                                },
                                 name: id,
                                 ty: rvalue,
                             })),
@@ -55,6 +43,25 @@ impl<'a> Parser<'a> {
                     }
                     _ => unreachable!()
                 }
+            },
+            Token::Let => {
+                self.next()?;  // consume `t`
+                // ugly way of this...
+                let _id = self.expect(EXP_IDENT)?;
+                let (_, Token::Ident(id)) = _id.destructure()
+                    else { unreachable!() };
+
+                self.expect(tExp!(Colon))?;
+
+                let typ = self.parse_type()?;
+
+                return Ok(Statement {
+                    at: *t.position(),
+                    inner: Box::new(Stmt::DefineNominalTypeAlias(AliasDeclaration {
+                        name: id,
+                        ty: UType::Nominal(Box::new(typ))
+                    }))
+                })
             },
             Token::Return => {
                 self.next()?;  // consume `t`
