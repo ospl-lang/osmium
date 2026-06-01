@@ -1,0 +1,2 @@
+def one = foreign fn mylib "one" i32 {};
+do foreign one();

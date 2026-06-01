@@ -28,20 +28,8 @@ fn run(args: &[&str], cwd: &Path) -> std::process::Output {
 }
 
 fn write_binary_package(dir: &Path, source: &str) {
-    fs::write(
-        dir.join("package.yml"),
-        r#"name: app
-version: 1.0.0
-entry: bin
-
-includes:
-  bin:
-    at: !File "main.ospl"
-
-requires: []
-"#,
-    )
-    .expect("failed to write package.yml");
+    fs::write(dir.join("package.yml"), include_str!("fixtures/binary_package.yml"))
+        .expect("failed to write package.yml");
 
     fs::write(dir.join("main.ospl"), source).expect("failed to write main.ospl");
 }
@@ -82,27 +70,10 @@ fn local_module_can_be_required_by_entry_module() {
     let dir = temp_dir("local-module");
     fs::write(
         dir.join("package.yml"),
-        r#"name: app
-version: 1.0.0
-entry: bin
-
-includes:
-  bin:
-    at: !File "main.ospl"
-    require:
-      lib: !Local "lib"
-  lib:
-    at: !File "lib.ospl"
-
-requires: []
-"#,
+        include_str!("fixtures/local_module_package.yml"),
     )
     .expect("failed to write package.yml");
-    fs::write(
-        dir.join("main.ospl"),
-        "def y = lib.x;\n",
-    )
-    .expect("failed to write main.ospl");
+    fs::write(dir.join("main.ospl"), "def y = lib.x;\n").expect("failed to write main.ospl");
     fs::write(dir.join("lib.ospl"), "def x = 42;\n").expect("failed to write lib.ospl");
 
     let scratch = run(&["scratch-run"], &dir);
@@ -117,29 +88,15 @@ requires: []
 #[test]
 fn declared_c_extension_can_be_loaded_and_called() {
     let dir = temp_dir("c-extension");
-    fs::write(dir.join("ffi.c"), "int one(void) { return 1; }\n")
-        .expect("failed to write ffi.c");
+    fs::write(dir.join("ffi.c"), include_str!("fixtures/ffi.c")).expect("failed to write ffi.c");
     fs::write(
         dir.join("package.yml"),
-        r#"name: cext
-version: 1.0.0
-entry: bin
-
-includes:
-  bin:
-    at: !File "main.ospl"
-    extensions:
-      mylib: "ffi.c"
-
-requires: []
-"#,
+        include_str!("fixtures/c_extension_package.yml"),
     )
     .expect("failed to write package.yml");
     fs::write(
         dir.join("main.ospl"),
-        r#"def one = foreign fn mylib "one" i32 {};
-do foreign one();
-"#,
+        include_str!("fixtures/c_extension_main.ospl"),
     )
     .expect("failed to write main.ospl");
 
@@ -234,10 +191,7 @@ fn foreign_use_can_load_system_library_path() {
     let dir = temp_dir("system-ffi");
     write_binary_package(
         &dir,
-        r#"def libc = foreign use "libc.so.6";
-def puts = foreign fn libc "puts" i32 { ptr };
-do foreign puts("hello from ffi");
-"#,
+        include_str!("fixtures/system_ffi_main.ospl"),
     );
 
     let scratch = run(&["scratch-run"], &dir);
@@ -261,16 +215,7 @@ fn failed_build_preserves_last_successful_dist_file() {
 
     fs::write(
         dir.join("package.yml"),
-        r#"name: app
-version: 1.0.0
-entry: bin
-
-includes:
-  bin:
-    at: !File "missing.ospl"
-
-requires: []
-"#,
+        include_str!("fixtures/missing_source_package.yml"),
     )
     .expect("failed to write invalid package.yml");
 
