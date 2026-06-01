@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::{BUILD_FOLDER, Log, LogState, graph::{build::{CxxNode, Graph, ModuleNode, Requirement}, decl::{ModRef, PkgRef}, resolv::HighGraph}};
+use crate::{BUILD_FOLDER, LogState, graph::{build::{CxxNode, Graph, ModuleNode, ModuleNodeMeta, Requirement}, decl::{ModRef, PkgRef}, resolv::HighGraph}};
 
 pub fn lower(high: HighGraph) -> Graph {
     let mut modules: HashMap<u32, ModuleNode> = HashMap::new();
@@ -56,6 +56,9 @@ pub fn lower(high: HighGraph) -> Graph {
             ast: high_mod.ast,
             cxx_deps,
             deps: resolved_requires,
+            meta: ModuleNodeMeta {
+                name: high_mod.name,
+            }
         });
     }
 
@@ -93,7 +96,7 @@ pub fn get_package_module_with_name(
         .iter()
         .filter_map(|((p, n), id)| {
             if p == pkg && name == n {
-                Log!(Resolved, "module {n} in package {p:?}");
+                // Log!(Resolved, "module {n} in package {p:?}");
                 Some(*id)
             } else {
                 None

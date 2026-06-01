@@ -17,6 +17,7 @@ pub enum Token {
     Use,
     Foreign,
     As,
+    Try,
 
     /* values */
     Nul,

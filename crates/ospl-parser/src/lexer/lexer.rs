@@ -111,7 +111,8 @@ impl<'a> Lexer<'a> {
             '.' => if self.peek()? == '.' {
                 self.bump()?;
                 Token::Ellipsis
-            } else  { Token::Dot }
+            } else { Token::Dot }
+
             '@' => Token::Atsign,
             ';' => Token::Semicolon,
             ':' => Token::Colon,
@@ -173,6 +174,7 @@ impl<'a> Lexer<'a> {
                     "use" => Token::Use,
                     "foreign" => Token::Foreign,
                     "as" => Token::As,
+                    "try" => Token::Try,
 
                     /* types */
                     "int" => Token::IntT,

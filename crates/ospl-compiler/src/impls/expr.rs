@@ -45,36 +45,10 @@ impl Compiler {
             Expr::FFIFunc(lib, func_name, rtype, types) => self.ffi_func(lib, func_name, *rtype, types, ob),
             Expr::Apply(left, nominals_to_replacements) => {
                 let eval = self.eval(left, ob)?;
-                let Type::Function(mut ftype) = eval.ty
-                else { panic!("TODO unrwap - cannot apply on a non-function type") };
-
-                for (nom, repl) in nominals_to_replacements {
-                    // let Some((None, Type::Nominal(nom_nom, _))) = self.stack.top().get_combined_with_nonaddressable(nom)
-                    let Type::Nominal(nom_nom, _) = self.rt(self.stack.top(), nom, expr)?
-                    else { panic!("TODO unwrap - a nominal replacement is needed") };
-
-                    let repl = self.rt(self.stack.top(), repl, expr)?;
-                    ftype.args.iter_mut().for_each(|x| {
-                        if let Type::Nominal(nom_nom_nom, _) = x {
-                            if *nom_nom_nom == nom_nom {  // yummy!
-                                *x = repl.clone();
-                            }
-                        }
-                    });
-
-                    if let Type::Nominal(nom_nom_nom, _) = ftype.ret {
-                        if nom_nom_nom == nom_nom {  // y-y-y-y-yummy!
-                            // I'm going fucking crazy iykyk
-                            //   -- Amber
-
-                            ftype.ret = repl;
-                        }
-                    }
-                }
-
+                let ty = self.fn_nominal_application(eval.ty, nominals_to_replacements, expr)?;
                 return Ok(EvalResult {
                     address: eval.address,
-                    ty: Type::Function(ftype)
+                    ty: Type::Function(ty)
                 })
             }
             Expr::Cast(left, into) => {

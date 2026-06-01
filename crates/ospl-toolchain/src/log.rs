@@ -6,9 +6,6 @@ pub enum Action {
     Compiling,
     Linking,
 
-    Resolving,
-    Resolved,
-
     Skipping,
 
     Setting,

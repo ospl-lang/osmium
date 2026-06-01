@@ -25,11 +25,19 @@ pub struct ModuleNode {
     pub deps: Vec<Requirement>,
     pub cxx_deps: Vec<CxxNode>,
     pub ast: Vec<Statement>,
+
+    /// Uused for anything but logging
+    pub meta: ModuleNodeMeta
+}
+
+#[derive(Default)]
+pub struct ModuleNodeMeta {
+    pub name: String,
 }
 
 impl std::fmt::Debug for ModuleNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        return write!(f, "[some module] needs {:?}", self.deps)
+        return write!(f, "{}", self.meta.name)
     }
 }
 
@@ -59,12 +67,12 @@ pub fn compile(graph: &Graph) -> Vec<Inst> {
 
         LogState!(&format!("node {node_id}"));
 
-        Log!(Compiling, "node {node:?}");
+        Log!(Compiling, "module {node:?}");
 
         let mut local_compiler = Compiler::new(bd.clone());
         let mut input_code = Vec::new();
         for req in &node.deps {
-            Log!(Linking, "node #{}", req.id);
+            // Log!(Linking, "with {}", req.ident);
             let requirement = finished[&req.id].clone();
             let requirement = super::wrap_in_iife_declaration(&req.ident, requirement);
             input_code.push(requirement);

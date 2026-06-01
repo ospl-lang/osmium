@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Debug, path::{Path, PathBuf}};
 // use std::collections::HashSet;
 use ospl_common::ast::Statement;
 
-use crate::{Log, LogState, graph::decl::{ModRef, ModSrc, PackageSetup, PkgRef}, load_package_yml_at};
+use crate::{LogState, graph::decl::{ModRef, ModSrc, PackageSetup, PkgRef}, load_package_yml_at};
 
 #[derive(Default, Debug)]
 pub struct HighGraph {
@@ -61,8 +61,6 @@ pub fn resolve_pkg(p: PackageSetup, q: &mut HighGraph, mut re: RecursionInfo) {
     // --- build modules ---
     LogState!(&format!("{:?}", re.pkg));
     for (name, mdl) in &p.includes {
-        Log!(Resolving, "module `{name}`");
-
         let key = (re.pkg.clone(), name.clone());
 
         // already exists -> skip
@@ -103,8 +101,6 @@ pub fn resolve_pkg(p: PackageSetup, q: &mut HighGraph, mut re: RecursionInfo) {
 
     // --- recurse dependencies ---
     for req in &p.requires {
-        Log!(Resolving, "requirement {req:?}");
-
         match req {
             PkgRef::Local(l) => {
                 re.current_folder.push(l);

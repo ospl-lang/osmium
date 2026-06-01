@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use ospl_common::ast::{Expr, Expression, LV, LValue, Literal, UType, ops::{BinaryOp, BinaryOpType, UnaryOp, UnaryOpType}};
 
 use crate::{lexer::token::{EXP_IDENT, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
@@ -214,11 +212,11 @@ impl<'a> Parser<'a> {
     }
 
     /// Returns the args to the call
-    pub fn parse_fn_specialization(&mut self) -> Res<HashMap<UType, UType>> {
-        self.expect(tExp!(LSquirly))?;
-        let mut map = HashMap::new();
+    pub fn parse_nominal_application(&mut self) -> Res<Vec<(UType, UType)>> {
+        self.expect(tExp!(LBracket))?;
+        let mut map = Vec::new();
         loop {
-            if *self.peek()?.token() == Token::RSquirly {
+            if *self.peek()?.token() == Token::RBracket {
                 self.next()?;
                 break;
             }
@@ -229,7 +227,7 @@ impl<'a> Parser<'a> {
 
             let t2 = self.parse_type()?;
 
-            map.insert(t1, t2);
+            map.push((t1, t2));
         }
 
         return Ok(map)
@@ -293,9 +291,13 @@ impl<'a> Parser<'a> {
                 }
             }
 
-            else if *span.token() == Token::LSquirly {
+            else if let Token::Try = span.token() {
+                panic!("reserved keywords");
+            }
+
+            else if *span.token() == Token::LBracket {
                 // function specialization
-                let map = self.parse_fn_specialization()?;
+                let map = self.parse_nominal_application()?;
                 a1 = Expression {
                     at: a1.at,
                     inner: Box::new(Expr::Apply(a1, map))

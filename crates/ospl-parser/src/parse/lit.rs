@@ -154,7 +154,7 @@ impl<'a> Parser<'a> {
             Token::UnknownT => {
                 self.next()?;
                 UType::Resolved(Type::Unknown)
-            }
+            },
 
             Token::Scope => self.parse_scope_type()?,
             other => unreachable!("{other:?}")
@@ -180,6 +180,11 @@ impl<'a> Parser<'a> {
             else if let Token::LogicOr = self.peek()?.token() {
                 self.next()?;
                 unimplemented!("TODO - implement union types")
+            }
+            else if let Token::LBracket = self.peek()?.token() {
+                let x = self.parse_nominal_application()?;
+
+                working_type = UType::Apply(Box::new(working_type), x);
             }
             else { break; }
         }

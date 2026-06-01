@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 #[derive(Debug, Clone, Eq, Hash)]
 pub enum Type {
     Nul, Undefined,
@@ -108,10 +110,11 @@ impl Type {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UType {
     Resolved(Type),
     Nominal(Box<UType>),
+    Apply(Box<UType>, Vec<(UType, UType)>),
     Typeof(String),
     Property(Box<Self>, String),
     Returnof(Box<Self>),

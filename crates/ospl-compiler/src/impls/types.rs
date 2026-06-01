@@ -37,6 +37,12 @@ impl Compiler {
                 let typ = self.rt(scope, &**n, span)?;
                 let nom = self.bd.next_resource_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 return Ok(Type::Nominal(nom, Box::new(typ)));
+            },
+
+            UType::Apply(nom, map) => {
+                let ty = self.rt(scope, nom, span)?;
+                let applied = self.fn_nominal_application(ty, map, span)?;
+                return Ok(Type::Function(applied))
             }
 
             UType::Property(b, p) => {
@@ -99,5 +105,36 @@ impl Compiler {
                 return Ok(Type::Scope(scope.clone()))
             }
         }
+    }
+
+    pub fn fn_nominal_application(&self, ty: Type, replacements: &Vec<(UType, UType)>, span: &dyn Spannable) -> Res<Box<FunctionType<Type>>> {
+        let Type::Function(mut ftype) = ty
+        else { panic!("TODO unrwap - cannot apply on a non-function type {ty:?}") };
+
+        for (nom, repl) in replacements {
+            // let Some((None, Type::Nominal(nom_nom, _))) = self.stack.top().get_combined_with_nonaddressable(nom)
+            let Type::Nominal(nom_nom, _) = self.rt(self.stack.top(), nom, span)?
+            else { panic!("TODO unwrap - a nominal replacement is needed") };
+
+            let repl = self.rt(self.stack.top(), repl, span)?;
+            ftype.args.iter_mut().for_each(|x| {
+                if let Type::Nominal(nom_nom_nom, _) = x {
+                    if *nom_nom_nom == nom_nom {  // yummy!
+                        *x = repl.clone();
+                    }
+                }
+            });
+
+            if let Type::Nominal(nom_nom_nom, _) = ftype.ret {
+                if nom_nom_nom == nom_nom {  // y-y-y-y-yummy!
+                    // I'm going fucking crazy iykyk
+                    //   -- Amber
+
+                    ftype.ret = repl;
+                }
+            }
+        }
+
+        return Ok(ftype)
     }
 }

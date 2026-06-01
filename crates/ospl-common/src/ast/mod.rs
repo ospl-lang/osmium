@@ -82,7 +82,7 @@ pub enum Expr {
     BinaryOp(ops::BinaryOp),
     UnaryOp(ops::UnaryOp),
     Cast(Expression, UType),
-    Apply(Expression, HashMap<UType, UType>),
+    Apply(Expression, Vec<(UType, UType)>),
 
     FFILoad(Expression),
     FFIFunc(LValue, Expression, usize, Vec<usize>),
