@@ -1,0 +1,11 @@
+name: cext
+version: 1.0.0
+entry: bin
+
+includes:
+  bin:
+    at: !File "main.ospl"
+    extensions:
+      mylib: "ffi.c"
+
+requires: []

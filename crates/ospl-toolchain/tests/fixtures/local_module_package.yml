@@ -1,0 +1,13 @@
+name: app
+version: 1.0.0
+entry: bin
+
+includes:
+  bin:
+    at: !File "main.ospl"
+    require:
+      lib: !Local "lib"
+  lib:
+    at: !File "lib.ospl"
+
+requires: []
