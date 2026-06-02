@@ -5,7 +5,6 @@ use crate::arena::ArenaItem;
 mod ffi;
 mod cond;
 mod binaryops;
-mod pushes;
 mod function;
 mod unaryops;
 mod list;
@@ -43,7 +42,6 @@ impl VM {
 
     #[inline(always)]
     pub fn push_frame(&mut self, f: RuntimeFrame) {
-        self.arena.gc_frame_added(&f.indexes);
         self.stack.push(f);
     }
 
@@ -62,11 +60,6 @@ impl VM {
     pub fn new_scope_parental(&mut self) {
         let parents = self.top().indexes.clone();
 
-        // adding this makes it not behave according to spec
-        //    ^^^ NO PAST AMBER, IT DOESN'T!
-        //        maybe it does with ifs idk, but it fixes loops
-        self.arena.gc_frame_added(&parents);
-
         self.stack.push(RuntimeFrame {
             indexes: parents,
         });
@@ -74,18 +67,8 @@ impl VM {
 
     #[inline(always)]
     pub fn end_scope(&mut self) {
-        let Some(f) = self.stack.pop()
+        let Some(_) = self.stack.pop()
             else { panic!("You can't return from the top level of a script, you fucking moron!") };
-
-        self.arena.gc_frame_destroyed(&f.indexes);
-    }
-
-    #[inline(always)]
-    pub unsafe fn pop_scope_without_gc(&mut self) -> RuntimeFrame {
-        let Some(f) = self.stack.pop()
-            else { panic!("You can't return from the top level of a script, you fucking moron!") };
-
-        return f
     }
 
     /// Returns the scope without decrementing the refcount
@@ -94,13 +77,17 @@ impl VM {
         let f = self.stack.pop()
             .unwrap_or_else(|| panic!("You can't return from the top level of a script, you fucking moron!"));
     
-        self.arena.gc_frame_destroyed(&f.indexes);
         return f
     }
 
     #[inline(always)]
-    pub fn get_item_top(&mut self, abs: ArenaIndex) -> &mut ArenaItem {
+    pub fn get_item_top_mut(&mut self, abs: ArenaIndex) -> &mut ArenaItem {
         return self.arena.get_item_mut(self.top().indexes[abs]);
+    }
+
+    #[inline(always)]
+    pub fn get_item_top(&self, abs: ArenaIndex) -> &ArenaItem {
+        return self.arena.get_item(self.top().indexes[abs]);
     }
 
     #[inline(always)]
@@ -118,8 +105,15 @@ impl VM {
     /// Is about equivalent to literal assignemnt.
     #[inline(always)]
     pub fn push_literal(&mut self, v: RuntimeValue) -> ArenaIndex {
+        const MEM_THRES: usize = (0.95 * arena::MEMMAX as f32) as usize;
+
         let i = self.arena.push(v);
         self.top_mut().indexes.push(i);
+
+        if i >= MEM_THRES {
+            self.gc();
+        }
+    
         return i
     }
 
@@ -166,10 +160,11 @@ impl VM {
 
         unsafe { match &inst.opcode {
             Opc::PushLiteral => {
-                self.push_copy(
+                self.push_literal(
                     inst.immediate
                         .as_ref()
                         .unwrap()
+                        .clone()
                 );
             },
 
@@ -190,15 +185,12 @@ impl VM {
                 let new_indexes = inst.indexes.iter().map(|x| {
                     let idx = self.top().indexes[*x];
 
-                    // captures have to stay alive
-                    self.arena.inc_refcount(idx);
-
                     return idx;
                 }).collect();
                 let f_code = inst.children.get_unchecked(0);
                 
                 let f = RuntimeFunction {
-                    lexical_indexes: new_indexes,
+                    captures: new_indexes,
                     code: f_code.clone()
                 };
 
@@ -236,7 +228,7 @@ impl VM {
                         // println!("{add_thing:?} {:?}", self.arena.get(add_thing));
 
                         // apparently this fixes some bug
-                        self.arena.inc_refcount(add_thing);
+                        // self.arena.inc_refcount(add_thing);
 
                         self.top_mut().indexes.push(add_thing);
                     },

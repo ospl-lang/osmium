@@ -32,7 +32,7 @@ pub enum RuntimeValue {
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct RuntimeFunction {
     /// Absolute address
-    pub lexical_indexes: Vec<crate::types::AbsAddress>,
+    pub captures: Vec<crate::types::AbsAddress>,
     pub code: Vec<Inst>
 }
 

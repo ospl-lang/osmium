@@ -171,7 +171,6 @@ impl VM {
                 (RuntimeValue::Int(x), RuntimeValue::Int(y)) => *x -= *y,
                 (RuntimeValue::List(l), RuntimeValue::Address(u)) => {
                     let u = *u as usize;
-                    self.arena.dec_refcount(l.items[u]);
                     l.items.remove(u);
                 },
                 (RuntimeValue::Str(s1), RuntimeValue::Address(i)) => {

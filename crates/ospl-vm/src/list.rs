@@ -7,7 +7,6 @@ impl VM {
         let mut list = List::default();
         for rel in indexes {
             let abs = self.top().indexes[*rel];
-            self.arena.inc_refcount(abs);
             
             list.items.push(abs);
         }
@@ -95,7 +94,6 @@ impl VM {
             match &mut *list {
                 RuntimeValue::List(l) => {
                     for abs in indexes {
-                        self.arena.inc_refcount(abs);
                         l.items.push(abs);
                     }
                 },

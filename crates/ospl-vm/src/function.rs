@@ -44,7 +44,7 @@ impl VM {
         };
 
         // CAPTURES
-        frame.indexes.extend_from_slice(f.lexical_indexes.as_slice());
+        frame.indexes.extend_from_slice(f.captures.as_slice());
 
         // ARGUMENTS
         {
@@ -86,29 +86,16 @@ impl VM {
         return Control::Default
     }
 
-    /// Returns a copy of the value to the previous stack frame
+    /// Returns the value to the previous stack frame
     pub fn ret(&mut self, address: AbsAddress) {
-        unsafe {
-            let f = self.pop_scope_without_gc();
-
-            // don't touch anything here (this is stupid but trust me
-            // it will work)
-            self.arena.inc_refcount(address);
-            self.arena.gc_frame_destroyed(&f.indexes);
-        }
-
+        let _ = self.pop_scope();
         self.top_mut().indexes.push(address);
     }
 
     /// Returns the current frame as a value
     pub fn retscope(&mut self) {
         // may or may not work...
-        let s = unsafe{self.pop_scope_without_gc()};
-
-        // because of the caller, we might (maybe? Probably?) need to INC
-        // https://chatgpt.com/c/6a1c3aa7-9098-83ea-bbb3-e3b3137f348a
-
-        self.arena.gc_frame_added(&s.indexes);
+        let s = self.pop_scope();
 
         self.push_literal(RuntimeValue::Scope(s));
     }

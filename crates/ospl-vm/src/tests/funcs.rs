@@ -10,7 +10,7 @@ pub fn functions() {
         InstBuilder::new()
             .opcode(Opc::PushLiteral)
             .value(RuntimeValue::Function(RuntimeFunction {
-                lexical_indexes: Vec::new(),
+                captures: Vec::new(),
                 code: vec![
                     InstBuilder::new()
                         .opcode(Opc::Add)

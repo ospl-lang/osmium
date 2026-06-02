@@ -16,15 +16,10 @@ pub const MEMMAX: usize = 1024;
 #[derive(Default, Clone)]
 pub struct ArenaItem {
     pub inner: RuntimeValue,
-    pub refcount: u16,  // stupid to make this an usize
     next_free: Option<usize>,
 }
 
 impl ArenaItem {
-    pub fn is_free(&self) -> bool {
-        return self.refcount == 0
-    }
-
     pub fn oom() -> Self {
         return Self {
             next_free: None,
@@ -35,11 +30,11 @@ impl ArenaItem {
 
 impl Debug for ArenaItem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.is_free() {
+        if self.inner == RuntimeValue::Undefined { 
             return write!(f, "");
         };
 
-        return write!(f, "{}#{:?}", self.refcount, self.inner);
+        return write!(f, "{:?}", self.inner);
     }
 }
 
@@ -47,7 +42,6 @@ impl ArenaItem {
     pub const fn const_default(i: usize) -> Self {
         return Self {
             inner: RuntimeValue::Undefined,
-            refcount: 0,
             next_free: Some(i)
         }
     }
@@ -91,6 +85,11 @@ impl Arena {
     }
 
     #[inline(always)]
+    pub fn get_item(&self, abs: ArenaIndex) -> &ArenaItem {
+        return &self.segment[abs]
+    }
+
+    #[inline(always)]
     pub fn reclaim(&mut self, i: ArenaIndex) {
         let item = &mut self.segment[i];
 
@@ -104,7 +103,6 @@ impl Arena {
         let head = self.freelist_head.expect("OSPL: out of memory!");
         let item = &mut self.segment[head];
         item.inner = v;
-        item.refcount = 1;
 
         self.freelist_head = item.next_free;
         return head
@@ -119,7 +117,6 @@ impl Arena {
     pub fn get_mut(&mut self, index: ArenaIndex) -> &mut RuntimeValue {
         return &mut self.segment[index].inner
     }
-
 
     #[inline(always)]
     pub unsafe fn raw_get(&self, index: ArenaIndex) -> *const RuntimeValue {

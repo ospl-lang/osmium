@@ -133,8 +133,10 @@ impl Compiler {
     ) -> Res<EvalResult>
     {
         let f = self.eval(call_func, ob)?;
-        let Type::Function(func) = f.ty
-            else { unimplemented!() };  // FIXME: use result
+        let func = match f.ty {
+            Type::Function(f) => *f,
+            other => panic!("cannot call {other:?}")
+        };
 
         // TYPECHECKING...
         if func.args.len() != args.len() {

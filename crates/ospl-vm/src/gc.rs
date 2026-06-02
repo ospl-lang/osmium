@@ -1,37 +1,39 @@
 //! TODO: ADD CYCLE DETECTION.
 
-use crate::{arena::{Arena, ArenaIndex}};
+use std::collections::HashSet;
 
-impl Arena {
-    /// Decrements a refcount, returning `true` if it's `0`
-    /// Does not modify the refcount of objects accessable through it. So it is unsafe
-    pub fn dec_refcount(&mut self, abs: ArenaIndex) -> bool {
-        let x = self.get_item_mut(abs);
-        x.refcount = x.refcount.saturating_sub(1);
-        if x.refcount == 0 {
-            return true
+use ospl_common::inst::RuntimeValue;
+
+use crate::{VM, arena::MEMMAX};
+
+impl VM {
+    fn trace_value(&self, value: &RuntimeValue, out: &mut HashSet<usize>) {
+        match value {
+            RuntimeValue::Function(f) => out.extend(&f.captures),
+            RuntimeValue::List(l) => out.extend(&l.items),
+            RuntimeValue::Scope(s) => out.extend(&s.indexes),
+            _ => {}
         }
-
-        return false
     }
 
-    /// Increments a given object's refcount, and all objects reachable by that object
-    pub fn inc_refcount(&mut self, abs: ArenaIndex) {
-        let x = self.get_item_mut(abs);
-        x.refcount += 1;
-    }
-
-    pub fn gc_frame_destroyed(&mut self, f: &[usize]) {
-        for idx in f {
-            if self.dec_refcount(*idx) {
-                self.reclaim(*idx);
+    pub fn gc(&mut self) {
+        let mut marked = HashSet::with_capacity(MEMMAX);
+        for root in self.stack.iter() {
+            for index in root.indexes.iter() {
+                let value = self.arena.get(*index);
+                self.trace_value(value, &mut marked);
             }
         }
-    }
 
-    pub fn gc_frame_added(&mut self, f: &[usize]) {
-        for idx in f {
-            self.inc_refcount(*idx);
+        // O(n + k)
+        for possibly in 0..MEMMAX {
+            if marked.contains(&possibly) {
+                // live to see another day!
+                continue;
+            } else {
+                // we're DEAD
+                self.arena.reclaim(possibly);
+            }
         }
     }
 }
