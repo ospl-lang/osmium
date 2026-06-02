@@ -92,8 +92,6 @@ impl Arena {
     #[inline(always)]
     pub fn reclaim(&mut self, i: ArenaIndex) {
         let item = &mut self.segment[i];
-
-        // don't change refcount, the caller does that
         item.next_free = self.freelist_head;
         self.freelist_head = Some(i);
     }
