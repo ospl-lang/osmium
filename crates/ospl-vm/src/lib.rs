@@ -1,6 +1,6 @@
 use arena::{ArenaIndex, Arena};
-use ospl_common::{ast::frame::RuntimeFrame, inst::{RuntimeFunction, RuntimeValue, optimized::{Inst, Opc}}, types::AbsAddress};
-use crate::arena::ArenaItem;
+use ospl_common::{inst::{RT, RuntimeFunction, RuntimeValue, make, optimized::{Inst, Opc}}, types::AbsAddress};
+use crate::{arena::ArenaItem, stack::Stack};
 
 mod ffi;
 mod cond;
@@ -9,6 +9,7 @@ mod function;
 mod unaryops;
 mod list;
 mod types;
+pub mod stack;
 pub mod debug;
 pub mod arena;
 pub mod gc;
@@ -18,7 +19,7 @@ pub mod tests;
 #[derive(Debug)]
 pub struct VM {
     pub arena: Arena,
-    pub stack: Vec<RuntimeFrame>,
+    pub stack: stack::Stack,
     pub ffi: ffi::FfiRegistry
 }
 
@@ -35,69 +36,38 @@ impl VM {
     pub fn new() -> Self {
         return Self {
             arena: Arena::new(),
-            stack: vec![RuntimeFrame::default()],
+            stack: Stack::default(),
             ffi: ffi::FfiRegistry::default(),
         }
     }
 
     #[inline(always)]
-    pub fn push_frame(&mut self, f: RuntimeFrame) {
-        self.stack.push(f);
+    pub fn get_item_top_mut(&mut self, rel: ArenaIndex) -> &mut ArenaItem {
+        // return self.arena.get_item_mut(self.top().indexes[rel]);
+        return self.arena.get_item_mut(self.stack.top_indexes()[rel])
     }
 
     #[inline(always)]
-    pub fn new_child_of_scope(&mut self, f: &RuntimeFrame) {
-        let parents = f.indexes.clone();
+    pub fn get_item_top(&self, rel: ArenaIndex) -> &ArenaItem {
+        // return self.arena.get_item(self.top().indexes[abs]);
+        return self.arena.get_item(self.stack.top_indexes()[rel])
+    }
 
-        // adding this makes it not behave according to spec
-        // self.arena.gc_frame_added(&parents);
-        self.stack.push(RuntimeFrame {
-            indexes: parents,
-        });
+    /// Returns a reference to a value given an index, using the top frame's
+    /// index array
+    #[inline(always)]
+    fn get_value_top(&self, rel: ArenaIndex) -> &RuntimeValue {
+        return &self.arena.get_item(self.stack.top_indexes()[rel]).inner
     }
 
     #[inline(always)]
-    pub fn new_scope_parental(&mut self) {
-        let parents = self.top().indexes.clone();
-
-        self.stack.push(RuntimeFrame {
-            indexes: parents,
-        });
+    unsafe fn raw_get_value_top(&self, rel: ArenaIndex) -> *const RuntimeValue {
+        return unsafe{ self.arena.raw_get(self.stack.top_indexes()[rel]) }
     }
 
     #[inline(always)]
-    pub fn end_scope(&mut self) {
-        let Some(_) = self.stack.pop()
-            else { panic!("You can't return from the top level of a script, you fucking moron!") };
-    }
-
-    /// Returns the scope without decrementing the refcount
-    #[inline(always)]
-    pub fn pop_scope(&mut self) -> RuntimeFrame {
-        let f = self.stack.pop()
-            .unwrap_or_else(|| panic!("You can't return from the top level of a script, you fucking moron!"));
-    
-        return f
-    }
-
-    #[inline(always)]
-    pub fn get_item_top_mut(&mut self, abs: ArenaIndex) -> &mut ArenaItem {
-        return self.arena.get_item_mut(self.top().indexes[abs]);
-    }
-
-    #[inline(always)]
-    pub fn get_item_top(&self, abs: ArenaIndex) -> &ArenaItem {
-        return self.arena.get_item(self.top().indexes[abs]);
-    }
-
-    #[inline(always)]
-    pub fn top_mut(&mut self) -> &mut RuntimeFrame {
-        return self.stack.last_mut().unwrap()
-    }
-
-    #[inline(always)]
-    pub fn top(&self) -> &RuntimeFrame {
-        return self.stack.last().unwrap()
+    unsafe fn raw_get_value_top_mut(&mut self, rel: ArenaIndex) -> *mut RuntimeValue {
+        return unsafe{ self.arena.raw_get_mut(self.stack.top_indexes()[rel]) }
     }
 
     /// Pushes the value onto the next register in the stack
@@ -108,7 +78,7 @@ impl VM {
         const MEM_THRES: usize = (0.95 * arena::MEMMAX as f32) as usize;
 
         let i = self.arena.push(v);
-        self.top_mut().indexes.push(i);
+        self.stack.top_add_index(i);
 
         if i >= MEM_THRES {
             self.gc();
@@ -119,27 +89,13 @@ impl VM {
 
     /// Returns a reference to a value given an index, using the top frame's
     /// index array
-    fn get_value_top(&self, i: ArenaIndex) -> &RuntimeValue {
-        return self.arena.get(self.top().indexes[i])
-    }
-
-    unsafe fn raw_get_value_top(&self, i: ArenaIndex) -> *const RuntimeValue {
-        return unsafe{ self.arena.raw_get(self.top().indexes[i]) }
-    }
-
-    unsafe fn raw_get_value_top_mut(&mut self, i: ArenaIndex) -> *mut RuntimeValue {
-        return unsafe{ self.arena.raw_get_mut(self.top().indexes[i]) }
-    }
-
-    /// Returns a reference to a value given an index, using the top frame's
-    /// index array
     #[allow(dead_code)]
     fn get_mut_value_top(&mut self, i: ArenaIndex) -> &mut RuntimeValue {
-        return self.arena.get_mut(self.top().indexes[i])
+        return self.arena.get_mut(self.stack.top_indexes()[i])
     }
 
     fn assign_ref(&mut self, reg: usize, new: usize) {
-        self.top_mut().indexes[reg] = new;
+        self.stack.top_indexes_mut()[reg] = new;
     }
 
     pub fn run_one(&mut self, inst: &Inst) -> Control {
@@ -155,8 +111,8 @@ impl VM {
         // TL;DR the safety invariant here is that the
         // instructions are valid.
 
-        #[cfg(debug_assertions)]
-        let _dbg = debug::DbgMark::new(format!("{inst:?}"));
+        // #[cfg(debug_assertions)]
+        // let _dbg = debug::DbgMark::new(format!("{inst:?}"));
 
         unsafe { match &inst.opcode {
             Opc::PushLiteral => {
@@ -183,7 +139,7 @@ impl VM {
 
             Opc::PushFunction => {
                 let new_indexes = inst.indexes.iter().map(|x| {
-                    let idx = self.top().indexes[*x];
+                    let idx = self.stack.top_indexes()[*x];
 
                     return idx;
                 }).collect();
@@ -194,13 +150,8 @@ impl VM {
                     code: f_code.clone()
                 };
 
-                self.push_literal(RuntimeValue::Function(f));
+                self.push_literal(make::func(f));
                 return Control::Default
-            },
-
-            Opc::PushFrame => {
-                let idxs: Vec<usize> = inst.indexes.iter().map(|i| self.top().indexes[*i]).collect();
-                self.push_literal(RuntimeValue::Scope(RuntimeFrame::new(idxs)));
             },
 
             Opc::If => return self.if_statement(
@@ -213,7 +164,7 @@ impl VM {
 
             Opc::AssignLiteral => {
                 // don't even fuck with this one lmao.
-                *self.arena.get_mut(self.top().indexes[inst.indexes[0]]) = inst.immediate.as_ref().unwrap().clone();
+                *self.arena.get_mut(self.stack.top_indexes()[inst.indexes[0]]) = inst.immediate.as_ref().unwrap().clone();
             },
 
             Opc::Property => {
@@ -222,15 +173,12 @@ impl VM {
                 let search_in = self.get_value_top(x);
 
                 // this however isn't
-                match &*search_in {
-                    RuntimeValue::Scope(s) => {
-                        let add_thing = s.indexes[prop];
+                match search_in.tag {
+                    RT::Scope => {
+                        let add_thing = search_in.data.scope.indexes[prop];
                         // println!("{add_thing:?} {:?}", self.arena.get(add_thing));
 
-                        // apparently this fixes some bug
-                        // self.arena.inc_refcount(add_thing);
-
-                        self.top_mut().indexes.push(add_thing);
+                        self.stack.top_add_index(add_thing);
                     },
 
                     // _ => std::hint::unreachable_unchecked()
@@ -243,7 +191,7 @@ impl VM {
             Opc::GetLength => {
                 let x = self.get_value_top(inst.get_index(0));
                 let l = x.get_length();
-                let l = RuntimeValue::Address(l as u64);
+                let l = make::addr(l as u64);
                 self.push_literal(l);
             }
 
@@ -272,13 +220,13 @@ impl VM {
 
             Opc::Loop => return self.run_loop(&inst.children.get_unchecked(0)),
 
-            Opc::Ret => return Control::Return(self.top().indexes[inst.get_index(0)]),
+            Opc::Ret => return Control::Return(self.stack.top_indexes()[inst.get_index(0)]),
             Opc::Continue => return Control::Continue,
             Opc::Break => return Control::Break,
             // FFI stuff
 
             Opc::FFILoadLib => {
-                let RuntimeValue::Str(s) = &*self.raw_get_value_top(inst.get_index(0))
+                let Some(s) = (&*self.raw_get_value_top(inst.get_index(0))).as_str()
                     else { panic!("expected str for FFI instruction") };
 
                 let lib = self.ffi.load_library(s).expect("failed to load FFI");
@@ -300,14 +248,13 @@ impl VM {
                     ])
                 }
 
-                self.push_literal(RuntimeValue::ForeignLib(lib));
+                self.push_literal(make::foreignlib(lib));
             },
 
             Opc::FFILoadFn => {
-                let RuntimeValue::ForeignLib(lib) = *self.get_value_top(inst.get_index(0))
-                    else { panic!("no idea what this is") };
+                let lib = self.get_value_top(inst.get_index(0)).assume_foreign_element();
 
-                let RuntimeValue::Str(s) = &*self.raw_get_value_top(inst.get_index(1))
+                let Some(s) = (&*self.raw_get_value_top(inst.get_index(1))).as_str()
                     else { panic!("expected str for FFI instruction") };
 
                 let rtype = ffi::type_number_to_string(inst.get_index(2));
@@ -319,7 +266,7 @@ impl VM {
                 }
 
                 let handle = self.ffi.register_function(lib, s, types, rtype.to_string()).unwrap();
-                self.push_literal(RuntimeValue::ForeignFn(handle));
+                self.push_literal(make::foreignfun(handle));
             }
 
             other => unimplemented!("opcode {:?} is not implemented", other)
@@ -328,11 +275,8 @@ impl VM {
         return Control::Default;
     }
 
+    #[inline(always)]
     pub fn run_all(&mut self, insts: &[Inst]) -> Control {
-        if insts == &[] {
-            return Control::Default
-        }
-
         for inst in insts.iter() {
             let control = self.run_one(inst);
             match control {

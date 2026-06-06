@@ -3,6 +3,8 @@
 
 use std::fmt::Debug;
 
+use ospl_common::inst::{RT, make};
+
 use crate::RuntimeValue;
 
 pub type ArenaIndex = usize;
@@ -13,7 +15,7 @@ pub const MEMMAX: usize = 1024;
 
 // TODO: make this thread-safe!
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct ArenaItem {
     pub inner: RuntimeValue,
     next_free: Option<usize>,
@@ -23,27 +25,18 @@ impl ArenaItem {
     pub fn oom() -> Self {
         return Self {
             next_free: None,
-            ..Default::default()
+            inner: make::undefined(())
         }
     }
 }
 
 impl Debug for ArenaItem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.inner == RuntimeValue::Undefined { 
+        if self.inner.tag == RT::Undefined { 
             return write!(f, "");
         };
 
         return write!(f, "{:?}", self.inner);
-    }
-}
-
-impl ArenaItem {
-    pub const fn const_default(i: usize) -> Self {
-        return Self {
-            inner: RuntimeValue::Undefined,
-            next_free: Some(i)
-        }
     }
 }
 
@@ -66,7 +59,7 @@ impl Arena {
                 } else {
                     None
                 },
-                ..Default::default()
+                inner: make::undefined(()),
             });
         }
 

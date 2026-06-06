@@ -13,13 +13,12 @@ impl Compiler {
 
         let new_ty = match (&eval.ty, &u.kind) {
             (Type::List(lty), UnaryOpType::Increment) => *lty.clone(),
-            (Type::Scope(_), UnaryOpType::Increment) => {
-                unimplemented!();
-                // return Ok(EvalResult {
-                //     address: self.next_var(),
-                //     ty: Type::List(Box::new(Type::Str))
-                // })
-            },
+            (Type::Nominal(_, ty), UnaryOpType::Atsign) => {
+                return Ok(EvalResult {
+                    address: eval.address,
+                    ty: *ty.clone()
+                })
+            }
             _ => panic!("TODO - add error for invalid unary op type")
         };
 

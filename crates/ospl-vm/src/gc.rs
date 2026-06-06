@@ -1,6 +1,6 @@
 //! TODO: ADD CYCLE DETECTION.
 
-use ospl_common::inst::RuntimeValue;
+use ospl_common::inst::RT;
 
 use crate::{VM, arena::MEMMAX};
 
@@ -28,14 +28,14 @@ impl VM {
     fn trace_value(&self, index: usize, out: &mut BitSet<BITS>) {
         out.set(index);
         let value = self.arena.get(index);
-        match value {
-            RuntimeValue::Function(f) => for index in &f.captures {
+        match value.tag {
+            RT::Func => for index in unsafe { &value.data.func.captures } {
                 self.trace_value(*index, out);
             }
-            RuntimeValue::List(l) => for index in &l.items {
+            RT::List => for index in unsafe { &value.data.list.items } {
                 self.trace_value(*index, out);
             }
-            RuntimeValue::Scope(s) => for index in &s.indexes {
+            RT::Scope => for index in unsafe { &value.data.scope.indexes } {
                 self.trace_value(*index, out);
             }
             _ => {}
@@ -44,8 +44,8 @@ impl VM {
 
     pub fn gc(&mut self) {
         let mut marked: BitSet<BITS> = BitSet::new();
-        for root in self.stack.iter() {
-            for index in root.indexes.iter() {
+        for root in self.stack.frames.iter() {
+            for index in self.stack.data[root.base..root.base + root.size].iter() {
                 self.trace_value(*index, &mut marked);
             }
         }

@@ -1,13 +1,13 @@
 use ospl_common::{
     ast::frame::RuntimeFrame,
-    inst::{list::List, RuntimeFunction, RuntimeValue},
+    inst::{RuntimeFunction, RuntimeValue, assume, assume_mut, list::List, make},
 };
 
 use crate::{arena::MEMMAX, VM};
 
 fn allocate_until_full(vm: &mut VM, label: &str) {
     for i in 0..MEMMAX {
-        vm.push_literal(RuntimeValue::Str(format!("{label}-{i}")));
+        vm.push_literal(make::str(format!("{label}-{i}")));
     }
 }
 
@@ -15,60 +15,63 @@ fn allocate_until_full(vm: &mut VM, label: &str) {
 fn gc_baseline_keeps_stack_values_readable_without_pressure() {
     let mut vm = VM::new();
 
-    vm.push_literal(RuntimeValue::Int(42));
-    vm.push_literal(RuntimeValue::Str("still here".to_string()));
-    vm.push_literal(RuntimeValue::Bool(true));
+    vm.push_literal(make::int(42));
+    vm.push_literal(make::str("still here".to_string()));
+    vm.push_literal(make::bool(true));
 
-    assert_eq!(vm.get_value_top(0), &RuntimeValue::Int(42));
+    assert_eq!(vm.get_value_top(0), &make::int(42));
     assert_eq!(
         vm.get_value_top(1),
-        &RuntimeValue::Str("still here".to_string()),
+        &make::str("still here".to_string()),
     );
-    assert_eq!(vm.get_value_top(2), &RuntimeValue::Bool(true));
+    assert_eq!(vm.get_value_top(2), &make::bool(true));
 }
 
 #[test]
 fn gc_baseline_keeps_nested_heap_references_readable_without_pressure() {
     let mut vm = VM::new();
 
-    let list_child = vm.push_literal(RuntimeValue::Str("list child".to_string()));
-    let function_child = vm.push_literal(RuntimeValue::Str("function child".to_string()));
-    let scope_child = vm.push_literal(RuntimeValue::Str("scope child".to_string()));
+    let list_child = vm.push_literal(make::str("list child".to_string()));
+    let function_child = vm.push_literal(make::str("function child".to_string()));
+    let scope_child = vm.push_literal(make::str("scope child".to_string()));
 
-    let list = vm.push_literal(RuntimeValue::List(List {
+    let list = vm.push_literal(make::list(List {
         items: vec![list_child],
     }));
-    let function = vm.push_literal(RuntimeValue::Function(RuntimeFunction {
+    let function = vm.push_literal(make::func(RuntimeFunction {
         captures: vec![function_child],
         code: Vec::new(),
     }));
-    let scope = vm.push_literal(RuntimeValue::Scope(RuntimeFrame::new(vec![scope_child])));
+    let scope = vm.push_literal(make::scope(RuntimeFrame::new(vec![scope_child])));
 
-    vm.top_mut().indexes.clear();
-    vm.top_mut().indexes.extend([list, function, scope]);
+    vm.stack.end();
+    vm.stack.push_isolated();
+    vm.stack.top_add_index(list);
+    vm.stack.top_add_index(function);
+    vm.stack.top_add_index(scope);
 
-    let RuntimeValue::List(list) = vm.get_value_top(0) else {
+    let Some(list) = assume::list(vm.get_value_top(0)) else {
         panic!("expected list root");
     };
     assert_eq!(
         vm.arena.get(list.items[0]),
-        &RuntimeValue::Str("list child".to_string()),
+        &make::str("list child".to_string()),
     );
 
-    let RuntimeValue::Function(function) = vm.get_value_top(1) else {
+    let Some(function) = assume::func(vm.get_value_top(1)) else {
         panic!("expected function root");
     };
     assert_eq!(
         vm.arena.get(function.captures[0]),
-        &RuntimeValue::Str("function child".to_string()),
+        &make::str("function child".to_string()),
     );
 
-    let RuntimeValue::Scope(scope) = vm.get_value_top(2) else {
+    let Some(scope) = assume::scope(vm.get_value_top(2)) else {
         panic!("expected scope root");
     };
     assert_eq!(
         vm.arena.get(scope.indexes[0]),
-        &RuntimeValue::Str("scope child".to_string()),
+        &make::str("scope child".to_string()),
     );
 }
 
@@ -76,28 +79,29 @@ fn gc_baseline_keeps_nested_heap_references_readable_without_pressure() {
 fn gc_baseline_keeps_reachable_cycles_readable_without_pressure() {
     let mut vm = VM::new();
 
-    let a = vm.push_literal(RuntimeValue::List(List::default()));
-    let b = vm.push_literal(RuntimeValue::List(List::default()));
+    let a = vm.push_literal(make::list(List::default()));
+    let b = vm.push_literal(make::list(List::default()));
 
-    let RuntimeValue::List(list) = vm.arena.get_mut(a) else {
+    let Some(list) = assume_mut::list(vm.arena.get_mut(a)) else {
         panic!("expected first cycle node to be a list");
     };
     list.items.push(b);
 
-    let RuntimeValue::List(list) = vm.arena.get_mut(b) else {
+    let Some(list) = assume_mut::list(vm.arena.get_mut(b)) else {
         panic!("expected second cycle node to be a list");
     };
     list.items.push(a);
 
-    vm.top_mut().indexes.clear();
-    vm.top_mut().indexes.push(a);
+    vm.stack.end();
+    vm.stack.push_isolated();
+    vm.stack.top_add_index(a);
 
-    let RuntimeValue::List(a_list) = vm.get_value_top(0) else {
+    let Some(a_list) = assume::list(vm.arena.get_mut(0)) else {
         panic!("expected rooted cycle node");
     };
     let b = a_list.items[0];
 
-    let RuntimeValue::List(b_list) = vm.arena.get(b) else {
+    let Some(b_list) = assume::list(vm.arena.get_mut(b)) else {
         panic!("expected second cycle node");
     };
     assert_eq!(b_list.items[0], a);
@@ -107,18 +111,19 @@ fn gc_baseline_keeps_reachable_cycles_readable_without_pressure() {
 // #[ignore = "pending tracing GC: allocation pressure should collect unreachable slots"]
 fn gc_keeps_stack_roots_alive_under_allocation_pressure() {
     let mut vm = VM::new();
-    let root = vm.push_literal(RuntimeValue::Str("root survives".to_string()));
+    let root = vm.push_literal(make::str("root survives".to_string()));
 
     allocate_until_full(&mut vm, "garbage");
 
-    vm.top_mut().indexes.clear();
-    vm.top_mut().indexes.push(root);
+    vm.stack.end();
+    vm.stack.push_isolated();
+    vm.stack.top_add_index(root);
 
     allocate_until_full(&mut vm, "after-gc");
 
     assert_eq!(
         vm.get_value_top(0),
-        &RuntimeValue::Str("root survives".to_string()),
+        &make::str("root survives".to_string()),
     );
 }
 
@@ -127,46 +132,49 @@ fn gc_keeps_stack_roots_alive_under_allocation_pressure() {
 fn gc_traces_references_inside_lists_functions_and_scopes() {
     let mut vm = VM::new();
 
-    let list_child = vm.push_literal(RuntimeValue::Str("list child".to_string()));
-    let function_child = vm.push_literal(RuntimeValue::Str("function child".to_string()));
-    let scope_child = vm.push_literal(RuntimeValue::Str("scope child".to_string()));
+    let list_child = vm.push_literal(make::str("list child".to_string()));
+    let function_child = vm.push_literal(make::str("function child".to_string()));
+    let scope_child = vm.push_literal(make::str("scope child".to_string()));
 
-    let list = vm.push_literal(RuntimeValue::List(List {
+    let list = vm.push_literal(make::list(List {
         items: vec![list_child],
     }));
-    let function = vm.push_literal(RuntimeValue::Function(RuntimeFunction {
+    let function = vm.push_literal(make::func(RuntimeFunction {
         captures: vec![function_child],
         code: Vec::new(),
     }));
-    let scope = vm.push_literal(RuntimeValue::Scope(RuntimeFrame::new(vec![scope_child])));
+    let scope = vm.push_literal(make::scope(RuntimeFrame::new(vec![scope_child])));
 
-    vm.top_mut().indexes.clear();
-    vm.top_mut().indexes.extend([list, function, scope]);
+    vm.stack.end();
+    vm.stack.push_isolated();
+    vm.stack.top_add_index(list);
+    vm.stack.top_add_index(function);
+    vm.stack.top_add_index(scope);
 
     vm.gc();
 
-    let RuntimeValue::List(list) = vm.get_value_top(0) else {
+    let Some(list) = assume::list(vm.get_value_top(0)) else {
         panic!("expected list root to survive GC");
     };
     assert_eq!(
         vm.arena.get(list.items[0]),
-        &RuntimeValue::Str("list child".to_string()),
+        &make::str("list child".to_string()),
     );
 
-    let RuntimeValue::Function(function) = vm.get_value_top(1) else {
+    let Some(function) = assume::func(vm.get_value_top(1)) else {
         panic!("expected function root to survive GC");
     };
     assert_eq!(
         vm.arena.get(function.captures[0]),
-        &RuntimeValue::Str("function child".to_string()),
+        &make::str("function child".to_string()),
     );
 
-    let RuntimeValue::Scope(scope) = vm.get_value_top(2) else {
+    let Some(scope) = assume::scope(vm.get_value_top(2)) else {
         panic!("expected scope root to survive GC");
     };
     assert_eq!(
         vm.arena.get(scope.indexes[0]),
-        &RuntimeValue::Str("scope child".to_string()),
+        &make::str("scope child".to_string()),
     );
 }
 
@@ -175,20 +183,20 @@ fn gc_traces_references_inside_lists_functions_and_scopes() {
 fn gc_reclaims_unreachable_cycles_under_allocation_pressure() {
     let mut vm = VM::new();
 
-    let a = vm.push_literal(RuntimeValue::List(List::default()));
-    let b = vm.push_literal(RuntimeValue::List(List::default()));
+    let a = vm.push_literal(make::list(List::default()));
+    let b = vm.push_literal(make::list(List::default()));
 
-    let RuntimeValue::List(list) = vm.arena.get_mut(a) else {
+    let Some(list) = assume_mut::list(vm.arena.get_mut(a)) else {
         panic!("expected first cycle node to be a list");
     };
     list.items.push(b);
 
-    let RuntimeValue::List(list) = vm.arena.get_mut(b) else {
+    let Some(list) = assume_mut::list(vm.arena.get_mut(b)) else {
         panic!("expected second cycle node to be a list");
     };
     list.items.push(a);
 
-    vm.top_mut().indexes.clear();
+    vm.stack.end();
 
     vm.gc();
 

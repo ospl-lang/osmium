@@ -1,5 +1,5 @@
-use ospl_common::{ast::frame::RuntimeFrame, types::AbsAddress};
-use crate::{Control, RuntimeValue};
+use ospl_common::{ast::frame::RuntimeFrame, inst::{assume, make}, types::AbsAddress};
+use crate::Control;
 use super::{VM, arena::ArenaIndex};
 
 impl VM {
@@ -40,7 +40,7 @@ impl VM {
         let f = self.get_value_top(at);
         let f = match f.as_fn() {
             Some(o) => o,
-            None => panic!("can't call object of type {f:?} | at={at} | top={:?}", self.top())
+            None => panic!("can't call object of type {f:?} | at={at} | top={:?}", self.stack.top_indexes())
         };
 
         // CAPTURES
@@ -48,10 +48,10 @@ impl VM {
 
         // ARGUMENTS
         {
-            let top = self.top();
+            let top = self.stack.top_indexes();
             for arg in args {
-                let abs = top.indexes.get(*arg).unwrap_or_else(|| {
-                    panic!("argument {arg:?} was out of bounds! len={} | frame={frame:?}", top.indexes.len());
+                let abs = top.get(*arg).unwrap_or_else(|| {
+                    panic!("argument {arg:?} was out of bounds! len={} | frame={frame:?}", top.len());
                 });
                 frame.indexes.push(*abs);
             }
@@ -65,7 +65,7 @@ impl VM {
         // SAFETY: I PROMISE THAT `f.code` AND ITS PARENTS WILL NOT BE MUTATED
         unsafe {
             let very_good_safe = &raw const f.code;
-            self.push_frame(frame);  // needs to be in unsafe because of course it does..
+            self.stack.push_frame_value(frame);  // needs to be in unsafe because of course it does..
 
             for inst in &*very_good_safe {
                 let run = self.run_one(inst);
@@ -88,24 +88,24 @@ impl VM {
 
     /// Returns the value to the previous stack frame
     pub fn ret(&mut self, address: AbsAddress) {
-        let _ = self.pop_scope();
-        self.top_mut().indexes.push(address);
+        let _ = self.stack.end();
+        self.stack.top_add_index(address);
     }
 
     /// Returns the current frame as a value
     pub fn retscope(&mut self) {
         // may or may not work...
-        let s = self.pop_scope();
+        let s = self.stack.pop();
 
-        self.push_literal(RuntimeValue::Scope(s));
+        self.push_literal(make::scope(s));
     }
 
     pub fn call_foreign_function(&mut self, h: usize, idxs: &[usize]) {
         unsafe {
-            let RuntimeValue::ForeignFn(h) = *self.get_value_top(h)
+            let Some(h) = assume::foreignfun(self.get_value_top(h))
                 else { unimplemented!("not a foreign fn") };
 
-            let x = &raw const *self.ffi.get_function(h).expect("FFI function not found");
+            let x = &raw const *self.ffi.get_function(*h).expect("FFI function not found");
 
             let mut values = Vec::new();
             for idx in idxs {

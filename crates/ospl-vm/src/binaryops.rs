@@ -1,4 +1,4 @@
-use ospl_common::inst::list::List;
+use ospl_common::inst::{RT, list::List, make};
 
 use crate::{VM, RuntimeValue};
 
@@ -10,87 +10,98 @@ impl VM {
         return (va, vb)
     }
 
+    #[inline(always)]
     fn _eq_regs(&self, a: usize, b: usize) -> bool {
-        return match self.get_two_regs(a, b) {
-            (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => xa == xb,
-            (RuntimeValue::Address(xa), RuntimeValue::Address(xb)) => xa == xb,
-            (RuntimeValue::Float(xa), RuntimeValue::Float(xb)) => xa == xb,
-            (RuntimeValue::Char(xa), RuntimeValue::Char(xb)) => xa == xb,
-            (RuntimeValue::Str(s), RuntimeValue::Str(s2)) => s == s2,
-            (RuntimeValue::Undefined, RuntimeValue::Undefined) => true,
-            (_, RuntimeValue::Undefined) => false,
-            (other1, other2) => panic!("cannot eq value {other1:?} with value {other2:?}!"),
-        }
+        // return match self.get_two_regs(a, b) {
+        //     (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => xa == xb,
+        //     (RuntimeValue::Address(xa), RuntimeValue::Address(xb)) => xa == xb,
+        //     (RuntimeValue::Float(xa), RuntimeValue::Float(xb)) => xa == xb,
+        //     (RuntimeValue::Char(xa), RuntimeValue::Char(xb)) => xa == xb,
+        //     (RuntimeValue::Str(s), RuntimeValue::Str(s2)) => s == s2,
+        //     (RuntimeValue::Undefined, RuntimeValue::Undefined) => true,
+        //     (_, RuntimeValue::Undefined) => false,
+        //     (other1, other2) => panic!("cannot eq value {other1:?} with value {other2:?}!"),
+        // }
+
+        let x = self.get_two_regs(a, b);
+        return x.0 == x.1
     }
 
+    #[inline(always)]
     fn _gt_regs(&self, a: usize, b: usize) -> bool {
-        return match self.get_two_regs(a, b) {
-            (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => xa > xb,
-            (RuntimeValue::Address(xa), RuntimeValue::Address(xb)) => xa > xb,
-            (RuntimeValue::Float(xa), RuntimeValue::Float(xb)) => xa > xb,
-            (other1, other2) => panic!("cannot gt value {other1:?} with value {other2:?}!"),
-        }
+        // return match self.get_two_regs(a, b) {
+        //     (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => xa > xb,
+        //     (RuntimeValue::Address(xa), RuntimeValue::Address(xb)) => xa > xb,
+        //     (RuntimeValue::Float(xa), RuntimeValue::Float(xb)) => xa > xb,
+        //     (other1, other2) => panic!("cannot gt value {other1:?} with value {other2:?}!"),
+        // }
+        return false
     }
 
     pub fn eq_regs(&mut self, a: usize, b: usize) {
         let x = self._eq_regs(a, b);
-        self.push_literal(RuntimeValue::Bool(x));
+        self.push_literal(make::bool(x));
     }
 
     pub fn neq_regs(&mut self, a: usize, b: usize) {
         let x = !self._eq_regs(a, b);
-        self.push_literal(RuntimeValue::Bool(x));
+        self.push_literal(make::bool(x));
     }
 
     pub fn gt_regs(&mut self, a: usize, b: usize) {
         let x = self._gt_regs(a, b);
-        self.push_literal(RuntimeValue::Bool(x));
+        self.push_literal(make::bool(x));
     }
 
     pub fn lt_regs(&mut self, a: usize, b: usize) {
         let x = !self._gt_regs(a, b);
-        self.push_literal(RuntimeValue::Bool(x));
+        self.push_literal(make::bool(x));
     }
 
     pub fn gte_regs(&mut self, a: usize, b: usize) {
         let x = self._gt_regs(a, b) | self._eq_regs(a, b);
-        self.push_literal(RuntimeValue::Bool(x));
+        self.push_literal(make::bool(x));
     }
 
     pub fn lte_regs(&mut self, a: usize, b: usize) {
         let x = self._gt_regs(a, b) | self._eq_regs(a, b);
-        self.push_literal(RuntimeValue::Bool(x));
+        self.push_literal(make::bool(x));
     }
 }
 
 impl VM {
+    #[inline(always)]
     fn _add_regs(&mut self, a: usize, b: usize) -> RuntimeValue {
-        match self.get_two_regs(a, b) {
-            (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => RuntimeValue::Int(*xa + *xb),
-            (RuntimeValue::Address(xa), RuntimeValue::Address(xb)) => RuntimeValue::Address(*xa + *xb),
-            (RuntimeValue::Float(xa), RuntimeValue::Float(xb)) => RuntimeValue::Float(*xa + *xb),
+        let (aa, bb) = self.get_two_regs(a, b);
+        match (aa.tag, bb.tag) {
+            (RT::Int, RT::Int) => make::int(unsafe { aa.data.int + bb.data.int }),
+            (RT::Addr, RT::Addr) => make::addr(unsafe { aa.data.address + bb.data.address }),
+            (RT::Float, RT::Float) => make::float(unsafe { aa.data.float + bb.data.float }),
             _ => unimplemented!()
         }
     }
 
+    #[inline(always)]
     fn _sub_regs(&mut self, a: usize, b: usize) -> RuntimeValue {
-        match self.get_two_regs(a, b) {
-            (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => RuntimeValue::Int(*xa - *xb),
-            (RuntimeValue::Address(xa), RuntimeValue::Address(xb)) => RuntimeValue::Address(*xa - *xb),
-            (RuntimeValue::Float(xa), RuntimeValue::Float(xb)) => RuntimeValue::Float(*xa - *xb),
+        let (aa, bb) = self.get_two_regs(a, b);
+        match (aa.tag, bb.tag) {
+            (RT::Int, RT::Int) => make::int(unsafe { aa.data.int - bb.data.int }),
+            (RT::Addr, RT::Addr) => make::addr(unsafe { aa.data.address - bb.data.address }),
+            (RT::Float, RT::Float) => make::float(unsafe { aa.data.float - bb.data.float }),
             _ => unimplemented!()
         }
     }
 
     /// Find `b` in `a`
     pub fn question_mark(&mut self, a: usize, b: usize) {
-        match self.get_two_regs(a, b) {
-            (RuntimeValue::List(l), v) => {
-                let found = self.find_in_list(l, v);
+        let (aa, bb) = self.get_two_regs(a, b);
+        match (aa.tag, bb.tag) {
+            (RT::List, _) => {
+                let found = self.find_in_list(unsafe { &aa.data.list }, bb);
                 if let Some(found) = found {
-                    self.top_mut().indexes.push(found);
+                    self.stack.top_add_index(found);
                 } else {
-                    self.push_literal(RuntimeValue::Undefined);
+                    self.push_literal(make::undefined(()));
                 }
             },
             (u1, u2) => unimplemented!("unknown a?b op: {u1:?} and {u2:?}")
@@ -132,23 +143,23 @@ impl VM {
             let vb_ptr = self.raw_get_value_top(b);
 
             // Dereference the pointers first
-            let va = &mut *va_ptr;
-            let vb = &*vb_ptr;
+            let aa = &mut *va_ptr;
+            let bb = &*vb_ptr;
 
-            match (va, vb) {
-                (RuntimeValue::Int(x), RuntimeValue::Int(y)) => *x += *y,
-                (RuntimeValue::List(_), RuntimeValue::List(r)) => {
-                    self.extend_array(a, &r.items);
-                },
-                (RuntimeValue::List(_), _) => {
+            match (aa.tag, bb.tag) {
+                (RT::Int, RT::Int) => aa.data.int += bb.data.int,
+                (RT::List, _) => {
                     self.append_array(a, b);
                 },
-                (RuntimeValue::Str(s1), RuntimeValue::Str(s2)) => {
-                    s1.push_str(&*s2);
+                (RT::Str, RT::Str) => {
+                    let a: &mut String = &mut aa.data.str;
+                    let b: &String = &bb.data.str;
+
+                    a.push_str(b);
                 },
-                (RuntimeValue::Str(s1), RuntimeValue::Char(c1)) => {
-                    s1.push(*c1);
-                },
+                // (RT::Str(s1), RuntimeValue::Char(c1)) => {
+                //     s1.push(*c1);
+                // },
 
                 (err_a, err_b) => panic!("can't add-assign {:?} += {:?}", err_a, err_b),
             }
@@ -167,14 +178,17 @@ impl VM {
             let va = &mut *va_ptr;
             let vb = &*vb_ptr;
 
-            match (va, vb) {
-                (RuntimeValue::Int(x), RuntimeValue::Int(y)) => *x -= *y,
-                (RuntimeValue::List(l), RuntimeValue::Address(u)) => {
-                    let u = *u as usize;
-                    l.items.remove(u);
+            match (va.tag, vb.tag) {
+                (RT::Int, RT::Int) => va.data.int -= vb.data.int,
+                (RT::List, RT::Addr) => {
+                    let u = vb.data.address;
+                    let l = &mut va.data.list;
+                    l.items.remove(u as usize);
                 },
-                (RuntimeValue::Str(s1), RuntimeValue::Address(i)) => {
-                    s1.remove(*i as usize);
+                (RT::Str, RT::Addr) => {
+                    let a: &mut String = &mut va.data.str;
+                    let b = vb.data.address;
+                    a.remove(b as usize);
                 },
 
                 (err_a, err_b) => panic!("can't op-assign {:?} += {:?}", err_a, err_b),

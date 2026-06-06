@@ -1,7 +1,7 @@
 // required in tests because rust-analyzer is a piece of shit
 #![allow(unused_imports)]
 #![allow(unused)]
-use ospl_common::inst::optimized::{Inst, InstBuilder, Opc};
+use ospl_common::inst::{make, optimized::{Inst, InstBuilder, Opc}};
 
 use crate::{VM, RuntimeValue, function};
 
@@ -9,26 +9,26 @@ use crate::{VM, RuntimeValue, function};
 pub fn ifs() {
     let mut vm = VM::new();
     vm.run_all(&vec![
-        InstBuilder::new().opcode(Opc::PushLiteral).value(RuntimeValue::Int(10)).build(),  // 0
-        InstBuilder::new().opcode(Opc::PushLiteral).value(RuntimeValue::Int(9)).build(),   // 1
+        InstBuilder::new().opcode(Opc::PushLiteral).value(make::int(10)).build(),  // 0
+        InstBuilder::new().opcode(Opc::PushLiteral).value(make::int(9)).build(),   // 1
         InstBuilder::new().opcode(Opc::Eq)  // 2
             .index(0)
             .index(1)
             .build(),
 
-        InstBuilder::new().opcode(Opc::PushLiteral).value(RuntimeValue::Undefined).build(),   // 3
+        InstBuilder::new().opcode(Opc::PushLiteral).value(make::undefined(())).build(),   // 3
         InstBuilder::new().opcode(Opc::If)
             .index(2)
             .child(vec![
                 InstBuilder::new().opcode(Opc::AssignLiteral)
                     .index(3)
-                    .value(RuntimeValue::Bool(true))
+                    .value(make::bool(true))
                     .build()
             ])
             .child(vec![
                 InstBuilder::new().opcode(Opc::AssignLiteral)
                     .index(3)
-                    .value(RuntimeValue::Bool(false))
+                    .value(make::bool(false))
                     .build()
             ])
             .build()
@@ -38,7 +38,7 @@ pub fn ifs() {
 }
 
 mod funcs;
-mod cond;
+pub mod cond;
 mod gc_behavior;
 
 pub fn run_ast(f: &str, insts: &[Inst]) {

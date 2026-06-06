@@ -1,4 +1,4 @@
-use ospl_common::inst::{RuntimeValue, list::List};
+use ospl_common::inst::{RuntimeValue, list::List, make};
 
 use crate::VM;
 
@@ -6,12 +6,12 @@ impl VM {
     pub fn push_array(&mut self, indexes: &[usize]) {
         let mut list = List::default();
         for rel in indexes {
-            let abs = self.top().indexes[*rel];
+            let abs = self.stack.top_indexes()[*rel];
             
             list.items.push(abs);
         }
 
-        self.push_literal(RuntimeValue::List(list));
+        self.push_literal(make::list(list));
     }
 
     pub fn index(&mut self, array: usize, index: usize) {
@@ -40,11 +40,11 @@ impl VM {
 
             x
         };
-        self.top_mut().indexes.push(x);
+        self.stack.top_add_index(x);
     }
 
     pub fn slice(&mut self, array: usize, start: usize, end: usize) {
-        let x = unsafe {
+        let _x = unsafe {
             let list = self.raw_get_value_top(array);
             let start = self.get_value_top(start).assume_int() as usize;
             let end = self.get_value_top(end).assume_int() as usize;
@@ -66,7 +66,7 @@ impl VM {
             x
         };
 
-        self.top_mut().indexes.extend_from_slice(x);
+        unimplemented!("slicing isn't fully imeplemented")
     }
 
     pub fn index_string_bytes(&mut self, string: usize, index: usize) {
@@ -88,7 +88,7 @@ impl VM {
 
     pub fn extend_array(&mut self, array: usize, indexes: &[usize]) {
         // FIXME: improve performance
-        let indexes: Vec<usize> = indexes.iter().map(|f| self.top().indexes[*f]).collect();
+        let indexes: Vec<usize> = indexes.iter().map(|f| self.stack.top_indexes()[*f]).collect();
         unsafe {
             let list = self.raw_get_value_top_mut(array);
             match &mut *list {

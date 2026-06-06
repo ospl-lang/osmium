@@ -1,9 +1,9 @@
 //! This module presents implementations for conditionals and control flow on
 //! [`VM`], such as if statements, loops, selections, checks, and truthiness.
 
-use ospl_common::inst::optimized::Inst;
+use ospl_common::inst::{RT, optimized::Inst};
 
-use crate::{Control, VM, RuntimeValue, arena::ArenaIndex};
+use crate::{Control, VM, arena::ArenaIndex};
 
 impl VM {
     /// Returns the truthiness of a given value.
@@ -14,15 +14,13 @@ impl VM {
     ) -> bool {
         let value = self.get_value_top(indx);
 
-        // this code is slightly more CPU friendly than a match.
-        // bool at the top, because it's the most common truth type.
-        if let RuntimeValue::Bool(b) = value { return *b }
-
-        if matches!(value, RuntimeValue::Int(0) | RuntimeValue::Float(0.0) | RuntimeValue::Nul | RuntimeValue::Undefined) {
-            return false
+        match value.tag {
+            RT::Bool => return unsafe { value.data.bool },
+            RT::Int => return unsafe { value.data.int != 0 },
+            RT::Addr => return unsafe { value.data.address != 0 },
+            RT::Float => return unsafe { value.data.float != 0.0 },
+            _ => return true
         }
-
-        return true
     }
 
     /// Takes a branch, the `yes` branch is taken if `cond` is truthy,
@@ -36,17 +34,17 @@ impl VM {
         no: &[Inst],
     ) -> Control {
         let control = if self.get_truthiness(cond) {
-            self.new_scope_parental();
+            self.stack.push_parental();
             let out = self.run_all(yes);
 
             // the new if statement scope has a variable we're trying to return
             // that doesn't exist anymore because the scope ended.
-            self.end_scope();
+            self.stack.end();
             out
         } else {
-            self.new_scope_parental();
+            self.stack.push_parental();
             let out = self.run_all(no);
-            self.end_scope();
+            self.stack.end();
             out
         };
 
@@ -59,20 +57,20 @@ impl VM {
         code: &[Inst]
     ) -> Control {
         loop {
-            self.new_scope_parental();
+            self.stack.push_parental();
             match self.run_all(code) {
                 Control::Break => break,
                 Control::Continue => {
-                    self.end_scope();
+                    self.stack.end();
                     continue;
                 },
                 Control::Default => {},
                 other => return other
             }
-            self.pop_scope();
+            self.stack.end();
         }
 
-        self.end_scope();
+        self.stack.end();
         return Control::Default;  // break already handled
     }
 }
