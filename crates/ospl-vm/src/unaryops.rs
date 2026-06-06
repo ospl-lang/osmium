@@ -1,20 +1,21 @@
 use std::hint::unreachable_unchecked;
 
-use ospl_common::inst::{RuntimeValue, list::List};
+use ospl_common::inst::{RT, list::List, make};
 
 use crate::VM;
 
 impl VM {
     pub fn dec_value(&mut self, i: usize) {
         let t = self.get_mut_value_top(i);
-        unsafe { match t {
-            RuntimeValue::List(l) => {
-                let i = l.items.pop().expect("failed");
+        unsafe { match t.tag {
+            RT::List => {
+                let x: &mut List = &mut t.data.list;
+                let i = x.items.pop().expect("failed");
                 self.stack.top_add_index(i);
             },
-            RuntimeValue::Scope(s) => {
-                let l = RuntimeValue::List(List {
-                    items: s.indexes.clone()
+            RT::Scope => {
+                let l = make::list(List {
+                    items: t.data.list.items.clone()
                 });
 
                 self.push_literal(l);

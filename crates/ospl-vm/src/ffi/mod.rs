@@ -2,7 +2,7 @@ use std::ffi::{c_void, CString};
 
 use libffi::middle::{arg, Arg, CodePtr, Cif, Type};
 use libloading::Library;
-use ospl_common::inst::RuntimeValue;
+use ospl_common::inst::{RT, RuntimeValue, make};
 
 #[derive(Debug, Clone)]
 pub struct ForeignFunction {
@@ -200,51 +200,51 @@ pub fn call_foreign_function(
         match function.return_type.as_str() {
             "void" => {
                 function.cif.call::<()>(function.symbol_ptr, &raw_args);
-                Ok(RuntimeValue::Nul)
+                Ok(make::nul(()))
             }
             "bool" | "u8" => {
                 let result = function.cif.call::<u8>(function.symbol_ptr, &raw_args);
-                Ok(RuntimeValue::Address(result as u64))
+                Ok(make::addr(result as u64))
             }
             "i8" => {
                 let result = function.cif.call::<i8>(function.symbol_ptr, &raw_args);
-                Ok(RuntimeValue::Int(result as i64))
+                Ok(make::int(result as i64))
             }
             "u16" => {
                 let result = function.cif.call::<u16>(function.symbol_ptr, &raw_args);
-                Ok(RuntimeValue::Address(result as u64))
+                Ok(make::addr(result as u64))
             }
             "i16" => {
                 let result = function.cif.call::<i16>(function.symbol_ptr, &raw_args);
-                Ok(RuntimeValue::Int(result as i64))
+                Ok(make::int(result as i64))
             }
             "u32" => {
                 let result = function.cif.call::<u32>(function.symbol_ptr, &raw_args);
-                Ok(RuntimeValue::Address(result as u64))
+                Ok(make::addr(result as u64))
             }
             "i32" => {
                 let result = function.cif.call::<i32>(function.symbol_ptr, &raw_args);
-                Ok(RuntimeValue::Int(result as i64))
+                Ok(make::int(result as i64))
             }
             "u64" => {
                 let result = function.cif.call::<u64>(function.symbol_ptr, &raw_args);
-                Ok(RuntimeValue::Address(result as u64))
+                Ok(make::addr(result as u64))
             }
             "i64" => {
                 let result = function.cif.call::<i64>(function.symbol_ptr, &raw_args);
-                Ok(RuntimeValue::Int(result as i64))
+                Ok(make::int(result as i64))
             }
             "f32" => {
                 let result = function.cif.call::<f32>(function.symbol_ptr, &raw_args);
-                Ok(RuntimeValue::Float(result as f64))
+                Ok(make::float(result as f64))
             }
             "f64" => {
                 let result = function.cif.call::<f64>(function.symbol_ptr, &raw_args);
-                Ok(RuntimeValue::Float(result))
+                Ok(make::float(result))
             }
             "ptr" | "pointer" | "cstr" => {
                 let result = function.cif.call::<*mut c_void>(function.symbol_ptr, &raw_args);
-                Ok(RuntimeValue::Address(result as u64))
+                Ok(make::addr(result as u64))
             }
             _ => Err("unsupported return type".to_string()),
         }
@@ -277,26 +277,27 @@ impl<T: 'static> RawValueHolder for TypedHolder<T> {
 }
 
 fn box_value(value: RuntimeValue, ty: &str) -> Result<Box<dyn RawValueHolder>, String> {
-    match (&value, ty) {
-        (RuntimeValue::Address(v), "bool" | "u8") => Ok(Box::new(TypedHolder { value: Box::new(*v as u8) })),
-        (RuntimeValue::Int(v), "i8") => Ok(Box::new(TypedHolder { value: Box::new(*v as i8) })),
-        (RuntimeValue::Address(v), "u16") => Ok(Box::new(TypedHolder { value: Box::new(*v as u16) })),
-        (RuntimeValue::Int(v), "i16") => Ok(Box::new(TypedHolder { value: Box::new(*v as i16) })),
-        (RuntimeValue::Address(v), "u32") => Ok(Box::new(TypedHolder { value: Box::new(*v as u32) })),
-        (RuntimeValue::Address(v), "i32") => Ok(Box::new(TypedHolder { value: Box::new(*v as i32) })),
-        (RuntimeValue::Int(v), "i32") => Ok(Box::new(TypedHolder { value: Box::new(*v as i32) })),
-        (RuntimeValue::Int(v), "u32") => Ok(Box::new(TypedHolder { value: Box::new(*v as u32) })),
-        (RuntimeValue::Address(v), "u64" | "ptr" | "pointer") => Ok(Box::new(TypedHolder { value: Box::new(*v as u64) })),
-        (RuntimeValue::Address(v), "i64") => Ok(Box::new(TypedHolder { value: Box::new(*v as i64) })),
-        (RuntimeValue::Int(v), "i64") => Ok(Box::new(TypedHolder { value: Box::new(*v as i64) })),
-        (RuntimeValue::Int(v), "u64" | "ptr" | "pointer") => Ok(Box::new(TypedHolder { value: Box::new(*v as u64) })),
-        (RuntimeValue::Float(v), "f32") => Ok(Box::new(TypedHolder { value: Box::new(*v) })),
-        (RuntimeValue::Float(v), "f64") => Ok(Box::new(TypedHolder { value: Box::new(*v) })),
+    unsafe { match (&value.tag, ty) {
+        (RT::Addr, "bool" | "u8") => Ok(Box::new(TypedHolder { value: Box::new(value.data.address as u8) })),
+        (RT::Int, "i8") => Ok(Box::new(TypedHolder { value: Box::new(value.data.int as i8) })),
+        (RT::Addr, "u16") => Ok(Box::new(TypedHolder { value: Box::new(value.data.address as u16) })),
+        (RT::Int, "i16") => Ok(Box::new(TypedHolder { value: Box::new(value.data.int as i16) })),
+        (RT::Addr, "u32") => Ok(Box::new(TypedHolder { value: Box::new(value.data.address as u32) })),
+        (RT::Addr, "i32") => Ok(Box::new(TypedHolder { value: Box::new(value.data.address as i32) })),
+        (RT::Int, "i32") => Ok(Box::new(TypedHolder { value: Box::new(value.data.int as i32) })),
+        (RT::Int, "u32") => Ok(Box::new(TypedHolder { value: Box::new(value.data.int as u32) })),
+        (RT::Addr, "u64" | "ptr" | "pointer") => Ok(Box::new(TypedHolder { value: Box::new(value.data.address as u64) })),
+        (RT::Addr, "i64") => Ok(Box::new(TypedHolder { value: Box::new(value.data.int as i64) })),
+        (RT::Int, "i64") => Ok(Box::new(TypedHolder { value: Box::new(value.data.int as i64) })),
+        (RT::Int, "u64" | "ptr" | "pointer") => Ok(Box::new(TypedHolder { value: Box::new(value.data.address as u64) })),
+        (RT::Float, "f32") => Ok(Box::new(TypedHolder { value: Box::new(value.data.float) })),
+        (RT::Float, "f64") => Ok(Box::new(TypedHolder { value: Box::new(value.data.float) })),
 
         // this... exists... Also it is VERY BAD
         // might not even work
-        (RuntimeValue::Str(s), "ptr" | "pointer" | "cstr") => {
-            let c_str = CString::new(s.as_str())
+        (RT::Str, "ptr" | "pointer" | "cstr") => {
+            let s: &str = &value.data.str;
+            let c_str = CString::new(s)
                 .expect("failed to allocate C string");
 
             let ptr = c_str.as_ptr() as u64;
@@ -305,5 +306,5 @@ fn box_value(value: RuntimeValue, ty: &str) -> Result<Box<dyn RawValueHolder>, S
         },
 
         _ => Err(format!("unsupported argument type: {} for value {:?}", ty, value)),
-    }
+    } }
 }

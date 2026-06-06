@@ -156,7 +156,7 @@ pub enum Opc {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-// #[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct Inst {
     pub opcode: Opc,
 

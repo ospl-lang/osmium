@@ -1,4 +1,4 @@
-use ospl_common::inst::{RuntimeValue, list::List, make};
+use ospl_common::inst::{RT, assume, assume_mut, list::List, make};
 
 use crate::VM;
 
@@ -19,20 +19,20 @@ impl VM {
         // valid type and the index into the array is valid.
         let x = {
             let indexable = self.get_value_top(array);
-            let x = match indexable {
-                RuntimeValue::List(l) => {
+            let x = match indexable.tag {
+                RT::List => {
                     let index = unsafe { self.get_value_top(index).assume_int() };
-                    l.items[index as usize]
+                    unsafe { indexable.data.list.items[index as usize] }
                 },
-                RuntimeValue::Str(s) => {
+                RT::Str => {
                     let index = unsafe { self.get_value_top(index).assume_int() };
-                    let Some(x) = s.chars().nth(index as usize)
+                    let Some(x) = (unsafe { indexable.data.str.chars().nth(index as usize) })
                     else {
-                        self.push_literal(RuntimeValue::Undefined);  // out of bounds
+                        self.push_literal(make::undefined(()));  // out of bounds
                         return;
                     };
 
-                    self.push_literal(RuntimeValue::Char(x));
+                    self.push_literal(make::char(x));
                     return;
                 },
                 _ => unsafe{ std::hint::unreachable_unchecked() },
@@ -43,39 +43,39 @@ impl VM {
         self.stack.top_add_index(x);
     }
 
-    pub fn slice(&mut self, array: usize, start: usize, end: usize) {
-        let _x = unsafe {
-            let list = self.raw_get_value_top(array);
-            let start = self.get_value_top(start).assume_int() as usize;
-            let end = self.get_value_top(end).assume_int() as usize;
-            let x = match &*list {
-                RuntimeValue::List(l) => &l.items[start..end],
-                RuntimeValue::Str(s) => {
-                    let Some(x) = s.get(start..end)
-                    else {
-                        self.push_literal(RuntimeValue::Undefined);  // out of bounds
-                        return;
-                    };
+    pub fn slice(&mut self, _array: usize, _start: usize, _end: usize) {
+        // let _x = unsafe {
+        //     let val = self.raw_get_value_top(array);
+        //     let start = self.get_value_top(start).assume_int() as usize;
+        //     let end = self.get_value_top(end).assume_int() as usize;
+        //     let x = match (&*val).tag {
+        //         RT::List => unsafe { &(*val).data.list.items[start..end] },
+        //         RuntimeValue::Str(s) => {
+        //             let Some(x) = s.get(start..end)
+        //             else {
+        //                 self.push_literal(RuntimeValue::Undefined);  // out of bounds
+        //                 return;
+        //             };
 
-                    self.push_literal(RuntimeValue::Str(x.to_string()));
-                    return;
-                }
-                _ => std::hint::unreachable_unchecked(),
-            };
+        //             self.push_literal(RuntimeValue::Str(x.to_string()));
+        //             return;
+        //         }
+        //         _ => std::hint::unreachable_unchecked(),
+        //     };
 
-            x
-        };
+        //     x
+        // };
 
         unimplemented!("slicing isn't fully imeplemented")
     }
 
     pub fn index_string_bytes(&mut self, string: usize, index: usize) {
         let str = self.get_value_top(string);
-        match str {
-            RuntimeValue::Str(s) => {
+        match assume::str(str) {
+            Some(s) => {
                 let b = s.as_bytes()[index];
                 let b = b as i64;
-                let b = RuntimeValue::Int(b);
+                let b = make::int(b);
                 self.push_literal(b);
             },
             _ => unsafe { std::hint::unreachable_unchecked() },
@@ -91,8 +91,8 @@ impl VM {
         let indexes: Vec<usize> = indexes.iter().map(|f| self.stack.top_indexes()[*f]).collect();
         unsafe {
             let list = self.raw_get_value_top_mut(array);
-            match &mut *list {
-                RuntimeValue::List(l) => {
+            match assume_mut::list(&mut *list) {
+                Some(l) => {
                     for abs in indexes {
                         l.items.push(abs);
                     }

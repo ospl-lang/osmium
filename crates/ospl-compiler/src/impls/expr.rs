@@ -1,4 +1,4 @@
-use ospl_common::{ast::spanning::Spannable, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::spanning::Spannable, inst::{make, optimized::{Inst, InstBuilder, Opc}}};
 use tracing::error;
 
 use crate::{CE, CEData, Compiler, EvalResult, Res, Type, TypeExpectation, ast::{Expr, LV, LValue, Literal}};
@@ -124,35 +124,35 @@ impl Compiler {
 
             // no idea how to write this without duplicating code.. if anyone knows a cleaner way LMK
             Literal::Int(i) => {
-                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Int(*i)).build());
+                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::int(*i)).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Int })
             },
             Literal::Address(u) => {
-                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Address(*u)).build());
+                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::addr(*u)).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Address })
             },
             Literal::Float(f) => {
-                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Float(*f)).build());
+                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::float(*f)).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Float })
             },
             Literal::Bool(b) => {
-                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Bool(*b)).build());
+                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::bool(*b)).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Bool })
             },
             Literal::Str(s) => {
-                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Str(s.clone())).build());
+                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::str(s.clone())).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Str })
             },
             Literal::Char(c) => {
-                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Char(*c)).build());
+                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::char(*c)).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Str })
             },
             Literal::Nul => {
-                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Nul).build());
+                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::nul(())).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Nul })
             },
             Literal::Undefined => {
-                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(ospl_common::inst::RuntimeValue::Undefined).build());
+                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::undefined(())).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Undefined })
             },
             Literal::List(lty, l) => {

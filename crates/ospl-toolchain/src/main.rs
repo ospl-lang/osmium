@@ -86,9 +86,6 @@ fn main() {
         Cmd::Exec { at } => cmd_exec(at),
         Cmd::ScratchRun => {
             let pb = PathBuf::from(BUILD_FILE);
-            // if !pb.exists() {
-                // cmd_build(pb.clone());
-            // }
             cmd_build(pb.clone());
             cmd_exec(pb);
         },

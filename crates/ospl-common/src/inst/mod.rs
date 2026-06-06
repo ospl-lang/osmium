@@ -1,5 +1,4 @@
-use std::fmt::Debug;
-use serde::Serialize;
+use std::{fmt::Debug, hint::unreachable_unchecked};
 
 // use crate::inst::unoptimized::VMInstruction;
 use crate::{ast::frame::RuntimeFrame, inst::optimized::Inst};
@@ -7,6 +6,7 @@ use crate::{ast::frame::RuntimeFrame, inst::optimized::Inst};
 pub mod list;
 pub mod optimized;
 pub mod symbols;
+mod desert;
 
 pub mod make {
     use std::mem::ManuallyDrop;
@@ -14,12 +14,14 @@ pub mod make {
 
     macro_rules! _make_fn {
         ($f:ident, $rust_type:ty, $tag:ident, $field:ident) => {
+            #[inline(always)]
             pub fn $f(t:$rust_type) -> $crate::inst::RuntimeValue {
                 return $crate::inst::RuntimeValue { tag: $crate::inst::RT::$tag, data: $crate::inst::RV { $field: t }}
             }
         };
 
         ($f:ident, $rust_type:ty, $tag:ident) => {
+            #[inline(always)]
             pub fn $f(t:$rust_type) -> $crate::inst::RuntimeValue {
                 return $crate::inst::RuntimeValue { tag: $crate::inst::RT::$tag, data: $crate::inst::RV { $f: t }}
             }
@@ -79,6 +81,7 @@ pub mod assume {
 
     #[macro_export] macro_rules! _assume_fn {
         ($kind:ident, $f:ident, $t:ty, $tag:ident) => {
+            #[inline(always)]
             pub fn $f(x: refmut_helper!(type, $kind, $crate::inst::RuntimeValue)) -> Option<refmut_helper!(type, $kind, $t)> {
                 if x.tag != $crate::inst::RT::$tag {
                     return None
@@ -88,6 +91,7 @@ pub mod assume {
             }
         };
         ($kind:ident, $f:ident, $t:ty, $tag:ident, $field:ident) => {
+            #[inline(always)]
             pub fn $f(x: refmut_helper!(type, $kind, $crate::inst::RuntimeValue)) -> Option<refmut_helper!(type, $kind, $t)> {
                 if x.tag != $crate::inst::RT::$tag {
                     return None
@@ -150,11 +154,13 @@ pub struct RuntimeValue {
 
 impl PartialEq for RuntimeValue {
     fn eq(&self, other: &Self) -> bool {
-        unsafe {
-            let a: &[u8] = std::slice::from_raw_parts((&raw const self.data) as *const u8, size_of::<RV>());
-            let b: &[u8] = std::slice::from_raw_parts((&raw const other.data) as *const u8, size_of::<RV>());
-            a == b
-        }
+        return unsafe { match (self.tag, other.tag) {
+            (RT::Int, RT::Int) => self.data.int == other.data.int,
+            (RT::Addr, RT::Addr) => self.data.address == other.data.address,
+            (RT::Float, RT::Float) => self.data.float == other.data.float,
+            (RT::Str, RT::Str) => self.data.str == other.data.str,
+            _ => unreachable_unchecked()
+        } }
     }
 }
 
@@ -191,16 +197,6 @@ impl Drop for RuntimeValue {
     }
 }
 
-impl Serialize for RuntimeValue {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer
-    {
-        unimplemented!("TODO - IMPL SERDE!")
-        // serializer.serialize_u8(self.tag.clone() as u8)
-    }
-}
-
 pub union RV {
     pub int: i64,
     pub address: u64,
@@ -216,7 +212,7 @@ pub union RV {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-// #[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct RuntimeFunction {
     /// Absolute address
     pub captures: Vec<crate::types::AbsAddress>,

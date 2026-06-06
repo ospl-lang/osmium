@@ -16,7 +16,7 @@ pub fn loop_to(c: &mut Criterion) {
 criterion_group! {
     name = benches;
     config = Criterion::default()
-        .with_profiler(PProfProfiler::new(10000, Output::Flamegraph(None)));
+        .with_profiler(PProfProfiler::new(100_000, Output::Flamegraph(None)));
 
     targets = loop_to
 }

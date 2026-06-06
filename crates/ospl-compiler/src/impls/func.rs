@@ -1,4 +1,4 @@
-use ospl_common::{ast::{Expression, FunctionType, Scope, spanning::Spannable}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{Expression, FunctionType, Scope, spanning::Spannable}, inst::{make, optimized::{Inst, InstBuilder, Opc}}};
 
 use crate::{CE, CEData, Compiler, EvalResult, Res, Type, ast::FunctionValue, impls::stmt::Control};
 
@@ -86,7 +86,7 @@ impl Compiler {
 
             insts.push(InstBuilder::new()
                 .opcode(Opc::PushLiteral)
-                .value(ospl_common::inst::RuntimeValue::Nul)
+                .value(make::nul(()))
                 .build());
 
             insts.push(InstBuilder::new()

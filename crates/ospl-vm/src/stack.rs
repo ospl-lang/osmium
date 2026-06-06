@@ -1,4 +1,3 @@
-use arrayvec::ArrayVec;
 use ospl_common::ast::frame::RuntimeFrame;
 
 #[derive(Debug)]
@@ -69,9 +68,6 @@ impl Stack {
         let Some(f) = self.frames.pop()
         else { return; };
 
-        // let base = self.data.len() - f.size;
-        // self.data.truncate(base);
-
         for _ in 0..f.size - f.own {
             self.data.pop();
         }
@@ -91,13 +87,13 @@ impl Stack {
 
 #[derive(Debug)]
 pub struct Stack {
-    pub data: ArrayVec<usize, 8192>,
-    pub frames: ArrayVec<Frame, 1024>,
+    pub data: Vec<usize>,
+    pub frames: Vec<Frame>
 }
 
 impl Default for Stack {
     fn default() -> Self {
-        let mut list = arrayvec::ArrayVec::new();
+        let mut list = Vec::new();
         list.push(Frame {
             base: 0,
             size: 0,
@@ -105,7 +101,8 @@ impl Default for Stack {
         });
 
         return Self {
-            data: ArrayVec::new(),
+            // data: ArrayVec::new(),
+            data: Vec::new(),
             frames: list
         }
     }

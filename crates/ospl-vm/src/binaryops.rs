@@ -1,3 +1,5 @@
+use std::hint::unreachable_unchecked;
+
 use ospl_common::inst::{RT, list::List, make};
 
 use crate::{VM, RuntimeValue};
@@ -28,7 +30,7 @@ impl VM {
     }
 
     #[inline(always)]
-    fn _gt_regs(&self, a: usize, b: usize) -> bool {
+    fn _gt_regs(&self, _a: usize, _b: usize) -> bool {
         // return match self.get_two_regs(a, b) {
         //     (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => xa > xb,
         //     (RuntimeValue::Address(xa), RuntimeValue::Address(xb)) => xa > xb,
@@ -64,7 +66,7 @@ impl VM {
     }
 
     pub fn lte_regs(&mut self, a: usize, b: usize) {
-        let x = self._gt_regs(a, b) | self._eq_regs(a, b);
+        let x = (!self._gt_regs(a, b)) | self._eq_regs(a, b);
         self.push_literal(make::bool(x));
     }
 }
@@ -146,8 +148,11 @@ impl VM {
             let aa = &mut *va_ptr;
             let bb = &*vb_ptr;
 
+            // match aa.tag {
             match (aa.tag, bb.tag) {
-                (RT::Int, RT::Int) => aa.data.int += bb.data.int,
+                (RT::Int, RT::Int) => {
+                    aa.data.int += bb.data.int;
+                },
                 (RT::List, _) => {
                     self.append_array(a, b);
                 },
@@ -161,7 +166,8 @@ impl VM {
                 //     s1.push(*c1);
                 // },
 
-                (err_a, err_b) => panic!("can't add-assign {:?} += {:?}", err_a, err_b),
+                // (err_a, err_b) => panic!("can't add-assign {:?} += {:?}", err_a, err_b),
+                _ => unreachable_unchecked()
             }
         }
     }
@@ -191,7 +197,8 @@ impl VM {
                     a.remove(b as usize);
                 },
 
-                (err_a, err_b) => panic!("can't op-assign {:?} += {:?}", err_a, err_b),
+                // (err_a, err_b) => panic!("can't op-assign {:?} += {:?}", err_a, err_b),
+                (_, _) => unreachable_unchecked()
             }
         }
     }
