@@ -1,0 +1,8 @@
+{
+    def F = fn(x: int y: int) -> int {
+        return x + y;
+    };
+
+    def x_prime = F(1 1);
+    def y_prime = F(1 2);
+}

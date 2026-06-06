@@ -1,25 +1,104 @@
-use crate::{Value, arena::{Arena, ArenaIndex}, gc::GcEvent};
+use ospl_common::inst::{RT, assume, assume_mut, list::List, make};
 
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct List {
-    pub inner: Vec<ArenaIndex>
-}
+use crate::VM;
 
-impl List {
-    pub fn push(&mut self, idx: ArenaIndex, arena: &mut Arena) {
-        self.inner.push(idx);
-        arena.gc_event(GcEvent::NewReference {
-            to: idx
-        });
+impl VM {
+    pub fn push_array(&mut self, indexes: &[usize]) {
+        let mut list = List::default();
+        for rel in indexes {
+            let abs = self.stack.top_indexes()[*rel];
+            
+            list.items.push(abs);
+        }
+
+        self.push_literal(make::list(list));
     }
 
-    pub fn pop_mut<'a>(&mut self, arena: &'a mut Arena) -> Option<&'a mut Value> {
-        let idx = self.inner.pop()?;
+    pub fn index(&mut self, array: usize, index: usize) {
+        // SAFETY: the invariant here is that the instruction is operating on a
+        // valid type and the index into the array is valid.
+        let x = {
+            let indexable = self.get_value_top(array);
+            let x = match indexable.tag {
+                RT::List => {
+                    let index = unsafe { self.get_value_top(index).assume_int() };
+                    unsafe { indexable.data.list.items[index as usize] }
+                },
+                RT::Str => {
+                    let index = unsafe { self.get_value_top(index).assume_int() };
+                    let Some(x) = (unsafe { indexable.data.str.chars().nth(index as usize) })
+                    else {
+                        self.push_literal(make::undefined(()));  // out of bounds
+                        return;
+                    };
 
-        arena.gc_event(GcEvent::EndReference { to: idx });
-        let item = arena.get_mut(idx);
+                    self.push_literal(make::char(x));
+                    return;
+                },
+                _ => unsafe{ std::hint::unreachable_unchecked() },
+            };
 
-        return Some(item);
+            x
+        };
+        self.stack.top_add_index(x);
+    }
+
+    pub fn slice(&mut self, _array: usize, _start: usize, _end: usize) {
+        // let _x = unsafe {
+        //     let val = self.raw_get_value_top(array);
+        //     let start = self.get_value_top(start).assume_int() as usize;
+        //     let end = self.get_value_top(end).assume_int() as usize;
+        //     let x = match (&*val).tag {
+        //         RT::List => unsafe { &(*val).data.list.items[start..end] },
+        //         RuntimeValue::Str(s) => {
+        //             let Some(x) = s.get(start..end)
+        //             else {
+        //                 self.push_literal(RuntimeValue::Undefined);  // out of bounds
+        //                 return;
+        //             };
+
+        //             self.push_literal(RuntimeValue::Str(x.to_string()));
+        //             return;
+        //         }
+        //         _ => std::hint::unreachable_unchecked(),
+        //     };
+
+        //     x
+        // };
+
+        unimplemented!("slicing isn't fully imeplemented")
+    }
+
+    pub fn index_string_bytes(&mut self, string: usize, index: usize) {
+        let str = self.get_value_top(string);
+        match assume::str(str) {
+            Some(s) => {
+                let b = s.as_bytes()[index];
+                let b = b as i64;
+                let b = make::int(b);
+                self.push_literal(b);
+            },
+            _ => unsafe { std::hint::unreachable_unchecked() },
+        }
+    }
+
+    pub fn append_array(&mut self, array: usize, index: usize) {
+        self.extend_array(array, &[index]);
+    }
+
+    pub fn extend_array(&mut self, array: usize, indexes: &[usize]) {
+        // FIXME: improve performance
+        let indexes: Vec<usize> = indexes.iter().map(|f| self.stack.top_indexes()[*f]).collect();
+        unsafe {
+            let list = self.raw_get_value_top_mut(array);
+            match assume_mut::list(&mut *list) {
+                Some(l) => {
+                    for abs in indexes {
+                        l.items.push(abs);
+                    }
+                },
+                _ => std::hint::unreachable_unchecked(),
+            };
+        }
     }
 }

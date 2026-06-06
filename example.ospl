@@ -1,7 +1,0 @@
-def x = 10;
-def y = 20;
-def z = x + y;
-
-def f = fn() {
-    
-};

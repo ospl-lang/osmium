@@ -1,0 +1,33 @@
+{
+  "name": "ospl-textmate",
+  "displayName": "OSPL grammars",
+  "description": "Provide TextMate grammars for OSPL",
+  "version": "0.0.1",
+  "publisher": "ospl", 
+  "engines": {
+    "vscode": "^1.109.2"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "ospl",
+        "aliases": [
+          "OSPL (Oscar's Stupid Programming Language)",
+          "ospl"
+        ],
+        "extensions": [".ospl"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ospl",
+        "scopeName": "source.ospl",
+        "path": "./syntaxes/ospl.tmLanguage.json"
+      }
+    ]
+  }
+}

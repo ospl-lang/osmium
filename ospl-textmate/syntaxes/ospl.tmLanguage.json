@@ -1,0 +1,86 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "OSPL",
+	"patterns": [
+		{ "include": "#keywords" },
+		{ "include": "#strings" },
+		{ "include": "#func" },
+		{ "include": "#types" },
+		{ "include": "#comments" }
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [
+				{
+					"name": "keyword.control",
+					"match": "\\b(if|else|loop|return|break|continue|do)\\b"
+				},
+				{
+					"name": "keyword.declaration",
+					"match": "\\b(def|let)\\b"
+				},
+				{
+					"name": "keyword.other",
+					"match": "\\bscope\\b"
+				}
+			]
+		},
+		"func": {
+			"patterns": [
+				{
+					"name": "keyword.declaration.function",
+					"match": "fn"
+				}
+			]
+		},
+		"types": {
+			"patterns": [
+				{
+					"name": "storage.type",
+					"match": "\\b(int|addr|float|str|bool|list|unknown|any|char)\\b"
+				},
+				{
+					"name": "constant.other",
+					"match": "\\b(nul|undefined)\\b"
+				},
+				{
+					"name": "constant.language",
+					"match": "\\b(true|false)\\b"
+				},
+				{
+					"name": "constant.numeric.integer",
+					"match": "\\b\\d+@?\\b"
+				},
+				{
+					"name": "constant.numeric.float",
+					"match": "\\b\\d+\\.\\d+(?:[eE][+-]?\\d+)?@?\\b"
+				}
+			]
+		},
+		"strings": {
+			"name": "string.quoted.double",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape",
+					"match": "\\\\."
+				}
+			]
+		},
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.line.number-sign",
+					"match": "#.*$"
+				},
+				{
+				"name": "comment.block.ospl",
+				"begin": "\\*\\*\\*\\*\\*",
+				"end": "\\*\\*\\*\\*\\*"
+				}
+			]
+		}
+	},
+	"scopeName": "source.ospl"
+}

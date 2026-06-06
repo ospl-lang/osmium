@@ -1,30 +1,6 @@
-use crate::{Control, inst::optimized::Inst};
-
-use super::{Frame, VM, arena::ArenaIndex};
-
-#[derive(Debug, Clone)]
-pub struct Fn {
-    /// The indexes into the arena that this thing can thingy agghgh idk
-    pub lexical_indexes: Vec<ArenaIndex>,
-
-    /// The code of this function
-    pub code: Vec<Inst>,
-}
-
-impl Fn {
-    /// Creates a new function given lexical indexes and code.
-    pub fn new(lexical_indexes: Vec<ArenaIndex>, code: Vec<Inst>) -> Self {
-        return Fn {
-            lexical_indexes,
-            code,
-        }
-    }
-
-    /// Creates a new instance that can be used for literals. Whatever that may mean
-    pub fn new_literal(lexical_indexes: Vec<ArenaIndex>, code: Vec<Inst>) -> Box<Self> {
-        return Box::new(Self::new(lexical_indexes, code))
-    }
-}
+use ospl_common::{ast::frame::RuntimeFrame, inst::{assume, make}, types::AbsAddress};
+use crate::Control;
+use super::{VM, arena::ArenaIndex};
 
 impl VM {
     /// Calls a function with the OSPL calling convention.
@@ -37,90 +13,71 @@ impl VM {
     /// # Calling convention
     /// the calling convention for functions is as follows
     /// ```text,no_run
-    /// frame SP $00 --> | arg 1: copy of original value
-    ///          $01     | arg 2
-    ///          $02     | arg 3
-    ///          $03     | arg 4
-    ///          $04     | arg 5
+    /// frame SP $00 --> | capture 1: ref to original value
+    ///          $01     | capture 2
+    ///          $02     | capture 3
     ///                  |
-    ///                  | ... more arguments follow ...
-    ///                  | 
-    ///          $05     | lexically scoped variable A
-    ///          $06     | lexically scoped variable B
-    ///          $07     | lexically scoped variable C
-    ///                  | 
     ///                  | ... more captures follow ...
     ///                  | 
-    ///          $08     | local variable A
-    ///          $09     | local variable B
-    ///          $10     | local variable C
+    ///          $03     | argument 1: ref to original value
+    ///          $04     | argument 2
+    ///          $05     | argument 3
+    ///                  | 
+    ///                  | ... more arguments follow ...
+    ///                  | 
+    ///          $06     | local variable A
+    ///          $07     | local variable B
+    ///          $18     | local variable C
     ///                  | 
     ///                  | ... more locals follow ...
     ///                  | 
     /// ```
     /// 
-    /// OSPL passes all arguments by reference, and all returns by value.
-    /// 
-    /// # Safety
-    /// YOU CANNOT MUTATE THE CODE OF THE FUNCTION YOU ARE CALLING, OR ANY PARENT FUNCTION,
-    /// WITHOUT UNDEFINED BEHAVOIUR. PLEASE DO NOT DO THIS! IT'S A VERY BAD IDEA!!
-    pub fn call_fn(&mut self, f: usize, args: &[ArenaIndex]) -> Control {
-        // the clones here are tiny and insignificant. C programmers don't need
-        // them, because they'd never write this function in this way, because
-        // they're insane people. But we need them because we write this
-        // function in this way because we aren't masochists who subject
-        // ourselves to manually writing every single collection type, and then
-        // have to wonder why it's leaking memory all the sudden.
-        // 
-        // Besides my rant on C programmers, I know the alternative to this
-        // (not cloning and using the reference) is safe, rustc, however,
-        // doesn't know that. I'm unable to tell it that, because unsafe{}
-        // doesn't actually let you bypass reference scemantics. They should
-        // add some form of that though (maybe not through unsafe blocks...)
-        // maybe via `ref unsafe` blocks: the `ref` keyword already exists, and
-        // is underused, why not use it?
-        // 
-        // We pay the price of tiny memcpy()s for safety, praise Ferris the
-        // crab!
-        //
-        // -Colton
+    /// OSPL passes all arguments by reference, and all returns by reference as well.
+    pub fn call_fn(&mut self, at: usize, args: &[ArenaIndex]) -> Control {
+        let mut frame = RuntimeFrame::default();
 
-        // ignore the above rant because I wrote unsafe code to fix the
-        // dumb clones!
-        // -Colton, a few weeks later
+        let f = self.get_value_top(at);
+        let f = match f.as_fn() {
+            Some(o) => o,
+            None => panic!("can't call object of type {f:?} | at={at} | top={:?}", self.stack.top_indexes())
+        };
 
-        // here, it is important that we push the lexical regs to the frame
-        // AFTER we push the arguments, this is just the calling convention
-        // we're gonna use, because it makes things easier for you and the
-        // compiler.
-
-        let mut frame = Frame::default();
+        // CAPTURES
+        frame.indexes.extend_from_slice(f.captures.as_slice());
 
         // ARGUMENTS
         {
-            let top = self.top();
+            let top = self.stack.top_indexes();
             for arg in args {
-                let abs = &top.indexes[*arg];
+                let abs = top.get(*arg).unwrap_or_else(|| {
+                    panic!("argument {arg:?} was out of bounds! len={} | frame={frame:?}", top.len());
+                });
                 frame.indexes.push(*abs);
             }
         };
 
-        // LEXICALS
-        let Some(f) = self.get_value_top(f).as_fn()
-            else { panic!("cannot call this object") };
-
-        frame.indexes.extend_from_slice(f.lexical_indexes.as_slice());
-
+        // INVARIANT: I guarantee that the number of args passed in matches the
+        // function's expectations. If this invariant is broken, then the OSPL
+        // function (and any function using the returned scope of the function)
+        // may experience undefined behaviour.
         // now, since Rust sucks, we're gonna do unsafe
-        // SAFETY: I PROMISE THAT `f.code` AND IT'S PARENTS WILL NOT BE MUTATED
+        // SAFETY: I PROMISE THAT `f.code` AND ITS PARENTS WILL NOT BE MUTATED
         unsafe {
             let very_good_safe = &raw const f.code;
-            self.push_frame(frame);  // needs to be in unsafe because of course it does..
+            self.stack.push_frame_value(frame);  // needs to be in unsafe because of course it does..
 
             for inst in &*very_good_safe {
-                let run = self.run_one_optimized(inst);
+                let run = self.run_one(inst);
                 match run {
-                    Control::Return(i) => self.ret(i),
+                    Control::Return(i) => {
+                        self.ret(i);
+                        break;
+                    },
+                    Control::ReturnScope => {
+                        self.retscope();
+                        break;
+                    },
                     _ => {},
                 }
             }
@@ -129,11 +86,41 @@ impl VM {
         return Control::Default
     }
 
-    /// Returns a copy of the value to the previous stack frame
-    pub fn ret(&mut self, i: ArenaIndex) {
-        let vr = self.arena.get(self.top().indexes[i]).clone();
-        self.end_scope();
+    /// Returns the value to the previous stack frame
+    pub fn ret(&mut self, address: AbsAddress) {
+        let _ = self.stack.end();
+        self.stack.top_add_index(address);
+    }
 
-        self.push_literal(vr);
+    /// Returns the current frame as a value
+    pub fn retscope(&mut self) {
+        // may or may not work...
+        let s = self.stack.pop();
+
+        self.push_literal(make::scope(s));
+    }
+
+    pub fn call_foreign_function(&mut self, h: usize, idxs: &[usize]) {
+        unsafe {
+            let Some(h) = assume::foreignfun(self.get_value_top(h))
+                else { unimplemented!("not a foreign fn") };
+
+            let x = &raw const *self.ffi.get_function(*h).expect("FFI function not found");
+
+            let mut values = Vec::new();
+            for idx in idxs {
+                values.push(self.get_value_top(*idx).clone());
+            }
+
+            let ret = match crate::ffi::call_foreign_function(
+                &*x,
+                &values,
+            ) {
+                Ok(ret) => ret,
+                Err(e) => panic!("failed to call FFI function {:?}\n{:?}", *x, e),
+            };
+
+            self.push_literal(ret);
+        }
     }
 }

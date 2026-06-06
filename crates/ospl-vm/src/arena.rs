@@ -3,7 +3,9 @@
 
 use std::fmt::Debug;
 
-use crate::Value;
+use ospl_common::inst::{RT, make};
+
+use crate::RuntimeValue;
 
 pub type ArenaIndex = usize;
 
@@ -11,49 +13,62 @@ pub type ArenaIndex = usize;
 /// the future! So do that.
 pub const MEMMAX: usize = 1024;
 
-pub const FREE_REFCOUNT: usize = usize::MAX;
+// TODO: make this thread-safe!
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct ArenaItem {
-    pub inner: Value,
-    pub refcount: usize,
+    pub inner: RuntimeValue,
+    next_free: Option<usize>,
+}
+
+impl ArenaItem {
+    pub fn oom() -> Self {
+        return Self {
+            next_free: None,
+            inner: make::undefined(())
+        }
+    }
 }
 
 impl Debug for ArenaItem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.refcount == FREE_REFCOUNT {
+        if self.inner.tag == RT::Undefined { 
             return write!(f, "");
         };
 
-        return write!(f, "{}#{:?}", self.refcount, self.inner);
-    }
-}
-
-impl ArenaItem {
-    pub const fn const_default() -> Self {
-        return Self {
-            refcount: FREE_REFCOUNT,
-            inner: Value::Undefined,
-        }
+        return write!(f, "{:?}", self.inner);
     }
 }
 
 #[derive(Debug)]
 pub struct Arena {
     segment: Box<[ArenaItem; MEMMAX]>,
-    freelist: Vec<ArenaIndex>,
+
+    /// If this is [`None`], we're out of memory
+    freelist_head: Option<usize>
 }
 
 impl Arena {
     pub fn new() -> Self {
-        let mut freelist = Vec::with_capacity(MEMMAX);
+        let mut v = Vec::with_capacity(MEMMAX);
+
         for i in 0..MEMMAX {
-            freelist.push(i);
+            v.push(ArenaItem {
+                next_free: if i + 1 < MEMMAX {
+                    Some(i + 1)
+                } else {
+                    None
+                },
+                inner: make::undefined(()),
+            });
         }
 
-        return Self {
-            segment: Box::new([const{ArenaItem::const_default()}; MEMMAX]),
-            freelist,
+        let segment: Box<[ArenaItem; MEMMAX]> =
+            v.into_boxed_slice().try_into().unwrap();
+
+        Self {
+            segment,
+            freelist_head: Some(0),
         }
     }
 
@@ -63,44 +78,44 @@ impl Arena {
     }
 
     #[inline(always)]
+    pub fn get_item(&self, abs: ArenaIndex) -> &ArenaItem {
+        return &self.segment[abs]
+    }
+
+    #[inline(always)]
     pub fn reclaim(&mut self, i: ArenaIndex) {
-        self.segment[i].inner = Value::Nul;
-        self.segment[i].refcount = FREE_REFCOUNT;
-        self.freelist.push(i);
+        let item = &mut self.segment[i];
+        item.next_free = self.freelist_head;
+        self.freelist_head = Some(i);
     }
 
     #[inline(always)]
-    pub fn push(&mut self, v: Value) -> ArenaIndex {
-        if let Some(idx) = self.freelist.pop() {
-            self.segment[idx] = ArenaItem {
-                refcount: 1,
-                inner: v
-            };
-            return idx;
-        } else {
-            panic!("we're out of memory")
-        }
+    pub fn push(&mut self, v: RuntimeValue) -> ArenaIndex {
+        let head = self.freelist_head.expect("OSPL: out of memory!");
+        let item = &mut self.segment[head];
+        item.inner = v;
+
+        self.freelist_head = item.next_free;
+        return head
     }
 
     #[inline(always)]
-    pub fn get(&self, index: ArenaIndex) -> &Value {
+    pub fn get(&self, index: ArenaIndex) -> &RuntimeValue {
         return &self.segment[index].inner
     }
     
     #[inline(always)]
-    pub fn get_mut(&mut self, index: ArenaIndex) -> &mut Value {
+    pub fn get_mut(&mut self, index: ArenaIndex) -> &mut RuntimeValue {
         return &mut self.segment[index].inner
     }
 
-
     #[inline(always)]
-    pub unsafe fn raw_get(&self, index: ArenaIndex) -> *const Value {
+    pub unsafe fn raw_get(&self, index: ArenaIndex) -> *const RuntimeValue {
         return &raw const self.segment[index].inner
     }
     
     #[inline(always)]
-    pub unsafe fn raw_get_mut(&mut self, index: ArenaIndex) -> *mut Value {
+    pub unsafe fn raw_get_mut(&mut self, index: ArenaIndex) -> *mut RuntimeValue {
         return &raw mut self.segment[index].inner
     }
 }
-

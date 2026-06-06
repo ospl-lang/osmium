@@ -1,0 +1,20 @@
+[package]
+name = "ospl-toolchain"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ospl-parser = { path = "../ospl-parser" }
+ospl-compiler = { path = "../ospl-compiler" }
+ospl-vm = { path = "../ospl-vm" }
+ospl-common = { path = "../ospl-common" }
+
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+serde = { version = "1", features = ["derive"] }
+yaml_serde = { version = "0.10" }
+postcard = { version = "1.1", features = ["use-std"] }
+
+clap = { version = "4.6", features = ["derive"]}
+blake3 = "1"
+base64 = "0.22.1"

@@ -1,2 +1,7 @@
 /target
 scrap
+
+# vscode shit
+node_modules
+*.vsix
+.env

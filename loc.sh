@@ -1,1 +1,0 @@
-cloc ./crates/ospl-cli/src ./crates/ospl-common/src ./crates/ospl-compiler/src ./crates/ospl-parser/src ./crates/ospl-vm/src

@@ -1,0 +1,140 @@
+use ospl_common::ast::{FunctionType, Scope, Type, UType, spanning::Spannable};
+
+use crate::{CE, CEData, Compiler, Res};
+
+impl Compiler {
+    pub fn rt(&self, scope: &Scope<Type>, ty: &UType, span: &dyn Spannable) -> Res<Type> {
+        match ty {
+            UType::Typeof(name) => {
+                let Some((_, t)) = scope.get_combined_with_nonaddressable(name)
+                else { return Err(CE {
+                    at: span.spanned(),
+                    during: "Type resolution - TypeOfVar",
+                    error: CEData::NotFoundInScope { needed: name.clone(), scope: scope.clone() },
+                    msg: None,
+                }) };
+
+                return Ok(t.clone())
+            }
+
+            UType::Returnof(inner) => {
+                let resolved = self.rt(scope, inner, span)?;
+
+                match resolved {
+                    Type::Function(f) => {
+                        return Ok(f.ret.clone())
+                    },
+
+                    Type::Nominal(_, curr) => {
+                        return Ok(*curr.clone())
+                    },
+
+                    _ => todo!("TODO error"),
+                }
+            },
+
+            UType::Nominal(n) => {
+                let typ = self.rt(scope, &**n, span)?;
+                let nom = self.bd.next_resource_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                return Ok(Type::Nominal(nom, Box::new(typ)));
+            },
+
+            UType::Apply(nom, map) => {
+                let ty = self.rt(scope, nom, span)?;
+                let applied = self.fn_nominal_application(ty, map, span)?;
+                return Ok(Type::Function(applied))
+            }
+
+            UType::Property(b, p) => {
+                let br = self.rt(scope, &b, span)?;
+                match br {
+                    Type::Scope(s) => {
+                        let Some(bv) = s.get_inner().get(p)
+                        else { return Err(CE {
+                            at: span.spanned(),
+                            during: "Type resolution - Property",
+                            error: CEData::NotFoundInScope { needed: p.clone(), scope: s.clone() },
+                            msg: None,
+                        }) };
+
+                        tracing::debug!("getting type property: {bv:?}");
+
+                        return Ok(bv.get_type().clone())
+                    },
+                    _ => return Err(CE {
+                        at: span.spanned(),
+                        during: "Type resolution - Property",
+                        error: CEData::MismatchedTypes { expected: crate::TypeExpectation::AnyScope, got: br.clone() },
+                        msg: None,
+                    }) 
+                }
+            }
+
+            UType::Resolved(r) => return Ok(r.clone()),
+
+            UType::Function(f) => {
+                let ret = self.rt(scope, &f.ret, span)?;
+
+                let mut args = Vec::new();
+                for arg in &f.args {
+                    args.push(self.rt(scope, arg, span)?);
+                }
+
+                return Ok(Type::Function(Box::new(FunctionType {
+                    ret,
+                    args
+                })))
+            },
+
+            UType::List(lty) => {
+                let lty = self.rt(scope, lty, span)?;
+                return Ok(Type::List(Box::new(lty)))
+            },
+
+            UType::Scope(s) => {
+                let mut s2: Scope<Type> = Scope::default();
+                for (key, value) in s.get_inner() {
+                    let t = value.get_type();
+                    let t = self.rt(scope, t, span)?;
+                    s2.direct_declare(key.clone(), value.get_address(), t);
+                };
+                return Ok(Type::Scope(s2))
+            },
+
+            UType::InferScope => {
+                return Ok(Type::Scope(scope.clone()))
+            }
+        }
+    }
+
+    pub fn fn_nominal_application(&self, ty: Type, replacements: &Vec<(UType, UType)>, span: &dyn Spannable) -> Res<Box<FunctionType<Type>>> {
+        let Type::Function(mut ftype) = ty
+        else { panic!("TODO unrwap - cannot apply on a non-function type {ty:?}") };
+
+        for (nom, repl) in replacements {
+            // let Some((None, Type::Nominal(nom_nom, _))) = self.stack.top().get_combined_with_nonaddressable(nom)
+            let Type::Nominal(nom_nom, _) = self.rt(self.stack.top(), nom, span)?
+            else { panic!("TODO unwrap - a nominal replacement is needed") };
+
+            let repl = self.rt(self.stack.top(), repl, span)?;
+            ftype.args.iter_mut().for_each(|x| {
+                if let Type::Nominal(nom_nom_nom, _) = x {
+                    if *nom_nom_nom == nom_nom {  // yummy!
+                        *x = repl.clone();
+                    }
+                }
+            });
+
+            if let Type::Nominal(nom_nom_nom, _) = ftype.ret {
+                if nom_nom_nom == nom_nom {  // y-y-y-y-yummy!
+                    // I'm going fucking crazy iykyk
+                    //   -- Amber
+
+                    ftype.ret = repl;
+                }
+            }
+        }
+
+        return Ok(ftype)
+    }
+}

@@ -1,63 +1,60 @@
 //! TODO: ADD CYCLE DETECTION.
 
-use crate::{arena::{Arena, ArenaIndex}};
+use ospl_common::inst::RT;
 
-pub enum GcEvent<'a> {
-    FrameDestroyed {
-        indexes: &'a [ArenaIndex],
-    },
-    FrameAdded {
-        indexes: &'a [ArenaIndex],
-    },
-    NewReference {
-        to: ArenaIndex,
-    },
-    EndReference {
-        to: ArenaIndex,
-    },
-    DetectCyclesPlease,
+use crate::{VM, arena::MEMMAX};
+
+pub const BITS: usize = (MEMMAX + 63) / 64;
+
+pub struct BitSet<const N: usize> {
+    bits: [u64; N],
 }
 
-impl Arena {
-    /// Decrements a refcount, returning `true` if it's `0`
-    /// Does not modify the refcount of objects accessable through it. So it is unsafe
-    pub fn dec_refcount(&mut self, abs: ArenaIndex) -> bool {
-        let x = self.get_item_mut(abs);
-        x.refcount = x.refcount.saturating_sub(1);
-        if x.refcount == 0 {
-            return true
+impl<const N: usize> BitSet<N> {
+    pub fn new() -> Self {
+        Self { bits: [0; N] }
+    }
+
+    pub fn set(&mut self, i: usize) {
+        self.bits[i / 64] |= 1 << (i % 64);
+    }
+
+    pub fn contains(&self, i: usize) -> bool {
+        (self.bits[i / 64] & (1 << (i % 64))) != 0
+    }
+}
+
+impl VM {
+    fn trace_value(&self, index: usize, out: &mut BitSet<BITS>) {
+        out.set(index);
+        let value = self.arena.get(index);
+        match value.tag {
+            RT::Func => for index in unsafe { &value.data.func.captures } {
+                self.trace_value(*index, out);
+            }
+            RT::List => for index in unsafe { &value.data.list.items } {
+                self.trace_value(*index, out);
+            }
+            RT::Scope => for index in unsafe { &value.data.scope.indexes } {
+                self.trace_value(*index, out);
+            }
+            _ => {}
+        }
+    }
+
+    pub fn gc(&mut self) {
+        let mut marked: BitSet<BITS> = BitSet::new();
+        for root in self.stack.frames.iter() {
+            for index in self.stack.data[root.base..root.base + root.size].iter() {
+                self.trace_value(*index, &mut marked);
+            }
         }
 
-        return false
-    }
-
-    /// Increments a given object's refcount, and all objects reachable by that object
-    pub fn inc_refcount(&mut self, abs: ArenaIndex) {
-        let x = self.get_item_mut(abs);
-        x.refcount += 1;
-    }
-
-    pub fn gc_event(&mut self, e: GcEvent) {
-        match e {
-            GcEvent::FrameDestroyed { indexes } => {
-                for idx in indexes {
-                    if self.dec_refcount(*idx) {
-                        self.reclaim(*idx);
-                    }
-                }
-            },
-            GcEvent::FrameAdded { indexes } => {
-                for idx in indexes {
-                    self.inc_refcount(*idx);
-                }
-            },
-            GcEvent::NewReference { to } => {
-                self.inc_refcount(to);
-            },
-            GcEvent::EndReference { to } => {
-                self.dec_refcount(to);
+        // O(n + k)
+        for i in 0..MEMMAX {
+            if !marked.contains(i) {
+                self.arena.reclaim(i);
             }
-            _ => unimplemented!(),
         }
     }
 }

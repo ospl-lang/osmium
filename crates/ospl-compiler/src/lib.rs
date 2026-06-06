@@ -1,110 +1,121 @@
-use std::collections::HashMap;
-use ospl_common::ast::{class::instance::Entity, module::VScope, repr::Type};
-use crate::base::{CompilerError, Res};
+use std::sync::{Arc, Mutex, PoisonError, atomic::AtomicUsize};
 
-pub mod base;
-mod impls;
+use ospl_common::{ast::{Scope, Type, ops::BinaryOpType, spanning::UnknownLocation}, inst::symbols::DebugSymbolTable};
 
-#[cfg(test)]
-mod tests;
+pub type RelativeVarID = usize;
+
+pub mod package;
+
+/// All nested scopes during compilation.
+#[derive(Debug, Default)]
+pub struct ScopeStack {
+    scopes: Vec<Scope<Type>>,
+}
+
+#[derive(Debug)]
+pub struct Compiler {
+    pub stack: ScopeStack,
+    pub bd: Arc<BuildData>,
+}
+
+#[derive(Debug)]
+pub struct BuildData {
+    pub symbols: Mutex<DebugSymbolTable>,
+    pub next_resource_id: AtomicUsize,
+}
 
 #[derive(Debug, Clone)]
-pub struct LocalStore {
-    reg: usize,
+pub struct EvalResult {
+    address: RelativeVarID,
     ty: Type,
 }
 
-impl Entity for LocalStore {
-    fn get_index(&self) -> usize {
-        return self.reg
-    }
+#[derive(Debug)]
+pub enum TypeExpectation {
+    Exact(Type),
+    AnyList,
+    Indexable,
+    Slicable,
+    AnyScope,
+}
 
-    fn get_type(&self) -> &Type {
-        return &self.ty
+#[derive(Debug)]
+pub enum CEData {
+    MismatchedTypes {
+        expected: TypeExpectation,
+        got: Type
+    },
+    WrongArgCount {
+        expected: usize,
+        got: usize,
+    },
+    NotFoundInScope {
+        needed: String,
+        scope: Scope<Type>,
+    },
+    NoScopeToCapture,
+    InvalidOpForType {
+        op: BinaryOpType,
+        ty: Type
+    },
+    InvalidAssignOp {
+        op: BinaryOpType,
+    },
+    UnrecognizedSpecialVar {
+        ty: Type,
+        special: String,
+    },
+    InternalError(Box<dyn std::error::Error>),
+    Bug,
+}
+
+impl From<Box<dyn std::error::Error>> for CEData {
+    fn from(value: Box<dyn std::error::Error>) -> Self {
+        return Self::InternalError(value)
     }
 }
 
-#[derive(Default, Clone)]
-pub struct Scope {
-    names: HashMap<String, LocalStore>,
-    nextreg: usize,
+#[derive(Debug)]
+pub struct CE {
+    pub at: Box<dyn ospl_common::ast::spanning::Spannable>,
+    pub error: CEData,
+    pub during: &'static str,
+    pub msg: Option<&'static str>,
 }
 
-impl Scope {
-    pub fn get_local(&self, k: &str) -> Res<&LocalStore> {
-        return self.names
-            .get(k)
-            .ok_or_else(|| CompilerError::NotFoundInScope {
-                id: k.to_owned()
-            })
-    }
+pub type Res<T> = Result<T, CE>;
 
-    pub fn get_mut_local(&mut self, k: &str) -> Res<&mut LocalStore> {
-        return self.names
-            .get_mut(k)
-            .ok_or_else(|| CompilerError::NotFoundInScope {
-                id: k.to_owned()
-            })
-    }
-
-    pub fn declare(&mut self, k: String, reg: usize, ty: Type) {
-        self.names.insert(k, LocalStore {
-            reg, ty
-        });
-    }
-
-    pub fn next_pre(&mut self) -> usize {
-        let i = self.nextreg;
-        self.nextreg += 1;
-        return i
-    }
-}
-
-pub struct Compiler {
-    scopes: Vec<Scope>,
-    vroot: VScope,
-}
-
-impl Compiler {
-    pub fn new() -> Self {
+impl From<(usize, &Type)> for EvalResult {
+    fn from(value: (usize, &Type)) -> Self {
         return Self {
-            scopes: vec![
-                Scope::default()
-            ],
-            vroot: VScope::default()
+            address: value.0,
+            ty: value.1.clone()
         }
     }
+}
 
-    #[allow(unused)]
-    fn top(&self) -> Res<&Scope> {
-        return self.scopes
-            .last()
-            .ok_or_else(|| CompilerError::AtLeastOneScopeRequired)
-    }
-
-    fn top_mut(&mut self) -> Res<&mut Scope> {
-        return self.scopes
-            .last_mut()
-            .ok_or_else(|| CompilerError::AtLeastOneScopeRequired)
-    }
-
-    fn new_scope_parent(&mut self) -> Res<()> {
-        let sc = self.top()?;
-        self.scopes.push(sc.clone());
-
-        return Ok(())
-    }
-
-    fn new_scope_isolated(&mut self) -> Res<()> {
-        self.scopes.push(Scope::default());
-
-        return Ok(())
-    }
-
-    fn pop_scope(&mut self) -> Res<()> {
-        self.scopes.pop()
-            .unwrap();  // FIX-UNWRAP: change this to error handling
-
-        return Ok(())
+impl From<Box<dyn std::error::Error>> for CE {
+    fn from(value: Box<dyn std::error::Error>) -> Self {
+        return Self {
+            at: Box::new(UnknownLocation),
+            during: "unknown...",
+            msg: None,
+            error: CEData::from(value),
+        }
     }
 }
+
+impl<T> From<PoisonError<std::sync::MutexGuard<'_, T>>> for CE {
+    fn from(_: PoisonError<std::sync::MutexGuard<'_, T>>) -> Self {
+        Self {
+            at: Box::new(UnknownLocation),
+            during: "mutex poisoned",
+            msg: None,
+            error: CEData::Bug,
+        }
+    }
+}
+
+pub mod ast;
+mod impls;
+// mod tests;
