@@ -2,9 +2,10 @@ use std::path::Path;
 
 use ospl_common::ast::{Expr, Expression, FunctionType, FunctionValue, Literal, Position, Statement, Stmt, UType, decl::Declaration};
 
-pub mod resolv;
-pub mod resolv2;
 pub mod decl;
+pub mod resolv0;
+pub mod resolv1;
+pub mod resolv2;
 pub mod build;
 
 pub fn wrap_in_iife_declaration(name: &str, mut v: Vec<Statement>) -> Statement {

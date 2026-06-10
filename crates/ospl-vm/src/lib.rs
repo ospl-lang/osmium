@@ -111,8 +111,8 @@ impl VM {
         // TL;DR the safety invariant here is that the
         // instructions are valid.
 
-        // #[cfg(debug_assertions)]
-        // let _dbg = debug::DbgMark::new(format!("{inst:?}"));
+        #[cfg(debug_assertions)]
+        let _dbg = debug::DbgMark::new(format!("run {inst:?}"));
 
         unsafe { match &inst.opcode {
             Opc::PushLiteral => {
@@ -205,6 +205,7 @@ impl VM {
             Opc::Lt  => self.lt_regs(inst.get_index(0), inst.get_index(1)),
             Opc::Gte => self.gte_regs(inst.get_index(0), inst.get_index(1)),
             Opc::Lte => self.lte_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::Neg => self.neg_reg(inst.get_index(0)),
 
             Opc::Decrement => self.dec_value(inst.get_index(0)),
 

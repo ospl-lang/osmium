@@ -1,17 +1,16 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::{BUILD_FOLDER, LogState, graph::{build::{CxxNode, Graph, ModuleNode, ModuleNodeMeta, Requirement}, decl::{ModRef, PkgRef}, resolv::HighGraph}};
+use crate::{BUILD_FOLDER, graph::{build::{CxxNode, Graph, ModuleNode, ModuleNodeMeta, Requirement}, resolv0::{RModRef, PkgRef}, resolv1::HighGraph}};
 
 pub fn lower(high: HighGraph) -> Graph {
     let mut modules: HashMap<u32, ModuleNode> = HashMap::new();
 
     for (id, high_mod) in high.modules {
-        LogState!(&id.to_string());
         let mut resolved_requires: Vec<Requirement> = Vec::new();
 
         for (required_as, req) in &high_mod.requires {
             let target = match req {
-                ModRef::Local(name) => {
+                RModRef::Local(name) => {
                     let key = (high_mod.pkg.clone(), name.clone());
                     let i = high.module_index.get(&key)
                         .unwrap_or_else(|| panic!("missing local module: {:?}", key));
@@ -22,7 +21,7 @@ pub fn lower(high: HighGraph) -> Graph {
                     }
                 },
 
-                ModRef::Extern(pkg, name) => {
+                RModRef::Extern(pkg, name) => {
                     let thing = get_package_module_with_name(pkg, &*name, &high.module_index);
 
                     Requirement {
@@ -58,6 +57,7 @@ pub fn lower(high: HighGraph) -> Graph {
             deps: resolved_requires,
             meta: ModuleNodeMeta {
                 name: high_mod.name,
+                pkg: high_mod.pkgname.unwrap_or_else(|| "???".to_string()),
             }
         });
     }

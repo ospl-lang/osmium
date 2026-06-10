@@ -229,6 +229,10 @@ impl<T> Store<T> {
     pub fn get_type(&self) -> &T {
         return &self.typ
     }
+
+    pub fn into_type(self) -> T {
+        return self.typ
+    }
 }
 
 impl<T: Clone> Scope<T> {
@@ -276,6 +280,10 @@ impl<T: Clone> Scope<T> {
     /// REALLY NEED IT
     pub fn get_inner(&self) -> &HashMap<String, Store<T>> {
         return &self.map
+    }
+
+    pub fn into_inner(self) -> HashMap<String, Store<T>> {
+        return self.map
     }
 
     pub fn get_combined(&self, k: &str) -> Option<(usize, &T)> {

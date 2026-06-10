@@ -6,9 +6,10 @@ pub enum Action {
     Compiling,
     Linking,
 
-    Skipping,
+    Warning,
+    Failed,
 
-    Setting,
+    Skipping,
 }
 
 pub fn log(action: Action, message: &str) {
@@ -25,7 +26,7 @@ pub fn log(action: Action, message: &str) {
 
 #[macro_export] macro_rules! Log {
     ($action:ident, $($y:expr),+) => {
-        $crate::log::log($crate::log::Action::$action, &format!($($y),+));
+        $crate::log::log($crate::log::Action::$action, &format!($($y),+))
     };
 }
 

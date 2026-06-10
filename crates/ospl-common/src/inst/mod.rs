@@ -1,4 +1,4 @@
-use std::{fmt::Debug, hint::unreachable_unchecked};
+use std::fmt::Debug;
 
 // use crate::inst::unoptimized::VMInstruction;
 use crate::{ast::frame::RuntimeFrame, inst::optimized::Inst};
@@ -159,14 +159,27 @@ impl PartialEq for RuntimeValue {
             (RT::Addr, RT::Addr) => self.data.address == other.data.address,
             (RT::Float, RT::Float) => self.data.float == other.data.float,
             (RT::Str, RT::Str) => self.data.str == other.data.str,
-            _ => unreachable_unchecked()
+            (RT::Bool, RT::Bool) => self.data.bool == other.data.bool,
+            (a, b) => panic!("Illegal comparison {a:?} == {b:?}"),
         } }
     }
 }
 
 impl Debug for RuntimeValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        return write!(f, "{:?}", self.tag)
+        unsafe { match self.tag {
+            RT::Addr => write!(f, "{:?}", self.data.address),
+            RT::Int => write!(f, "{:?}", self.data.int),
+            RT::Float => write!(f, "{:?}", self.data.float),
+            RT::Bool => write!(f, "{:?}", self.data.bool),
+            RT::Str => write!(f, "{:?}", self.data.str),
+            RT::Char => write!(f, "{:?}", self.data.char),
+            RT::List => write!(f, "{:?}", self.data.list),
+            RT::Scope => write!(f, "{:?}", self.data.scope),
+            _ => Ok(())
+        }? }
+
+        return write!(f, " {:?}", self.tag)
     }
 }
 

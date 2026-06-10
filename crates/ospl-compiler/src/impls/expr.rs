@@ -14,7 +14,7 @@ impl Compiler {
             Expr::Literal(l) => self.literal(l, expr, ob),
             Expr::Call(func, args) => self.do_call(func, args, ob),
             Expr::BinaryOp(b) => self.binary_op(b, ob),
-            Expr::UnaryOp(u) => self.unary_op(u, ob),
+            Expr::UnaryOp(u) => self.unary_op(u, ob, expr),
             Expr::LValue(lv) => {
                 let store = self.get_lvalue(lv, ob)?;
                 return Ok(EvalResult {
@@ -45,10 +45,10 @@ impl Compiler {
             Expr::FFIFunc(lib, func_name, rtype, types) => self.ffi_func(lib, func_name, *rtype, types, ob),
             Expr::Apply(left, nominals_to_replacements) => {
                 let eval = self.eval(left, ob)?;
-                let ty = self.fn_nominal_application(eval.ty, nominals_to_replacements, expr)?;
+                let ty = self.nominal_application(eval.ty, nominals_to_replacements, expr)?;
                 return Ok(EvalResult {
                     address: eval.address,
-                    ty: Type::Function(ty)
+                    ty: ty
                 })
             }
             Expr::Cast(left, into) => {
@@ -145,7 +145,7 @@ impl Compiler {
             },
             Literal::Char(c) => {
                 ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::char(*c)).build());
-                return Ok(EvalResult { address: self.next_var(), ty: Type::Str })
+                return Ok(EvalResult { address: self.next_var(), ty: Type::Char })
             },
             Literal::Nul => {
                 ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::nul(())).build());
@@ -211,7 +211,7 @@ impl Compiler {
                                     .index(eval.address)
                                     .build());
 
-                                return Ok(EvalResult { address: self.next_var(), ty: Type::Int })
+                                return Ok(EvalResult { address: self.next_var(), ty: Type::Address })
                             },
 
                             other => return Err(CE {

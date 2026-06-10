@@ -3,8 +3,13 @@ use ospl_common::inst::optimized::Inst;
 use ospl_vm::VM;
 use std::io::Read;
 use clap::{Parser, Subcommand, ValueEnum};
+use crate::graph::resolv1::RecursionInfo;
 
-use crate::graph::resolv::RecursionInfo;
+pub mod log;
+pub mod graph;
+pub mod util;
+pub mod init;
+pub mod package;
 
 #[derive(Parser)]
 struct Cli {
@@ -17,6 +22,9 @@ enum Cmd {
     /// Build the project in the current directory
     #[command(alias = "b")]
     Build,
+
+    #[command(alias = "r")]
+    Run,
 
     /// Rebuild and run the project in the current directory
     #[command(alias = "sr")]
@@ -58,11 +66,6 @@ impl ToString for ProjTyp {
     }
 }
 
-pub mod log;
-pub mod graph;
-pub mod util;
-pub mod init;
-
 const BUILD_FILE: &str = "build/dist.ospb";
 const BUILD_FOLDER: &str = "build/";
 
@@ -82,7 +85,11 @@ fn main() {
     match cli.command {
         Cmd::Build => {
             cmd_build(PathBuf::from(BUILD_FILE));
-        }
+        },
+        Cmd::Run => {
+            let pb = PathBuf::from(BUILD_FILE);
+            cmd_exec(pb);
+        },
         Cmd::Exec { at } => cmd_exec(at),
         Cmd::ScratchRun => {
             let pb = PathBuf::from(BUILD_FILE);
@@ -115,21 +122,19 @@ fn cmd_exec(at: PathBuf) {
 }
 
 fn cmd_build(out_path: PathBuf) {
-    let root_pkg = load_package_yml_at("package.yml")
-        .expect("you're not even in an OSPL project, there's no package.yml");
+    let root_pkg = load_package_cfg("package.kdl").finalize();
 
     let entry_name = root_pkg.entry.clone();
     ensure_build_folder();
 
     // high-level
-    let mut gg = graph::resolv::HighGraph::default();
+    let mut gg = graph::resolv1::HighGraph::default();
     let pi = RecursionInfo::default();
 
-    graph::resolv::resolve_pkg(root_pkg, &mut gg, pi.clone());
+    graph::resolv1::resolve_pkg(root_pkg, &mut gg, pi.clone());
 
     gg.main = graph::resolv2::get_package_module_with_name(&pi.pkg, &entry_name, &gg.module_index);
     LogState!(&"");
-    Log!(Setting, "entry point to {}", gg.main);
 
     // low-level
     let low = graph::resolv2::lower(gg);
@@ -151,9 +156,11 @@ fn cmd_build(out_path: PathBuf) {
 
 /* ---------------------------------- */
 
-pub fn load_package_yml_at<P: AsRef<std::path::Path>>(path: P) -> Result<graph::decl::PackageSetup, String> {
-    let src = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-    yaml_serde::from_str(&src).map_err(|e| e.to_string())
+pub fn load_package_cfg<P: AsRef<std::path::Path>>(path: P) -> graph::decl::PackageSetup {
+    let src = std::fs::read_to_string(path).map_err(|e| e.to_string()).expect("DAMNB IT I CANT LOAD PKG.KDL");
+    let k = kdl::KdlDocument::parse(&src).expect("failed to parse package.kdl");
+
+    return package::parse_kdl(k).expect("failed to parse the KDL");
 }
 
 fn cmd_disassemble<P: AsRef<std::path::Path>>(path: P) {

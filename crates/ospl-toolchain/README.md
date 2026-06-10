@@ -4,7 +4,7 @@ Command-line package builder and runner for OSPL.
 
 Commands:
 
-- `new <name> -k <binary|library>` creates a package folder with `package.yml`.
+- `new <name> -k <binary|library>` creates a package folder with `package.kdl`.
 - `build` compiles the current package into `build/dist.ospb`.
 - `scratch-run` rebuilds the current package and immediately runs it.
 - `exec <path>` runs an existing bytecode file.

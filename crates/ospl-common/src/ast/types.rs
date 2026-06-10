@@ -44,9 +44,8 @@ impl PartialEq for Type {
 
             // special rule: Undefined only matches itself
             // but is legal to compare to all other objects
-            (Type::Undefined, Type::Undefined) => true,
-            (Type::Undefined, _) => false,
-            (_, Type::Undefined) => false,
+            (Type::Undefined, _) => true,
+            (_, Type::Undefined) => true,
 
             // normal structural equality
             (Type::Nul, Type::Nul) => true,

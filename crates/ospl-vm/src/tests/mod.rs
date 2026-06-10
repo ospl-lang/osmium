@@ -20,15 +20,23 @@ pub fn ifs() {
         InstBuilder::new().opcode(Opc::If)
             .index(2)
             .child(vec![
-                InstBuilder::new().opcode(Opc::AssignLiteral)
-                    .index(3)
+                InstBuilder::new().opcode(Opc::PushLiteral)
                     .value(make::bool(true))
+                    .build(),  // 4
+                
+                InstBuilder::new().opcode(Opc::AssignRef)
+                    .index(3)
+                    .index(4)
                     .build()
             ])
             .child(vec![
-                InstBuilder::new().opcode(Opc::AssignLiteral)
-                    .index(3)
+                InstBuilder::new().opcode(Opc::PushLiteral)
                     .value(make::bool(false))
+                    .build(),  // 4
+                
+                InstBuilder::new().opcode(Opc::AssignRef)
+                    .index(3)
+                    .index(4)
                     .build()
             ])
             .build()

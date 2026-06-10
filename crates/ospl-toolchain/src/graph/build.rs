@@ -2,7 +2,7 @@ use std::{collections::{HashMap, VecDeque}, hash::Hash, path::PathBuf, sync::{Ar
 use ospl_common::{ast::Statement, inst::{optimized::Inst, symbols::DebugSymbolTable}};
 use ospl_compiler::{BuildData, Compiler};
 
-use crate::{Log, LogState};
+use crate::{Log, graph::resolv0::{PkgRef, VersionRuleRef}};
 
 pub struct CxxNode {
     pub required_as: String,
@@ -33,18 +33,25 @@ pub struct ModuleNode {
 #[derive(Default)]
 pub struct ModuleNodeMeta {
     pub name: String,
+    pub pkg: String,
 }
 
 impl std::fmt::Debug for ModuleNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        return write!(f, "{}", self.meta.name)
+        return write!(f, "{}/{}", self.meta.pkg, self.meta.name)
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct Requirement {
     pub ident: String,
     pub id: u32,
+}
+
+#[derive(Clone, Debug)]
+pub struct UnresolvedRequirement {
+    pub re: PkgRef,
+    pub ver: VersionRuleRef
 }
 
 pub fn compile(graph: &Graph) -> Vec<Inst> {
@@ -65,7 +72,7 @@ pub fn compile(graph: &Graph) -> Vec<Inst> {
     for node_id in order {
         let node = &graph.modules[&node_id];
 
-        LogState!(&format!("node {node_id}"));
+        // LogState!(&format!("node {node_id}"));
 
         Log!(Compiling, "module {node:?}");
 

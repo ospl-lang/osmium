@@ -97,6 +97,13 @@ impl<'a> Parser<'a> {
                     inner: Box::new(Stmt::Continue),
                 })
             },
+            Token::For => {
+                if let Token::As = self.peekn(1)?.token() {
+                    return self.parse_for_as()
+                } else {
+                    return self.parse_for_loop()
+                }
+            }
             Token::Loop => return self.parse_loop(),
             Token::If => return self.parse_if(),
             Token::Do => {

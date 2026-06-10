@@ -1,5 +1,8 @@
 use ospl_common::ast::frame::RuntimeFrame;
 
+#[cfg(debug_assertions)]
+use crate::debug::DbgMark;
+
 #[derive(Debug)]
 pub struct Frame {
     /// Where does our inheritence begin?
@@ -15,18 +18,21 @@ pub struct Frame {
 impl Stack {
     pub fn push_isolated(&mut self) {
         self.frames.push(Frame {
-            base: self.data.len(),
-            own: self.data.len(),
+            base: self.data.len(),  // this makes it work??
+            own: 0,
             size: 0
         });
+        #[cfg(debug_assertions)] let _ = DbgMark::new(format!("pushed isolated: {:?}", self.top_meta()));
     }
 
     pub fn push_parental(&mut self) {
         let top = self.top_meta();
         self.frames.push(Frame {
             own: self.data.len(),
-            ..*top
+            size: top.size,
+            base: top.base,
         });
+        #[cfg(debug_assertions)] let _ = DbgMark::new(format!("pushed parental: {:?}", self.top_meta()));
     }
 
     pub fn top_meta(&self) -> &Frame {
@@ -65,22 +71,25 @@ impl Stack {
     }
 
     pub fn end(&mut self) {
-        let Some(f) = self.frames.pop()
-        else { return; };
+        #[cfg(debug_assertions)] let _ = DbgMark::new(format!("before frame end: {self:?}"));
+        let Some(f) = self.frames.pop() else {
+            return;
+        };
 
-        for _ in 0..f.size - f.own {
-            self.data.pop();
-        }
+        // Restore stack to frame start
+        self.data.truncate(f.base + f.own);
+        #[cfg(debug_assertions)] let _ = DbgMark::new(format!("after frame end (truncated to {}): {self:?}", f.base + f.own));
     }
 
     pub fn pop(&mut self) -> RuntimeFrame {
-        let mut r = RuntimeFrame::default();
+        #[cfg(debug_assertions)] let _ = DbgMark::new(format!("before frame pop: {self:?}"));
         let f = self.frames.pop().unwrap();
 
-        for _ in 0..f.size - f.own {
-            r.indexes.push(self.data.pop().unwrap());
-        }
+        let mut r = RuntimeFrame::default();
 
+        // Extract only what belongs to this frame
+        r.indexes = self.data.split_off(f.base + f.own);
+        #[cfg(debug_assertions)] let _ = DbgMark::new(format!("after frame pop (truncated to {}): {self:?}", f.base + f.own));
         return r
     }
 }

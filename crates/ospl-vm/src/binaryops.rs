@@ -14,19 +14,14 @@ impl VM {
 
     #[inline(always)]
     fn _eq_regs(&self, a: usize, b: usize) -> bool {
-        // return match self.get_two_regs(a, b) {
-        //     (RuntimeValue::Int(xa), RuntimeValue::Int(xb)) => xa == xb,
-        //     (RuntimeValue::Address(xa), RuntimeValue::Address(xb)) => xa == xb,
-        //     (RuntimeValue::Float(xa), RuntimeValue::Float(xb)) => xa == xb,
-        //     (RuntimeValue::Char(xa), RuntimeValue::Char(xb)) => xa == xb,
-        //     (RuntimeValue::Str(s), RuntimeValue::Str(s2)) => s == s2,
-        //     (RuntimeValue::Undefined, RuntimeValue::Undefined) => true,
-        //     (_, RuntimeValue::Undefined) => false,
-        //     (other1, other2) => panic!("cannot eq value {other1:?} with value {other2:?}!"),
-        // }
-
         let x = self.get_two_regs(a, b);
         return x.0 == x.1
+    }
+
+    #[inline(always)]
+    fn _neq_regs(&self, a: usize, b: usize) -> bool {
+        let x = self.get_two_regs(a, b);
+        return x.0 != x.1
     }
 
     #[inline(always)]
@@ -46,7 +41,7 @@ impl VM {
     }
 
     pub fn neq_regs(&mut self, a: usize, b: usize) {
-        let x = !self._eq_regs(a, b);
+        let x = self._neq_regs(a, b);
         self.push_literal(make::bool(x));
     }
 
@@ -68,6 +63,11 @@ impl VM {
     pub fn lte_regs(&mut self, a: usize, b: usize) {
         let x = (!self._gt_regs(a, b)) | self._eq_regs(a, b);
         self.push_literal(make::bool(x));
+    }
+
+    pub fn neg_reg(&mut self, a: usize) {
+        let t = self.get_truthiness(a);
+        self.push_literal(make::bool(t));
     }
 }
 
@@ -153,6 +153,9 @@ impl VM {
                 (RT::Int, RT::Int) => {
                     aa.data.int += bb.data.int;
                 },
+                (RT::Addr, RT::Addr) => {
+                    aa.data.address += bb.data.address;
+                },
                 (RT::List, _) => {
                     self.append_array(a, b);
                 },
@@ -166,8 +169,8 @@ impl VM {
                 //     s1.push(*c1);
                 // },
 
-                // (err_a, err_b) => panic!("can't add-assign {:?} += {:?}", err_a, err_b),
-                _ => unreachable_unchecked()
+                (err_a, err_b) => panic!("can't add-assign {:?} += {:?}", err_a, err_b),
+                // _ => unreachable_unchecked()
             }
         }
     }

@@ -19,14 +19,18 @@ impl VM {
         // valid type and the index into the array is valid.
         let x = {
             let indexable = self.get_value_top(array);
+            let index = assume::address(self.get_value_top(index)).unwrap();
             let x = match indexable.tag {
-                RT::List => {
-                    let index = unsafe { self.get_value_top(index).assume_int() };
-                    unsafe { indexable.data.list.items[index as usize] }
+                RT::List => unsafe {
+                    if let Some(d) = indexable.data.list.items.get(*index as usize) {
+                        *d
+                    } else {
+                        self.push_literal(make::undefined(()));
+                        return  // the function
+                    }
                 },
                 RT::Str => {
-                    let index = unsafe { self.get_value_top(index).assume_int() };
-                    let Some(x) = (unsafe { indexable.data.str.chars().nth(index as usize) })
+                    let Some(x) = (unsafe { indexable.data.str.chars().nth(*index as usize) })
                     else {
                         self.push_literal(make::undefined(()));  // out of bounds
                         return;
@@ -35,7 +39,8 @@ impl VM {
                     self.push_literal(make::char(x));
                     return;
                 },
-                _ => unsafe{ std::hint::unreachable_unchecked() },
+                // _ => panic!("fuck"),
+                _ => unsafe { std::hint::unreachable_unchecked() },
             };
 
             x

@@ -41,8 +41,8 @@ impl Compiler {
 
             UType::Apply(nom, map) => {
                 let ty = self.rt(scope, nom, span)?;
-                let applied = self.fn_nominal_application(ty, map, span)?;
-                return Ok(Type::Function(applied))
+                let applied = self.nominal_application(ty, map, span)?;
+                return Ok(applied)
             }
 
             UType::Property(b, p) => {
@@ -107,34 +107,46 @@ impl Compiler {
         }
     }
 
-    pub fn fn_nominal_application(&self, ty: Type, replacements: &Vec<(UType, UType)>, span: &dyn Spannable) -> Res<Box<FunctionType<Type>>> {
-        let Type::Function(mut ftype) = ty
-        else { panic!("TODO unrwap - cannot apply on a non-function type {ty:?}") };
-
-        for (nom, repl) in replacements {
-            // let Some((None, Type::Nominal(nom_nom, _))) = self.stack.top().get_combined_with_nonaddressable(nom)
-            let Type::Nominal(nom_nom, _) = self.rt(self.stack.top(), nom, span)?
-            else { panic!("TODO unwrap - a nominal replacement is needed") };
-
-            let repl = self.rt(self.stack.top(), repl, span)?;
-            ftype.args.iter_mut().for_each(|x| {
-                if let Type::Nominal(nom_nom_nom, _) = x {
-                    if *nom_nom_nom == nom_nom {  // yummy!
-                        *x = repl.clone();
+    pub fn nominal_application(&self, ty: Type, replacements: &Vec<(UType, UType)>, span: &dyn Spannable) -> Res<Type> {
+        match ty {
+            Type::Nominal(nom_nom, _) => {
+                for (find, replace) in replacements {
+                    let find = self.rt(self.stack.top(), find, span)?;
+                    if let Type::Nominal(nom, _) = find {
+                        if nom_nom == nom {
+                            let ty = self.rt(self.stack.top(), replace, span)?;
+                            return Ok(ty)
+                        }
                     }
                 }
-            });
 
-            if let Type::Nominal(nom_nom_nom, _) = ftype.ret {
-                if nom_nom_nom == nom_nom {  // y-y-y-y-yummy!
-                    // I'm going fucking crazy iykyk
-                    //   -- Amber
-
-                    ftype.ret = repl;
-                }
+                return Ok(ty);
             }
-        }
+            Type::Function(f) => {
+                let mut new_args = Vec::new();
+                for arg in f.args {
+                    new_args.push(self.nominal_application(arg, replacements, span)?);
+                }
 
-        return Ok(ftype)
+                return Ok(Type::Function(Box::new(FunctionType {
+                    args: new_args,
+                    ret: self.nominal_application(f.ret, replacements, span)?
+                })))
+            },
+            Type::List(l) => {
+                return Ok(Type::List(Box::new(self.nominal_application(*l, replacements, span)?)))
+            },
+            Type::Scope(s) => {
+                let mut s2 = Scope::default();
+                for (name, stor) in s.into_inner() {
+                    let address = stor.get_address();
+                    let ty = self.nominal_application(stor.into_type(), replacements, span)?;
+                    s2.direct_declare(name, address, ty);
+                }
+
+                return Ok(Type::Scope(s2))
+            }
+            other => Ok(other),
+        }
     }
 }

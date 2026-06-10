@@ -74,6 +74,16 @@ impl<'a> Parser<'a> {
 
         return Ok(t.clone())
     }
+
+    fn peekn(&self, next_n: usize) -> Res<Span> {
+        let Some(t) = self.tokens.get(self.current_token + next_n)  
+        else {
+            // panic!("unexpected EOF in peek()");
+            return Err(PE::UnexpectedEOF)
+        };
+
+        return Ok(t.clone())
+    }
 }
 
 mod stmt;

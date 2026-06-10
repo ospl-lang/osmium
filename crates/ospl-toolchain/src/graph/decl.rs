@@ -1,32 +1,11 @@
 use std::{collections::HashMap, path::PathBuf};
+
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum PkgRef {
-    Git {
-        repo: String,
-        branch: Option<String>,
-        commit: Option<String>,
-    },
-
-    /// "trust me, I have a local copy of this"
-    Local(String),
-}
-
-impl Default for PkgRef {
-    fn default() -> Self {
-        return Self::Local(".".to_string())
-    }
-}
+use crate::graph::{build::UnresolvedRequirement, resolv0::{FinalPackageSetup, ModDef, ModSrc, RModRef, VersionDefinition}};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum ModSrc {
-    File(String),
-    // -snip-
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum ModRef {
+pub enum UModRef {
     /// A module within the current package
     /// 
     /// - **0:** the package to include
@@ -36,34 +15,67 @@ pub enum ModRef {
     /// 
     /// - **0:** the other package's requirement name in the current package
     /// - **1:** the name of the module within that package
-    Extern(PkgRef, String)
+    Extern(String, String)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ModDef {
+pub struct UModDef {
     pub at: ModSrc,
 
     #[serde(default)]
-    pub require: HashMap<String, ModRef>,
+    pub require: HashMap<String, UModRef>,
 
     #[serde(default)]
     pub extensions: HashMap<String, PathBuf>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct PackageSetup {
-    pub includes: HashMap<String, ModDef>,
-    pub requires: Vec<PkgRef>,
-
-    #[serde(default = "default_entry")]
     pub entry: String,
-
     pub name: Option<String>,
+    pub version: HashMap<String, VersionDefinition>,
 
-    pub version: String,
-    // pub extensions: CExtensionSetup,
+    pub includes: HashMap<String, UModDef>,
+    pub requires: HashMap<String, UnresolvedRequirement>,
 }
 
-fn default_entry() -> String {
-    "main".to_string()
+impl PackageSetup {
+    pub fn finalize(self) -> FinalPackageSetup {
+        let mut requires = Vec::new();
+        let mut includes = HashMap::new();
+        for (_, req) in self.requires.iter() {
+            requires.push(req.clone());
+        }
+
+        for (mname, data) in self.includes {
+            let mut require = HashMap::new();
+            for (rname, req) in data.require {
+                require.insert(rname.clone(), match req {
+                    UModRef::Extern(e, l) => RModRef::Extern(
+                        self.requires.get(&e).cloned().unwrap_or_else(|| {
+                            panic!(
+                                "failed to find {e} while resolving requirement {rname} in module {mname} in package {}",
+                                self.name.clone().unwrap_or_else(|| "[unknown]".to_string()).clone(),
+                            );
+                        }).re,
+                        l
+                    ),
+                    UModRef::Local(l) => RModRef::Local(l),
+                });
+            }
+            includes.insert(mname, ModDef {
+                at: data.at,
+                extensions: data.extensions,
+                require
+            });
+        }
+
+        return FinalPackageSetup {
+            entry: self.entry,
+            name: self.name,
+            version: self.version,
+            requires,
+            includes,
+        }
+    }
 }

@@ -29,7 +29,7 @@ fn run(args: &[&str], cwd: &Path) -> std::process::Output {
 
 fn write_binary_package(dir: &Path, source: &str) {
     fs::write(
-        dir.join("package.yml"),
+        dir.join("package.kdl"),
         r#"name: app
 version: 1.0.0
 entry: bin
@@ -41,7 +41,7 @@ includes:
 requires: []
 "#,
     )
-    .expect("failed to write package.yml");
+    .expect("failed to write package.kdl");
 
     fs::write(dir.join("main.ospl"), source).expect("failed to write main.ospl");
 }
@@ -81,7 +81,7 @@ fn binary_package_can_build_exec_and_scratch_run() {
 fn local_module_can_be_required_by_entry_module() {
     let dir = temp_dir("local-module");
     fs::write(
-        dir.join("package.yml"),
+        dir.join("package.kdl"),
         r#"name: app
 version: 1.0.0
 entry: bin
@@ -97,7 +97,7 @@ includes:
 requires: []
 "#,
     )
-    .expect("failed to write package.yml");
+    .expect("failed to write package.kdl");
     fs::write(
         dir.join("main.ospl"),
         "def y = lib.x;\n",
@@ -120,7 +120,7 @@ fn declared_c_extension_can_be_loaded_and_called() {
     fs::write(dir.join("ffi.c"), "int one(void) { return 1; }\n")
         .expect("failed to write ffi.c");
     fs::write(
-        dir.join("package.yml"),
+        dir.join("package.kdl"),
         r#"name: cext
 version: 1.0.0
 entry: bin
@@ -134,7 +134,7 @@ includes:
 requires: []
 "#,
     )
-    .expect("failed to write package.yml");
+    .expect("failed to write package.kdl");
     fs::write(
         dir.join("main.ospl"),
         r#"def one = foreign fn mylib "one" i32 {};
@@ -153,7 +153,7 @@ do foreign one();
 }
 
 #[test]
-#[ignore = "bug: new currently panics while creating .gitignore/package.yml"]
+#[ignore = "bug: new currently panics while creating .gitignore/package.kdl"]
 fn new_binary_package_succeeds_and_builds_without_manual_files() {
     let dir = temp_dir("new-binary-scaffold");
     let created = run(&["new", "hello", "-k", "binary"], &dir);
@@ -176,10 +176,10 @@ fn new_binary_package_succeeds_and_builds_without_manual_files() {
 }
 
 #[test]
-#[ignore = "bug: default_config.yml does not match the current PackageSetup schema"]
+#[ignore = "bug: default_config.kdl does not match the current PackageSetup schema"]
 fn default_config_template_can_be_loaded_as_a_package() {
     let template = fs::read_to_string(
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/default_config.yml"),
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/default_config.kdl"),
     )
     .expect("failed to read default config template");
     let rendered = template
@@ -188,7 +188,7 @@ fn default_config_template_can_be_loaded_as_a_package() {
         .replace("{{}}", "{}");
 
     let dir = temp_dir("default-config-template");
-    fs::write(dir.join("package.yml"), rendered).expect("failed to write rendered package.yml");
+    fs::write(dir.join("package.kdl"), rendered).expect("failed to write rendered package.kdl");
     fs::write(dir.join("main.ospl"), "def x = 1;\n").expect("failed to write main.ospl");
 
     let build = run(&["build"], &dir);
@@ -260,7 +260,7 @@ fn failed_build_preserves_last_successful_dist_file() {
     assert!(dir.join("build/dist.ospb").is_file());
 
     fs::write(
-        dir.join("package.yml"),
+        dir.join("package.kdl"),
         r#"name: app
 version: 1.0.0
 entry: bin
@@ -272,7 +272,7 @@ includes:
 requires: []
 "#,
     )
-    .expect("failed to write invalid package.yml");
+    .expect("failed to write invalid package.kdl");
 
     let second = run(&["build"], &dir);
     assert!(!second.status.success(), "invalid package unexpectedly built");

@@ -51,7 +51,7 @@ cargo +1.88.0 run --manifest-path ../Cargo.toml -p ospl-toolchain -- exec build/
 
 ## Package Format
 
-`package.yml` maps package targets to source files or folders. Binary packages
+`package.kdl` maps package targets to source files or folders. Binary packages
 must declare a `binary` include:
 
 ```yaml

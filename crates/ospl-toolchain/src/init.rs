@@ -14,20 +14,20 @@ pub fn cmd_new(name: String, kind: String) {
         .create(&path)
         .expect("failed to create new package folder");
 
-    // CREATE package.yml
-    Log!(Creating, "package.yml");
+    // CREATE package.kdl
+    Log!(Creating, "package.kdl");
 
     let mut yaml_path = path.clone();
-    yaml_path.push("package.yml");
+    yaml_path.push("package.kdl");
 
     let mut f = fs::OpenOptions::new()
         .create_new(true)
         .write(true)
         .open(&yaml_path)
-        .expect("failed to open package.yml");
+        .expect("failed to open package.kdl");
 
-    writeln!(&mut f, include_str!("default_config.yml"), name, kind)
-        .expect("failed to write default package.yml");
+    writeln!(&mut f, include_str!("default_config.kdl"), name=name, kind=kind)
+        .expect("failed to write default package.kdl");
 
     // INIT REPO
     Log!(Invoking, "git init");
@@ -44,13 +44,13 @@ pub fn cmd_new(name: String, kind: String) {
     // CREATE GITIGNORE
     Log!(Creating, ".gitignore");
     let mut gitignore_path = path.clone();
-    gitignore_path.push("package.yml");
+    gitignore_path.push("package.kdl");
 
     let mut f = fs::OpenOptions::new()
         .create_new(true)
         .write(true)
         .open(&yaml_path)
-        .expect("failed to open package.yml");
+        .expect("failed to open package.kdl");
 
     writeln!(&mut f, include_str!("default.gitignore"))
         .expect("failed to write default .gitignore");

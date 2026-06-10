@@ -173,6 +173,7 @@ impl<'a> Lexer<'a> {
                     "loop" => Token::Loop,
                     "use" => Token::Use,
                     "foreign" => Token::Foreign,
+                    "for" => Token::For,
                     "as" => Token::As,
                     "try" => Token::Try,
 
@@ -204,7 +205,6 @@ impl<'a> Lexer<'a> {
                         println!("char literal cannot have less or more than one character");
                         return None;
                     }
-
                     self.bump()?;
                     Token::Char(s.chars().nth(0).unwrap())
                 } else {

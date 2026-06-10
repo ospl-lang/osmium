@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex, PoisonError, atomic::AtomicUsize};
 
-use ospl_common::{ast::{Scope, Type, ops::BinaryOpType, spanning::UnknownLocation}, inst::symbols::DebugSymbolTable};
+use ospl_common::{ast::{Scope, Type, ops::{BinaryOpType, UnaryOpType}, spanning::UnknownLocation}, inst::symbols::DebugSymbolTable};
 
 pub type RelativeVarID = usize;
 
@@ -54,8 +54,12 @@ pub enum CEData {
         scope: Scope<Type>,
     },
     NoScopeToCapture,
-    InvalidOpForType {
+    InvalidBinaryOpForType {
         op: BinaryOpType,
+        ty: Type
+    },
+    InvalidUnaryOpForType {
+        op: UnaryOpType,
         ty: Type
     },
     InvalidAssignOp {
@@ -65,6 +69,7 @@ pub enum CEData {
         ty: Type,
         special: String,
     },
+    UnexpectedPrimitive,
     InternalError(Box<dyn std::error::Error>),
     Bug,
 }

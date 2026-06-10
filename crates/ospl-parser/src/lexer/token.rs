@@ -16,6 +16,8 @@ pub enum Token {
     Loop,
     Use,
     Foreign,
+    For,
+    While,
     As,
     Try,
 
@@ -119,7 +121,7 @@ pub struct TokenExpectation {
 }
 
 pub const EXP_KEYWORD: TokenExpectation =
-    tExp!(Fn, Do, Def, Let, Scope, Return, Break, Continue, If, Else, Loop, Use);
+    tExp!(Fn, Do, Def, Let, Scope, Return, Break, Continue, For, While, If, Else, Loop, Use);
 
 pub const EXP_IDENT: TokenExpectation = TokenExpectation {
     matches: |t| -> bool {

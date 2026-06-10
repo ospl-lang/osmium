@@ -37,6 +37,8 @@ impl VM {
             self.stack.push_parental();
             let out = self.run_all(yes);
 
+            #[cfg(debug_assertions)] let _dbg = crate::debug::DbgMark::new(format!("true if done: {out:?}"));
+
             // the new if statement scope has a variable we're trying to return
             // that doesn't exist anymore because the scope ended.
             self.stack.end();
@@ -44,6 +46,9 @@ impl VM {
         } else {
             self.stack.push_parental();
             let out = self.run_all(no);
+
+            #[cfg(debug_assertions)] let _dbg = crate::debug::DbgMark::new(format!("false if done: {out:?}"));
+
             self.stack.end();
             out
         };

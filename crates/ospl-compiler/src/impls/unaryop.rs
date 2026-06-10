@@ -1,25 +1,32 @@
-use ospl_common::{ast::{Type, ops::{UnaryOp, UnaryOpType}}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{Type, ops::{UnaryOp, UnaryOpType}, spanning::Spannable}, inst::optimized::{Inst, InstBuilder, Opc}};
 
-use crate::{Compiler, EvalResult, Res};
+use crate::{CE, CEData, Compiler, EvalResult, Res};
 
 impl Compiler {
     pub fn unary_op(
         &mut self,
         u: &UnaryOp,
-        ob: &mut Vec<Inst>
+        ob: &mut Vec<Inst>,
+        span: &dyn Spannable,
     ) -> Res<EvalResult>
     {
         let eval = self.eval(&u.expr, ob)?;
 
         let new_ty = match (&eval.ty, &u.kind) {
-            (Type::List(lty), UnaryOpType::Increment) => *lty.clone(),
+            (ty, UnaryOpType::LogicNot) => ty.clone(),
+            (Type::List(lty), UnaryOpType::Decrement) => *lty.clone(),
             (Type::Nominal(_, ty), UnaryOpType::Atsign) => {
                 return Ok(EvalResult {
                     address: eval.address,
                     ty: *ty.clone()
                 })
             }
-            _ => panic!("TODO - add error for invalid unary op type")
+            (ty, op) => return Err(CE {
+                at: span.spanned(),
+                during: "Unary operator - type check",
+                error: CEData::InvalidUnaryOpForType { op: op.clone(), ty: ty.clone() },
+                msg: None
+            })
         };
 
         ob.push(InstBuilder::new()
