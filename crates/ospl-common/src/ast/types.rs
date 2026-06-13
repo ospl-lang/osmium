@@ -18,7 +18,7 @@ pub enum Type {
     Any,
 
     /// A list of types
-    Union(Vec<Type>),
+    Union(Box<Self>, Box<Self>),
 
     /// A type whose ID matters in checking.
     Nominal(usize, Box<Self>),
@@ -37,8 +37,8 @@ impl PartialEq for Type {
             // special rule: Unknown and Any match everything
             (Type::Unknown, _) | (_, Type::Unknown) => true,
             (Type::Any,     _) | (_, Type::Any) => true,
-            (Type::Union(u), has) => u.contains(has),
-            (has, Type::Union(u)) => u.contains(has),  // maybe remove this arm later?
+            (has, Type::Union(a, b)) => *has == **a || *has == **b,
+            (Type::Union(a, b), has) => *has == **a || *has == **b,
 
             (Type::Nominal(id1, _), Type::Nominal(id2, _)) => id1 == id2,
 
@@ -120,5 +120,6 @@ pub enum UType {
     Function(Box<super::FunctionType<Self>>),
     List(Box<Self>),
     Scope(super::Scope<Self>),
+    Union(Box<Self>, Box<Self>),
     InferScope,
 }

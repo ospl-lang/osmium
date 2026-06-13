@@ -197,8 +197,14 @@ impl VM {
 
             Opc::RetScope => return Control::ReturnScope,
 
+            // math
             Opc::Add => self.add_regs(inst.get_index(0), inst.get_index(1)),
             Opc::Sub => self.sub_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::Mul => self.mul_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::Div => self.div_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::Mod => self.mod_regs(inst.get_index(0), inst.get_index(1)),
+
+            // comparison
             Opc::Eq  => self.eq_regs(inst.get_index(0), inst.get_index(1)),
             Opc::Neq => self.neq_regs(inst.get_index(0), inst.get_index(1)),
             Opc::Gt  => self.gt_regs(inst.get_index(0), inst.get_index(1)),
@@ -268,9 +274,9 @@ impl VM {
 
                 let handle = self.ffi.register_function(lib, s, types, rtype.to_string()).unwrap();
                 self.push_literal(make::foreignfun(handle));
-            }
+            },
 
-            other => unimplemented!("opcode {:?} is not implemented", other)
+            other => unimplemented!("{other:?}")
         } };
 
         return Control::Default;

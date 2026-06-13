@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use kdl::{KdlDocument, KdlValue};
 
-use crate::graph::{build::UnresolvedRequirement, decl::{PackageSetup, UModDef, UModRef}, resolv0::{ModSrc, PkgRef, VersionRuleRef, VersionSelector}};
+use crate::graph::{build::UnresolvedRequirement, decl::{PackageSetup, UModDef, UModRef}, resolv0::{ModSrc, PkgRef, VersionRuleRef, VersionSelector}, resolv1::CExt};
 
 pub fn parse_kdl(k: KdlDocument) -> Option<PackageSetup> {
     let mut p = PackageSetup::default();
@@ -55,7 +55,22 @@ pub fn parse_kdl(k: KdlDocument) -> Option<PackageSetup> {
                 if n == "extension" {
                     let name = child.get(0)?.as_string()?.to_string();
                     let c_file = child.get(1)?.as_string()?.to_string();
-                    extensions.insert(name, PathBuf::from(c_file));
+                    let mut link_with = Vec::new();
+
+                    if let Some(children) = child.children() {
+                        for node in children.nodes() {
+                            let n = node.name().value();
+                            if n == "link" {
+                                let lib_name = node.get(0)?;
+                                link_with.push(lib_name.as_string()?.to_string());
+                            }
+                        }
+                    }
+
+                    extensions.insert(name, CExt {
+                        file: PathBuf::from(c_file),
+                        link_with
+                    });
                 }
             }
 

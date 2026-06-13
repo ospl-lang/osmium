@@ -103,7 +103,8 @@ impl<'a> Parser<'a> {
                 } else {
                     return self.parse_for_loop()
                 }
-            }
+            },
+            Token::While => return self.parse_while(),
             Token::Loop => return self.parse_loop(),
             Token::If => return self.parse_if(),
             Token::Do => {

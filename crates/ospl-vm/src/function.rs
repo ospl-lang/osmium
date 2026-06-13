@@ -40,7 +40,9 @@ impl VM {
         let f = self.get_value_top(at);
         let f = match f.as_fn() {
             Some(o) => o,
-            None => panic!("can't call object of type {f:?} | at={at} | top={:?}", self.stack.top_indexes())
+            None => {
+                panic!("VM error: can't call object of type {f:?} | at={at} | top={:?}", self.stack.top_indexes());
+            },
         };
 
         // CAPTURES
@@ -50,9 +52,11 @@ impl VM {
         {
             let top = self.stack.top_indexes();
             for arg in args {
-                let abs = top.get(*arg).unwrap_or_else(|| {
-                    panic!("argument {arg:?} was out of bounds! len={} | frame={frame:?}", top.len());
-                });
+                let Some(abs) = top.get(*arg)
+                else {
+                    // this is a bug don't remove the crash
+                    panic!("VM bug: argument {arg:?} was out of bounds! len={} | frame={frame:?}", top.len());
+                };
                 frame.indexes.push(*abs);
             }
         };
@@ -65,7 +69,7 @@ impl VM {
         // SAFETY: I PROMISE THAT `f.code` AND ITS PARENTS WILL NOT BE MUTATED
         unsafe {
             let very_good_safe = &raw const f.code;
-            self.stack.push_frame_value(frame);  // needs to be in unsafe because of course it does..
+            self.stack.push_frame_value(frame);  // needs to be in unsafe because of course it does.
 
             for inst in &*very_good_safe {
                 let run = self.run_one(inst);

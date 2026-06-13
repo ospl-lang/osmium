@@ -36,15 +36,16 @@ pub fn lower(high: HighGraph) -> Graph {
 
         let mut cxx_deps = Vec::new();
         for (name, cxx) in &high_mod.extensions {
-            let hsh = crate::util::hash_file(&cxx).expect("failed to get hash for CXX Extension");
+            let hsh = crate::util::hash_file(&cxx.file).expect("failed to get hash for CXX Extension");
 
             let mut so_file = PathBuf::from(BUILD_FOLDER);
             so_file.push(hsh.to_hex().to_string());
 
             cxx_deps.push(CxxNode {
                 o_file: so_file,
-                c_file: cxx.clone(),
-                required_as: name.to_string()
+                c_file: cxx.file.clone(),
+                required_as: name.to_string(),
+                link_with: cxx.link_with.clone()
             });
         }
 

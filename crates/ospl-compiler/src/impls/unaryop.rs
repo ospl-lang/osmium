@@ -15,10 +15,10 @@ impl Compiler {
         let new_ty = match (&eval.ty, &u.kind) {
             (ty, UnaryOpType::LogicNot) => ty.clone(),
             (Type::List(lty), UnaryOpType::Decrement) => *lty.clone(),
-            (Type::Nominal(_, ty), UnaryOpType::Atsign) => {
+            (Type::Nominal(_, t), UnaryOpType::Atsign) => {
                 return Ok(EvalResult {
                     address: eval.address,
-                    ty: *ty.clone()
+                    ty: *t.clone()
                 })
             }
             (ty, op) => return Err(CE {
@@ -46,6 +46,7 @@ pub fn unary_op_to_opc(t: &UnaryOpType) -> Opc {
         UnaryOpType::Decrement => Opc::Decrement,
         UnaryOpType::Increment => Opc::Increment,
         UnaryOpType::LogicNot => Opc::Neg,
-        UnaryOpType::Atsign => unimplemented!("atsign (@) operation is not implemented")
+        UnaryOpType::Copy => Opc::Copy,
+        _ => unreachable!()
     }
 }

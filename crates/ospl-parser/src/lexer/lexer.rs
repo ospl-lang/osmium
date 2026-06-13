@@ -107,6 +107,8 @@ impl<'a> Lexer<'a> {
             '/' => Token::Slash,
             '%' => Token::Percent,
 
+            '^' => if self.peek()? == '^' { Token::BitwiseXor } else { Token::LogicalXor },
+
             ',' => Token::Comma,
             '.' => if self.peek()? == '.' {
                 self.bump()?;
@@ -174,8 +176,10 @@ impl<'a> Lexer<'a> {
                     "use" => Token::Use,
                     "foreign" => Token::Foreign,
                     "for" => Token::For,
+                    "while" => Token::While,
                     "as" => Token::As,
                     "try" => Token::Try,
+                    "copy" => Token::Copy,
 
                     /* types */
                     "int" => Token::IntT,

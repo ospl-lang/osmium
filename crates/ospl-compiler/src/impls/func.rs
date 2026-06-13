@@ -1,6 +1,6 @@
 use ospl_common::{ast::{Expression, FunctionType, Scope, spanning::Spannable}, inst::{make, optimized::{Inst, InstBuilder, Opc}}};
 
-use crate::{CE, CEData, Compiler, EvalResult, Res, Type, ast::FunctionValue, impls::stmt::Control};
+use crate::{CE, CEData, Compiler, EvalResult, Res, Type, TypeExpectation, ast::FunctionValue, impls::stmt::Control};
 
 impl Compiler {
     pub fn fn_literal(
@@ -64,6 +64,8 @@ impl Compiler {
             arg_types.push(t);
         }
 
+        let proto_ret = self.rt(&new_scope, &func.ftype.ret, span)?;
+
         // PUSH HERE
         self.stack.scopes.push(new_scope);
 
@@ -71,8 +73,32 @@ impl Compiler {
         let mut has_a_return = false;
         for stmt in &func.block {
             match self.compile_stmt(stmt, &mut insts)? {
-                Control::Return(_) => has_a_return = true,
+                Control::Return(r) => {
+                    if r.ty != proto_ret {
+                        return Err(CE {
+                            at: stmt.spanned(),
+                            during: "Return statement - type check",
+                            error: CEData::MismatchedTypes {
+                                expected: TypeExpectation::Exact(proto_ret),
+                                got: r.ty
+                            },
+                            msg: None
+                        })
+                    }
+                    has_a_return = true;
+                },
                 Control::ReturnScope => {
+                    if !matches!(proto_ret, Type::Scope(_)) {
+                        return Err(CE {
+                            at: stmt.spanned(),
+                            during: "Return scope - type check",
+                            error: CEData::MismatchedTypes {
+                                expected: TypeExpectation::AnyScope,
+                                got: proto_ret
+                            },
+                            msg: None
+                        })
+                    }
                     has_a_return = true;
                 }
                 _ => {}
@@ -98,17 +124,12 @@ impl Compiler {
         let new_scope = self.stack.scopes.pop()
             .expect("TODO unwrap - cannot return from the top of a script");
 
-        // here we fix our function type
         let ret = self.rt(&new_scope, &func.ftype.ret, span)?;
-
-        tracing::trace!("before fixing: {ret:?}");
 
         let new_type = FunctionType {
             args: arg_types,
             ret
         };
-
-        tracing::trace!("function {new_type}");
 
         let inst = InstBuilder::new()
             .opcode(Opc::PushFunction)

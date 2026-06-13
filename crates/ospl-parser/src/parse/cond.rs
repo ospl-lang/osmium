@@ -175,11 +175,36 @@ impl<'a> Parser<'a> {
         ];
 
         body.extend_from_slice(&user_body);
-        // eprintln!("{body:?}");
 
         return Ok(Statement {
             at: *thing.position(),
             inner: Box::new(Stmt::Loop(body))
         });
+    }
+
+    pub fn parse_while(&mut self) -> Res<Statement> {
+        let thing = self.expect(tExp!(While))?;
+        let expr = self.parse_expr()?;
+        let body = self.parse_block()?;
+
+        let mut loop_body = vec![
+            Statement {
+                at: *thing.position(),
+                inner: Box::new(Stmt::If(
+                    expr,
+                    vec![],
+                    vec![Statement {
+                        at: *thing.position(),
+                        inner: Box::new(Stmt::Break)
+                    }]
+                ))
+            }
+        ];
+        loop_body.extend(body);
+
+        return Ok(Statement {
+            at: *thing.position(),
+            inner: Box::new(Stmt::Loop(loop_body))
+        })
     }
 }

@@ -29,7 +29,12 @@ impl Compiler {
                         return Ok(*curr.clone())
                     },
 
-                    _ => todo!("TODO error"),
+                    _ => return Err(CE {
+                        at: span.spanned(),
+                        during: "Type resolution - Return type of",
+                        error: CEData::TypeDoesntHaveAReturn { t: resolved },
+                        msg: None
+                    })
                 }
             },
 
@@ -103,6 +108,12 @@ impl Compiler {
 
             UType::InferScope => {
                 return Ok(Type::Scope(scope.clone()))
+            },
+
+            UType::Union(u, t) => {
+                let utt = self.rt(scope, &*u, span)?;
+                let rtt = self.rt(scope,&*t, span)?;
+                return Ok(Type::Union(Box::new(utt), Box::new(rtt)));
             }
         }
     }

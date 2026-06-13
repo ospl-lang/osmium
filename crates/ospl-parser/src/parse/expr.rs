@@ -31,7 +31,7 @@ pub const EXP_BINARY_OPERATION: TokenExpectation = tExp!(
     Question
 );
 
-pub const EXP_UNARY_OPERATION: TokenExpectation = tExp!(Increment, Decrement);
+pub const EXP_UNARY_OPERATION: TokenExpectation = tExp!(Increment, Decrement, Atsign, LogicNot, Copy);
 
 impl<'a> Parser<'a> {
     pub fn parse_atom(&mut self) -> Res<Expression> {
@@ -268,7 +268,9 @@ impl<'a> Parser<'a> {
                 let optype = match &span.token() {
                     Token::Increment => UnaryOpType::Increment,
                     Token::Decrement => UnaryOpType::Decrement,
+                    Token::Atsign => UnaryOpType::Atsign,
                     Token::LogicNot => UnaryOpType::LogicNot,
+                    Token::Copy => UnaryOpType::Copy,
                     _ => unreachable!()
                 };
 

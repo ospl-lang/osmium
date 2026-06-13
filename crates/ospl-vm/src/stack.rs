@@ -20,7 +20,7 @@ impl Stack {
         self.frames.push(Frame {
             base: self.data.len(),  // this makes it work??
             own: 0,
-            size: 0
+            size: 0,
         });
         #[cfg(debug_assertions)] let _ = DbgMark::new(format!("pushed isolated: {:?}", self.top_meta()));
     }
@@ -65,7 +65,7 @@ impl Stack {
         self.frames.push(Frame {
             base: self.data.len(),
             size: frame.indexes.len(),
-            own: 0
+            own: 0,
         });
         self.data.extend(frame.indexes);
     }
@@ -106,7 +106,7 @@ impl Default for Stack {
         list.push(Frame {
             base: 0,
             size: 0,
-            own: 0
+            own: 0,
         });
 
         return Self {

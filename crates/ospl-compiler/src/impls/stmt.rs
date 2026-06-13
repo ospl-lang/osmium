@@ -4,11 +4,11 @@ pub enum Control {
     Default,
     Break,
     Continue,
-    Return(usize),
+    Return(EvalResult),
     ReturnScope,
 }
 
-use crate::{CE, CEData, Compiler, Res, ast::{Statement, Stmt}};
+use crate::{CE, CEData, Compiler, EvalResult, Res, ast::{Statement, Stmt}};
 
 impl Compiler {
     pub fn compile_stmt(
@@ -55,7 +55,7 @@ impl Compiler {
             Stmt::Return(e) => {
                 let eval = self.eval(e, ob)?;
                 ob.push(InstBuilder::new().opcode(Opc::Ret).index(eval.address).build());
-                return Ok(Control::Return(eval.address))
+                return Ok(Control::Return(eval))
             },
 
             Stmt::If(left, yes, no) => 

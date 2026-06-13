@@ -2,6 +2,7 @@ use std::{collections::HashMap, fmt::Debug, path::{Path, PathBuf}};
 // use std::path::PathBuf;
 // use std::collections::HashSet;
 use ospl_common::ast::Statement;
+use serde::{Deserialize, Serialize};
 
 use crate::{Log, graph::resolv0::{FinalPackageSetup, ModSrc, PkgRef, RModRef, VersionRuleRef, VersionTag}, load_package_cfg};
 
@@ -31,10 +32,16 @@ pub struct HighModuleNode {
     pub requires: HashMap<String, RModRef>,   // still unresolved
 
     /// Path to C extension file relative to current package
-    pub extensions: HashMap<String, PathBuf>,
+    pub extensions: HashMap<String, CExt>,
 
     pub pkg: PkgRef,
     pub pkgname: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
+pub struct CExt {
+    pub file: PathBuf,
+    pub link_with: Vec<String>,
 }
 
 impl Debug for HighModuleNode {
@@ -88,19 +95,22 @@ pub fn resolve_pkg(p: FinalPackageSetup, q: &mut HighGraph, re: RecursionInfo) {
 
         q.module_index.insert(key, id);
 
-        let mut absolute_cxx_paths = HashMap::new();
-        for (include_as, path) in &mdl.extensions {
+        let absolute_cinema: HashMap<String, CExt> = mdl.extensions.iter().map(|(_n, ce)| {
             let mut true_path = re.current_folder.clone();
-            true_path.extend(path);
-            absolute_cxx_paths.insert(include_as.clone(), true_path);
-        }
+            true_path.extend(&ce.file.clone());
+
+            return (_n.clone(), CExt {
+                file: true_path,
+                ..ce.clone()
+            })
+        }).collect();
 
         q.modules.insert(id, HighModuleNode {
             pkgname: p.name.clone(),
             name: name.clone(),
             ast,
             requires: mdl.require.clone(),
-            extensions: absolute_cxx_paths,
+            extensions: absolute_cinema,
             pkg: re.pkg.clone(),
         });
     }

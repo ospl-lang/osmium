@@ -1,7 +1,7 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
-use crate::graph::build::UnresolvedRequirement;
+use crate::graph::{build::UnresolvedRequirement, resolv1::CExt};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum PkgRef {
@@ -39,7 +39,7 @@ pub struct ModDef {
     pub require: HashMap<String, RModRef>,
 
     #[serde(default)]
-    pub extensions: HashMap<String, PathBuf>,
+    pub extensions: HashMap<String, CExt>,
 }
 
 #[derive(Clone, Debug)]

@@ -45,6 +45,10 @@ pub enum CEData {
         expected: TypeExpectation,
         got: Type
     },
+    UnionDoesntHaveType {
+        union: Type,
+        doesnt_have: Type
+    },
     WrongArgCount {
         expected: usize,
         got: usize,
@@ -54,6 +58,9 @@ pub enum CEData {
         scope: Scope<Type>,
     },
     NoScopeToCapture,
+    TypeDoesntHaveAReturn {
+        t: Type
+    },
     InvalidBinaryOpForType {
         op: BinaryOpType,
         ty: Type

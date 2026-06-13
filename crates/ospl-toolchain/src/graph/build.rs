@@ -7,7 +7,8 @@ use crate::{Log, graph::resolv0::{PkgRef, VersionRuleRef}};
 pub struct CxxNode {
     pub required_as: String,
     pub o_file: PathBuf,
-    pub c_file: PathBuf
+    pub c_file: PathBuf,
+    pub link_with: Vec<String>,
 }
 
 pub type ModuleId = u32;
@@ -100,7 +101,7 @@ pub fn compile(graph: &Graph) -> Vec<Inst> {
                 .wait()
                 .expect("failed to wait for cc")
                 .success()
-            { panic!("CC failed to run")}
+            { panic!("CC failed to run") }
 
             if !std::process::Command::new("cc")
                 .arg("-shared")

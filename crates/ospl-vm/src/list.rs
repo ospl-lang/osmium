@@ -39,7 +39,6 @@ impl VM {
                     self.push_literal(make::char(x));
                     return;
                 },
-                // _ => panic!("fuck"),
                 _ => unsafe { std::hint::unreachable_unchecked() },
             };
 

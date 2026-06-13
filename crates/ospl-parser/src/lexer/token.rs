@@ -20,6 +20,7 @@ pub enum Token {
     While,
     As,
     Try,
+    Copy,
 
     /* values */
     Nul,
@@ -55,6 +56,12 @@ pub enum Token {
 
     /// `!!` symbol
     BitwiseNot,
+
+    /// `^` symbol
+    LogicalXor,
+
+    /// `^^` symbol
+    BitwiseXor,
 
     /// `--`
     Decrement,

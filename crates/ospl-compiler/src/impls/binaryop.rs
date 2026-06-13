@@ -84,7 +84,7 @@ impl Compiler {
                 at: Box::new(b.left.clone()),
                 error: CEData::InvalidAssignOp { op: other.clone() },
                 during: "assign operation (illegal)",
-                msg: Some("perhaps you want to use def 'X = X op Y'")
+                msg: Some("perhaps you want to use def `X = X op Y`")
             })
         };
 

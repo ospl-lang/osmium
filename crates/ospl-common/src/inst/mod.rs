@@ -139,6 +139,7 @@ pub fn make_value(of_type: RT, data: RV) -> RuntimeValue {
     return RuntimeValue { tag: of_type, data }
 }
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum RT {
@@ -147,6 +148,7 @@ pub enum RT {
     Nul, Undefined,
 }
 
+#[repr(C)]
 pub struct RuntimeValue {
     pub tag: RT,
     pub data: RV
@@ -160,6 +162,11 @@ impl PartialEq for RuntimeValue {
             (RT::Float, RT::Float) => self.data.float == other.data.float,
             (RT::Str, RT::Str) => self.data.str == other.data.str,
             (RT::Bool, RT::Bool) => self.data.bool == other.data.bool,
+
+            (RT::Undefined, RT::Undefined) => true,
+            (RT::Undefined, _) => false,
+            (_, RT::Undefined) => false,
+
             (a, b) => panic!("Illegal comparison {a:?} == {b:?}"),
         } }
     }
@@ -210,6 +217,7 @@ impl Drop for RuntimeValue {
     }
 }
 
+#[repr(C)]
 pub union RV {
     pub int: i64,
     pub address: u64,
@@ -226,6 +234,7 @@ pub union RV {
 
 #[derive(Debug, Clone, PartialEq)]
 #[derive(serde::Serialize, serde::Deserialize)]
+#[repr(C)]
 pub struct RuntimeFunction {
     /// Absolute address
     pub captures: Vec<crate::types::AbsAddress>,

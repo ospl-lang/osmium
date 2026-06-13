@@ -130,10 +130,18 @@ impl<'a> Parser<'a> {
 
     pub fn parse_type_atom(&mut self, t: Token) -> Res<UType> {
         return Ok(match t {
+            Token::LParen => {
+                self.next()?;
+                let t = self.parse_type()?;
+                self.expect(tExp!(RParen))?;
+                return Ok(t)
+            },
             Token::Fn => UType::Function(Box::new(self.parse_function_type()?)),
             Token::Ident(i) => {self.next()?; UType::Typeof(i)},
             Token::Atsign => {
-                self.next()?;
+                self.next()?;  // consume the `@`
+                // let (_, tok) = self.next()?.destructure();
+                // let t = self.parse_type_atom(tok)?;
                 let t = self.parse_type()?;
                 UType::Returnof(Box::new(t))
             },
@@ -146,6 +154,7 @@ impl<'a> Parser<'a> {
             Token::CharT => {self.next()?; UType::Resolved(Type::Char)},
             Token::BoolT => {self.next()?; UType::Resolved(Type::Bool)},
             Token::AddrT => {self.next()?; UType::Resolved(Type::Address)},
+            Token::Undefined => {self.next()?; UType::Resolved(Type::Undefined)},
             Token::ListT => {
                 self.next()?;
                 let list_typ = self.parse_type()?;
@@ -179,7 +188,8 @@ impl<'a> Parser<'a> {
             }
             else if let Token::LogicOr = self.peek()?.token() {
                 self.next()?;
-                unimplemented!("TODO - implement union types")
+                let x = self.parse_type()?;
+                working_type = UType::Union(Box::new(working_type), Box::new(x));
             }
             else if let Token::LBracket = self.peek()?.token() {
                 let x = self.parse_nominal_application()?;
@@ -240,7 +250,7 @@ const EXP_NAMED_ARG_MEMBER: TokenExpectation = tComb!(
 );
 
 pub const EXP_TYPE_STARTER: TokenExpectation = tComb!(
-    "Fn | Atsign | IntT | FloatT | StrT | CharT | BoolT | ListT | AddrT | UnknownT | AnyT | | Ident | Scope",
-    tExp!(Fn, Atsign, IntT, FloatT, StrT, CharT, BoolT, ListT, AddrT, UnknownT, AnyT, Scope),
+    "Fn | Atsign | IntT | FloatT | StrT | CharT | BoolT | ListT | AddrT | UnknownT | AnyT | Undefined | Ident | Scope",
+    tExp!(Fn, Atsign, IntT, FloatT, StrT, CharT, BoolT, ListT, AddrT, UnknownT, Undefined, AnyT, LParen, Scope),
     EXP_IDENT,
 );

@@ -960,6 +960,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ospl-cxx"
+version = "0.1.0"
+dependencies = [
+ "ospl-common",
+ "ospl-vm",
+]
+
+[[package]]
 name = "ospl-parser"
 version = "0.1.0"
 dependencies = [
@@ -976,6 +984,7 @@ dependencies = [
  "kdl",
  "ospl-common",
  "ospl-compiler",
+ "ospl-cxx",
  "ospl-parser",
  "ospl-vm",
  "postcard",

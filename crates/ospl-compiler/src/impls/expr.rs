@@ -94,6 +94,23 @@ impl Compiler {
                         ty: new_into.clone(),
                     })
                 }
+
+                // for unwrapping a thingy
+                else if let Type::Union(_, _) = &left.ty {
+                    if new_into != left.ty {
+                        return Err(CE {
+                            at: expr.spanned(),
+                            during: "Union unwrap cast - type check",
+                            error: CEData::UnionDoesntHaveType { union: left.ty, doesnt_have: new_into },
+                            msg: None
+                        });
+                    }
+
+                    return Ok(EvalResult {
+                        address: left.address,
+                        ty: new_into
+                    })
+                }
                 
                 else {
                     ob.push(InstBuilder::new()

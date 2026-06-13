@@ -38,6 +38,7 @@ pub enum BinaryOpType {
 #[derive(Debug, Clone)]
 pub enum UnaryOpType {
     LogicNot,
+    Copy,
     Atsign,
     Decrement,
     Increment

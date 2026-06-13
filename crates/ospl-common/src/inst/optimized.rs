@@ -18,19 +18,20 @@ use std::fmt::Display;
 
 use crate::inst::{RuntimeValue, symbols::DebugSymbolTable};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum Opc {
     /// Does nothing
-    NullOp,
+    #[default]
+    NullOp = 0,
 
-    PushLiteral,
+    PushLiteral = 1,
 
     /// Pushes an array to the stack.
     /// 
     /// - **Indexes:** the members of the array (the refcounts will be
     ///                incremented)
-    PushArray,
+    PushArray = 2,
 
     /// Pushes a function, except the captures are specified as
     /// relative addresses, and are converted to 
@@ -41,74 +42,74 @@ pub enum Opc {
     /// 
     /// - **Indexes:** the captures of the function
     /// - **Child #0:** the code of the function
-    PushFunction,
+    PushFunction = 3,
 
-    AssignRef,
-    AssignLiteral,
+    AssignRef = 4,
+    AssignLiteral = 5,
 
-    /** Binary `+` */ Add,
-    /** Binary `-` */ Sub,
-    /** Binary `*` */ Mul,
-    /** Binary `/` */ Div,
-    /** Binary `%` */ Mod,
+    /** Binary `+` */ Add = 6,
+    /** Binary `-` */ Sub = 7,
+    /** Binary `*` */ Mul = 8,
+    /** Binary `/` */ Div = 9,
+    /** Binary `%` */ Mod = 10,
 
-    /** Assign `+=` */ Addl,
-    /** Assign `-=` */ Subl,
-    /** Assign `*=` */ Mull,
-    /** Assign `/=` */ Divl,
-    /** Assign `%=` */ Modl,
+    /** Assign `+=` */ Addl = 11,
+    /** Assign `-=` */ Subl = 12,
+    /** Assign `*=` */ Mull = 13,
+    /** Assign `/=` */ Divl = 14,
+    /** Assign `%=` */ Modl = 15,
 
     /** Unary `--`
      * 
      * When used on a list, the value is popped off instead
-    */ Decrement,
+    */ Decrement = 16,
 
-    /** Unary `++` */ Increment,
+    /** Unary `++` */ Increment = 17,
 
-    Eq,
-    Neq,
-    Gt,
-    Lt,
-    Gte,
-    Lte,
+    Eq = 18,
+    Neq = 19,
+    Gt = 20,
+    Lt = 21,
+    Gte = 22,
+    Lte = 23,
 
-    Neg,
+    Neg = 24,
 
-    Lnot,
-    Lor,
-    Land,
+    Lnot = 25,
+    Lor = 26,
+    Land = 27,
 
     /// The `?` (find in) operator.
     /// 
     /// - **Index #0:** the index of the thing to find in
     /// - **Index #1:** the index of the thing to find in
-    QuestionMark,
+    QuestionMark = 28,
 
-    Call,
-    Ret,
-    RetScope,
+    Call = 29,
+    Ret = 30,
+    RetScope = 31,
 
-    If,
-    Loop,
+    If = 32,
+    Loop = 33,
 
-    Break,
-    Continue,
+    Break = 34,
+    Continue = 35,
 
     /// Gets the length of an array or string.
     /// 
     /// - **Index #0:** the array to get the length of
     /// - **Return:** the length as an Int
-    GetLength,
+    GetLength = 36,
 
     /// Pops a value at off a sequence
     /// 
     /// - **Index #0:** the array/string to pop off of
     /// - **Index #1:** a ref to an Int containing the value to index
-    Pop,
+    Pop = 37,
 
-    /** Get a property */ Property,
-    /** Index into an array */ Index,
-    /** Slice into an array */ Slice,
+    /** Get a property */ Property = 38,
+    /** Index into an array */ Index = 39,
+    /** Slice into an array */ Slice = 40,
 
     /* ********************************************************************* */
     /*           FFI STUFF                                                   */
@@ -118,7 +119,7 @@ pub enum Opc {
     /// 
     /// - **Index #0:** a string value indicating the library to load
     /// - **Return:** a [`RuntimeValue::ForeignLib`]
-    FFILoadLib,
+    FFILoadLib = 41,
 
     /// Loads a foreign function from a library
     /// 
@@ -143,19 +144,21 @@ pub enum Opc {
     /// - 9: float
     /// - 10: double
     /// - 11: ptr
-    FFILoadFn,
+    FFILoadFn = 42,
 
-    FFICall,
+    FFICall = 43,
 
     /// Converts a (primitive) value to a type and pushes it onto the stack.
     /// 
     /// - **Index #0:** the value to convert
     /// - **Index #1:** the type primitive type number to convert to (see
     /// [`crate::ast::Type::to_primitive_type_id`])
-    Cast,
+    Cast = 44,
+
+    Copy = 45,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Inst {
     pub opcode: Opc,
