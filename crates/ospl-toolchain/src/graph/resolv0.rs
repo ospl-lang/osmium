@@ -5,9 +5,7 @@ use crate::graph::{build::UnresolvedRequirement, resolv1::CExt};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum PkgRef {
-    Git {
-        repo: String,
-    },
+    Git(String),
 
     /// "trust me, I have a local copy of this"
     Local(String),

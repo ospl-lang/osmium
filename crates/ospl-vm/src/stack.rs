@@ -28,7 +28,7 @@ impl Stack {
     pub fn push_parental(&mut self) {
         let top = self.top_meta();
         self.frames.push(Frame {
-            own: self.data.len(),
+            own: self.data.len() - top.base,
             size: top.size,
             base: top.base,
         });

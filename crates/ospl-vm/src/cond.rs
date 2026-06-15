@@ -64,7 +64,10 @@ impl VM {
         loop {
             self.stack.push_parental();
             match self.run_all(code) {
-                Control::Break => break,
+                Control::Break => {
+                    self.stack.end();
+                    return Control::Default
+                }
                 Control::Continue => {
                     self.stack.end();
                     continue;
@@ -74,8 +77,5 @@ impl VM {
             }
             self.stack.end();
         }
-
-        self.stack.end();
-        return Control::Default;  // break already handled
     }
 }
