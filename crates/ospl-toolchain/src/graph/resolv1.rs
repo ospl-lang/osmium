@@ -4,7 +4,7 @@ use std::{collections::HashMap, fmt::Debug, path::{Path, PathBuf}};
 use ospl_common::ast::Statement;
 use serde::{Deserialize, Serialize};
 
-use crate::{Log, graph::resolv0::{FinalPackageSetup, ModSrc, PkgRef, RModRef, VersionRuleRef, VersionTag}, load_package_cfg};
+use crate::{BUILD_FOLDER, Log, graph::{build::UnresolvedRequirement, resolv0::{FinalPackageSetup, ModSrc, PkgRef, RModRef, VersionRuleRef, VersionTag}}, load_package_cfg};
 
 #[derive(Default, Debug)]
 pub struct HighGraph {
@@ -116,44 +116,65 @@ pub fn resolve_pkg(p: FinalPackageSetup, q: &mut HighGraph, re: RecursionInfo) {
     }
 
     // --- recurse dependencies ---
-    for req in &p.requires {
-        match &req.re {
-            PkgRef::Local(l) => {
-                let mut pat = re.current_folder.clone();
-                pat.push(l);
-                let next_re = RecursionInfo {
-                    pkg: req.clone().re,
-                    current_folder: pat.clone()
-                };
+    for rq in &p.requires {
+        match &rq.re {
+            PkgRef::Local(l) => do_folder(l, &p, q, rq, &re),
+            PkgRef::Git(repo) => {
+                let hsh = blake3::hash(repo.as_bytes());
+                let t = hsh.to_hex();
+                let mut folder = PathBuf::from(BUILD_FOLDER);
+                folder.push(t);
 
-                // we need to change the CWD into the current folder and back
-                let old_wd = std::env::current_dir().unwrap();
-                std::env::set_current_dir(re.current_folder.clone()).unwrap();
-                let version_data = p.version.get(&req.ver.name).expect("failed to load version metadata");
-                for rule in &version_data.prerules {
-                    apply_rule_to_cwd(rule);
-                }
+                if !std::process::Command::new("git")
+                    .arg("clone")
+                    .arg("--depth")
+                    .arg("1")
+                    .arg(repo)
+                    .arg(&folder)
+                    .spawn().expect("failed to invoke git")
+                    .wait().expect("failed to wait for git")
+                    .success()
+                { panic!("git exited unsuccessfully"); };
 
-                for rule in &version_data.rules {
-                    if rule.selector == req.ver.selection {
-                        for rule in &rule.rules {
-                            apply_rule_to_cwd(rule);
-                            break;
-                        }
-                    }
-                }
-
-                // now we cd back out!
-                std::env::set_current_dir(old_wd).unwrap();
-
-                pat.push("package.yml");
-                let p = load_package_cfg(&pat).finalize();
-
-                resolve_pkg(p, q, next_re);
+                do_folder(&folder, &p, q, rq, &re);
             }
-            _ => {}
         }
     }
+}
+
+fn do_folder<P: AsRef<Path>>(l: &P, p: &FinalPackageSetup, q: &mut HighGraph, rq: &UnresolvedRequirement, re: &RecursionInfo) {
+    let mut pat = re.current_folder.clone();
+    pat.push(l);
+    let next_re = RecursionInfo {
+        pkg: rq.clone().re,
+        current_folder: pat.clone()
+    };
+
+    // we need to change the CWD into the current folder and back
+    let old_wd = std::env::current_dir().unwrap();
+    std::env::set_current_dir(re.current_folder.clone()).unwrap();
+    let version_data = p.version.get(&rq.ver.name).expect("failed to load version metadata");
+    for rule in &version_data.prerules {
+        apply_rule_to_cwd(rule);
+    }
+
+    for rule in &version_data.rules {
+        if rule.selector == rq.ver.selection {
+            for rule in &rule.rules {
+                apply_rule_to_cwd(rule);
+                break;
+            }
+        }
+    }
+
+    // now we cd back out!
+    std::env::set_current_dir(old_wd).unwrap();
+
+    pat.push("package.yml");
+    let p = load_package_cfg(&pat).finalize();
+
+    resolve_pkg(p, q, next_re);
+
 }
 
 /// Note that this function will permanently make it's environment unusable.
@@ -209,13 +230,16 @@ pub fn apply_rule_to_cwd(rule: &VersionTag) {
     }
 }
 
-pub fn parse_file<P: AsRef<Path>>(f: P) -> Vec<Statement> {
-    let s = std::fs::read_to_string(f).expect("TODO unwrap");
+pub fn parse_file<P: AsRef<Path> + Debug>(f: P) -> Vec<Statement> {
+    let s = std::fs::read_to_string(&f).expect("TODO unwrap");
     let mut l = ospl_parser::lexer::lexer::Lexer::new(&s);
     let tokens = l.all_tokens();
 
     let mut p = ospl_parser::parse::Parser::new(&tokens);
-    let ast = p.parse_file().expect("TODO unwrap");
+    let ast = match p.parse_file() {
+        Ok(ast) => ast, 
+        Err(e) => panic!("failed to parse file {f:?}: {e:?}")
+    };
     return ast
 }
 

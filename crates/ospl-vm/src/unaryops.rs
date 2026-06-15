@@ -10,7 +10,12 @@ impl VM {
         unsafe { match t.tag {
             RT::List => {
                 let x: &mut List = &mut t.data.list;
-                let i = x.items.pop().expect("failed");
+                let Some(i) = x.items.pop()
+                else {
+                    self.push_literal(make::undefined(()));
+                    return;
+                };
+
                 self.stack.top_add_index(i);
             },
             RT::Scope => {

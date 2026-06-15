@@ -88,12 +88,13 @@ pub fn parse_kdl(k: KdlDocument) -> Option<PackageSetup> {
             // parse rule field
             let requirement_ref_child = children.get("from")?;
             let requirement_ref = match requirement_ref_child.get(0)?.as_string()? {
+                "local" => {
+                    let repo = requirement_ref_child.get(0)?.as_string()?.to_string();
+                    PkgRef::Local(repo)
+                }
                 "git" => {
-                    let repo = children.get("repo")?.get(0)?.as_string()?.to_string();
-
-                    PkgRef::Git {
-                        repo,
-                    }
+                    let repo = requirement_ref_child.get(1)?.as_string()?.to_string();
+                    PkgRef::Git(repo)
                 },
                 x => unimplemented!("{x:?}")
             };

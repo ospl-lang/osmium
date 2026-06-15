@@ -21,6 +21,7 @@ impl Compiler {
                     ty: *t.clone()
                 })
             }
+            (ty, UnaryOpType::Copy) => ty.clone(),
             (ty, op) => return Err(CE {
                 at: span.spanned(),
                 during: "Unary operator - type check",

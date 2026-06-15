@@ -73,7 +73,12 @@ impl VM {
             (RT::Int, RT::Int) => make::int(unsafe { aa.data.int + bb.data.int }),
             (RT::Addr, RT::Addr) => make::addr(unsafe { aa.data.address + bb.data.address }),
             (RT::Float, RT::Float) => make::float(unsafe { aa.data.float + bb.data.float }),
-            _ => unimplemented!()
+            (RT::Str, RT::Str) => make::str(unsafe {
+                let mut s = aa.data.str.clone();
+                s.push_str(&bb.data.str);
+                s.to_string()
+            }),
+            other => unimplemented!("{other:?}")
         }
     }
 
