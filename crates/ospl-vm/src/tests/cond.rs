@@ -52,6 +52,9 @@ pub fn loops_inside_functions() {
     ];
     println!("THE CODE HERE IT IS {code:?}");
     vm.run_all(&code);
+    assert_eq!(vm.stack.frames.len(), 1, "function call should clean up loop frames");
+    assert_eq!(vm.stack.data.len(), 2, "loop temporaries should not leak onto the caller stack");
+    assert_eq!(*vm.get_value_top(1), make::int(10));
 }
 
 #[test]
