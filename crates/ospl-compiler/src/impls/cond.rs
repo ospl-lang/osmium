@@ -46,13 +46,13 @@ impl Compiler {
             self.compile_stmt(s, &mut loop_ob)?;
         }
 
+        self.stack.pop();
         let i = InstBuilder::new()
             .opcode(Opc::Loop)
             .child(loop_ob)
             .build();
 
         ob.push(i);
-        self.stack.pop();
         return Ok(())
     }
 }

@@ -89,6 +89,7 @@ impl Type {
             Self::Str => 4,
             Self::Undefined => 5,
             Self::Char => 6,
+            Self::Bool => 7,
 
             t => panic!("cannot call .to_primitive_type_id() on a non-primitive type {t:?}"),
         }
@@ -103,6 +104,7 @@ impl Type {
             4 => Self::Str,
             5 => Self::Undefined,
             6 => Self::Char,
+            7 => Self::Bool,
 
             t => panic!("unknown primitive type ID: {t}")
         }

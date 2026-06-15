@@ -95,7 +95,7 @@ impl VM {
     }
 
     fn assign_ref(&mut self, reg: usize, new: usize) {
-        self.stack.top_indexes_mut()[reg] = new;
+        self.stack.top_indexes_mut()[reg] = self.stack.top_indexes()[new];
     }
 
     pub fn run_one(&mut self, inst: &Inst) -> Control {
@@ -241,17 +241,15 @@ impl VM {
                 // check if it has an OSPL_Load function
                 if let Ok(func) = self.ffi.register_function(
                     lib,
-                    "OSPL_Load",
+                    "OSPL_load",
                     vec![
                         "ptr".to_string(),  // pointer to OSPL VM
-                        "ptr".to_string(),  // pointer to OSPL heap
                     ],
                     "void".to_string()
                 ) {
                     let f = self.ffi.get_function(func).unwrap();
                     f.cif.call(f.symbol_ptr, &[
                         libffi::middle::arg(&&raw const self),
-                        libffi::middle::arg(&&raw const self.arena),
                     ])
                 }
 

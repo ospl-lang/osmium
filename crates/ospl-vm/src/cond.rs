@@ -19,6 +19,8 @@ impl VM {
             RT::Int => return unsafe { value.data.int != 0 },
             RT::Addr => return unsafe { value.data.address != 0 },
             RT::Float => return unsafe { value.data.float != 0.0 },
+            RT::Undefined => return false,
+            RT::Nul => return false,
             _ => return true
         }
     }

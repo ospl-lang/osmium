@@ -1,4 +1,4 @@
-use ospl_common::ast::{Expr, Expression, LV, LValue, Statement, Stmt, decl::Declaration, ops::{UnaryOp, UnaryOpType}};
+use ospl_common::ast::{Expr, Expression, LV, LValue, Statement, Stmt, decl::Declaration, ops::{BinaryOp, BinaryOpType, UnaryOp, UnaryOpType}};
 
 use crate::{lexer::token::{EXP_IDENT, Token, TokenExpectation}, parse::{Parser, Res}, tExp};
 
@@ -152,15 +152,19 @@ impl<'a> Parser<'a> {
                 inner: Box::new(Stmt::If(
                     Expression {
                         at: *thing.position(),
-                        inner: Box::new(Expr::UnaryOp(UnaryOp {
-                            expr: Expression {
+                        inner: Box::new(Expr::BinaryOp(BinaryOp {
+                            kind: BinaryOpType::Equals,
+                            left: Expression {
                                 at: *thing.position(),
                                 inner: Box::new(Expr::LValue(LValue {
                                     at: *thing.position(),
                                     inner: Box::new(LV::Variable(id.clone()))
-                                }))     
+                                }))
                             },
-                            kind: UnaryOpType::LogicNot
+                            right: Expression {
+                                at: *thing.position(),
+                                inner: Box::new(Expr::Literal(ospl_common::ast::Literal::Undefined))
+                            }
                         }))
                     },
                     vec![
