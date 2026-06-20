@@ -118,31 +118,39 @@ pub fn resolve_pkg(p: FinalPackageSetup, q: &mut HighGraph, re: RecursionInfo) {
     // --- recurse dependencies ---
     for rq in &p.requires {
         match &rq.re {
-            PkgRef::Local(l) => do_folder(l, &p, q, rq, &re),
+            PkgRef::Local(l) => do_folder(l, q, rq, &re),
             PkgRef::Git(repo) => {
                 let hsh = blake3::hash(repo.as_bytes());
                 let t = hsh.to_hex();
                 let mut folder = PathBuf::from(BUILD_FOLDER);
                 folder.push(t);
 
-                if !std::process::Command::new("git")
-                    .arg("clone")
-                    .arg("--depth")
-                    .arg("1")
-                    .arg(repo)
-                    .arg(&folder)
-                    .spawn().expect("failed to invoke git")
-                    .wait().expect("failed to wait for git")
-                    .success()
-                { panic!("git exited unsuccessfully"); };
+                // only download if it doesn't exist already
+                if !PathBuf::from(&folder).exists() {
+                    if !std::process::Command::new("git")
+                        .arg("clone")
+                        .arg("--quiet")
+                        .arg("--depth")
+                        .arg("1")
+                        .arg(repo)
+                        .arg(&folder)
+                        .spawn().expect("failed to invoke git")
+                        .wait().expect("failed to wait for git")
+                        .success()
+                    { panic!("git exited unsuccessfully"); };
+                }
 
-                do_folder(&folder, &p, q, rq, &re);
+                // let old = std::env::current_dir().unwrap();
+                // std::env::set_current_dir(&folder).unwrap();
+                // do_folder(&".", q, rq, &re);
+                do_folder(&folder, q, rq, &re);
+                // std::env::set_current_dir(old).unwrap();
             }
         }
     }
 }
 
-fn do_folder<P: AsRef<Path>>(l: &P, p: &FinalPackageSetup, q: &mut HighGraph, rq: &UnresolvedRequirement, re: &RecursionInfo) {
+fn do_folder<P: AsRef<Path>>(l: &P, q: &mut HighGraph, rq: &UnresolvedRequirement, re: &RecursionInfo) {
     let mut pat = re.current_folder.clone();
     pat.push(l);
     let next_re = RecursionInfo {
@@ -150,10 +158,18 @@ fn do_folder<P: AsRef<Path>>(l: &P, p: &FinalPackageSetup, q: &mut HighGraph, rq
         current_folder: pat.clone()
     };
 
+    // get the package setup
+    Log!(Entering, "{pat:?}");
+
+    pat.push("package.kdl");
+    let p = load_package_cfg(&pat).finalize();
+
     // we need to change the CWD into the current folder and back
     let old_wd = std::env::current_dir().unwrap();
-    std::env::set_current_dir(re.current_folder.clone()).unwrap();
-    let version_data = p.version.get(&rq.ver.name).expect("failed to load version metadata");
+    std::env::set_current_dir(next_re.current_folder.clone()).unwrap();
+    let Some(version_data) = p.version.get(&rq.ver.name)
+    else { panic!("failed to get version {} of package {:?}. There exists: {:?}", rq.ver.name, p.name, p.version.keys())};
+
     for rule in &version_data.prerules {
         apply_rule_to_cwd(rule);
     }
@@ -161,20 +177,21 @@ fn do_folder<P: AsRef<Path>>(l: &P, p: &FinalPackageSetup, q: &mut HighGraph, rq
     for rule in &version_data.rules {
         if rule.selector == rq.ver.selection {
             for rule in &rule.rules {
+                // this invokes `git` for various things, but it appears that it executes
+                // in the directory the build process was started in.
                 apply_rule_to_cwd(rule);
                 break;
             }
         }
     }
 
+    Log!(Leaving, "{old_wd:?}");
+
+
     // now we cd back out!
     std::env::set_current_dir(old_wd).unwrap();
 
-    pat.push("package.yml");
-    let p = load_package_cfg(&pat).finalize();
-
     resolve_pkg(p, q, next_re);
-
 }
 
 /// Note that this function will permanently make it's environment unusable.
@@ -191,8 +208,8 @@ pub fn apply_rule_to_cwd(rule: &VersionTag) {
 
         // real tags
         VersionTag::Branch(b) => {
-            if has_uncommitted_changes() {
-                panic!("refusing to abide by checkout / reset, uncommited changes!");
+            if let Some(u) = has_uncommitted_changes() {
+                panic!("refusing to abide by checkout / reset, uncommited changes\n{u}");
             }
 
             Log!(Invoking, "git checkout {b}");
@@ -209,8 +226,8 @@ pub fn apply_rule_to_cwd(rule: &VersionTag) {
             }
         },
         VersionTag::Commit(commit_id) => {
-            if has_uncommitted_changes() {
-                panic!("refusing to abide by checkout / reset, uncommited changes!");
+            if let Some(u) = has_uncommitted_changes() {
+                panic!("refusing to abide by checkout / reset, uncommited changes!\n{u}");
             }
 
             Log!(Invoking, "git reset --hard {commit_id}");
@@ -244,11 +261,16 @@ pub fn parse_file<P: AsRef<Path> + Debug>(f: P) -> Vec<Statement> {
 }
 
 /// Helper to check if the CWD's git repo has uncommited changes
-fn has_uncommitted_changes() -> bool {
+fn has_uncommitted_changes() -> Option<String> {
+    Log!(Invoking, "git status --porcelain");
     let output = std::process::Command::new("git")
         .args(["status", "--porcelain"])
         .output()
         .expect("failed to check for uncommited git changes");
 
-    !output.status.success() || !output.stdout.is_empty()
+    if !output.status.success() || !output.stdout.is_empty() {
+        return Some(String::from_utf8_lossy(&output.stdout).to_string());
+    } else {
+        return None
+    }
 }

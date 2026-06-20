@@ -11,6 +11,7 @@ pub enum Token {
     Return,
     Break,
     Continue,
+    Select,
     If,
     Else,
     Loop,

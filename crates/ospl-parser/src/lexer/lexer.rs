@@ -180,6 +180,7 @@ impl<'a> Lexer<'a> {
                     "as" => Token::As,
                     "try" => Token::Try,
                     "copy" => Token::Copy,
+                    "select" => Token::Select,
 
                     /* types */
                     "int" => Token::IntT,

@@ -84,6 +84,8 @@ pub enum Expr {
     Cast(Expression, UType),
     Apply(Expression, Vec<(UType, UType)>),
 
+    Block(Vec<Statement>),
+
     FFILoad(Expression),
     FFIFunc(LValue, Expression, usize, Vec<usize>),
     FFICall(LValue, Vec<Expression>),

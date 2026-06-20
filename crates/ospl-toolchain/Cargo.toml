@@ -8,7 +8,6 @@ ospl-parser = { path = "../ospl-parser" }
 ospl-compiler = { path = "../ospl-compiler" }
 ospl-vm = { path = "../ospl-vm" }
 ospl-common = { path = "../ospl-common" }
-ospl-cxx = { path = "../ospl-cxx" }
 
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 

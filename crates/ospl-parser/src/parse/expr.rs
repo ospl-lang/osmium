@@ -37,7 +37,7 @@ impl<'a> Parser<'a> {
     pub fn parse_atom(&mut self) -> Res<Expression> {
         let t = self.expect_peek(tComb!(
             "EXP_LITERAL_STARTER | LParen | Foreign",
-            tExp!(LParen, Foreign),
+            tExp!(LParen, LSquirly, Foreign),
             EXP_LITERAL_STARTER
         ))?;
 
@@ -159,6 +159,16 @@ impl<'a> Parser<'a> {
                 self.expect(tExp!(RParen))?;
                 Ok(expr)
             },
+
+            Token::LSquirly => {
+                self.next()?;
+                let b = self.parse_block()?;
+                self.expect(tExp!(RParen))?;
+                return Ok(Expression {
+                    at: *t.position(),
+                    inner: Box::new(Expr::Block(b))
+                })
+            }
 
             Token::Foreign => return self.parse_foreign_expr(),
 

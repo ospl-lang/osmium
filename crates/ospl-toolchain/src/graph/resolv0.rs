@@ -52,7 +52,7 @@ pub struct FinalPackageSetup {
     pub version: HashMap<String, VersionDefinition>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct VersionDefinition {
     /// Rules before your rules
     pub prerules: Vec<VersionTag>,

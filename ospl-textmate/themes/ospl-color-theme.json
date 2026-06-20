@@ -1,0 +1,84 @@
+{
+    "name": "OSPL",
+    "type": "dark",
+    "colors": {
+        "editor.background": "#110713",
+        "banner.background": "#110713",
+        "menu.background": "#110713",
+        "panel.background": "#110713",
+        "sideBar.background": "#110713",
+        "statusBar.background": "#110713",
+        "editorPane.background": "#110713",
+        "activityBar.background": "#110713",
+        "notifications.background": "#110713",
+        "menubar.selectionBackground": "#110713",
+
+        "tab.activeBackground": "#5C4A6A",
+        "tab.inactiveBackground": "#3A1B4A",
+
+        "editor.foreground": "#E6E6F0",
+        "editorCursor.foreground": "#FF4FD8",
+        "editor.selectionBackground": "#52215A",
+        "editorLineNumber.foreground": "#5C4A6A"
+    },
+    "tokenColors": [
+        // comments
+        {
+            "scope": "comment",
+            "settings": {
+                "foreground": "#450A28",
+                "fontStyle": "italic"
+            }
+        },
+
+        // types and functions
+        {
+            "scope": "entity.name.type",
+            "settings": { "foreground": "#FF76BA" }
+        },
+        {
+            "scope": "entity.name.function",
+            "settings": { "foreground": "#FF1D67" }
+        },
+        {
+            "scope": "support",
+            "settings": { "foreground": "#BD005E" }
+        },
+
+        // keywords
+        {
+            "scope": "keyword",
+            "settings": {
+                "foreground": "#DF2085",
+                "fontStyle": "bold"
+            }
+        },
+        {
+            "scope": "storage",
+            "settings": {
+                "foreground": "#DF2085",
+                "fontStyle": "bold"
+            }
+        },
+
+        // punctuation
+        {
+            "scope": "punctuation.separator",
+            "settings": {
+                "foreground": "#702D7B",
+            }
+        },
+
+        // variables
+        {
+            "scope": "variable",
+            "settings": { "foreground": "#AB47BB" }
+        },
+
+        // strings
+        {
+            "scope": "string",
+            "settings": { "foreground": "#BD005E" }
+        }
+    ]
+}

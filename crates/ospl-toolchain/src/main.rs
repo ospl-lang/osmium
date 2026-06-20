@@ -57,6 +57,7 @@ enum ProjTyp {
     Library,
 }
 
+// This is my very cool comment
 impl ToString for ProjTyp {
     fn to_string(&self) -> String {
         return match self {
@@ -71,9 +72,10 @@ const BUILD_FOLDER: &str = "build/";
 
 pub fn ensure_build_folder() {
     let pb = PathBuf::from(BUILD_FOLDER);
-    let _ = std::fs::remove_dir_all(&pb);
+    let _ = std::fs::remove_file(pb.with_file_name("dist.ospb"));
 
     std::fs::DirBuilder::new()
+        .recursive(true)
         .create(&pb)
         .expect("failed to create the build/ folder. Delete the folder and try again.");
 }
@@ -157,7 +159,10 @@ fn cmd_build(out_path: PathBuf) {
 /* ---------------------------------- */
 
 pub fn load_package_cfg<P: AsRef<std::path::Path>>(path: P) -> graph::decl::PackageSetup {
-    let src = std::fs::read_to_string(path).map_err(|e| e.to_string()).expect("DAMNB IT I CANT LOAD PKG.KDL");
+    let src = std::fs::read_to_string(path)
+        .map_err(|e| e.to_string())
+        .expect("DAMN IT I CANT LOAD PKG.KDL");
+
     let k = kdl::KdlDocument::parse(&src).expect("failed to parse package.kdl");
 
     return package::parse_kdl(k).expect("failed to parse the KDL");

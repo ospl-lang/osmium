@@ -1,8 +1,8 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use kdl::{KdlDocument, KdlValue};
+use kdl::{KdlDocument, KdlNode, KdlValue};
 
-use crate::graph::{build::UnresolvedRequirement, decl::{PackageSetup, UModDef, UModRef}, resolv0::{ModSrc, PkgRef, VersionRuleRef, VersionSelector}, resolv1::CExt};
+use crate::graph::{build::UnresolvedRequirement, decl::{PackageSetup, UModDef, UModRef}, resolv0::{ModSrc, PkgRef, VersionDefinition, VersionRule, VersionRuleRef, VersionSelector, VersionTag}, resolv1::CExt};
 
 pub fn parse_kdl(k: KdlDocument) -> Option<PackageSetup> {
     let mut p = PackageSetup::default();
@@ -82,11 +82,19 @@ pub fn parse_kdl(k: KdlDocument) -> Option<PackageSetup> {
         }
 
         else if n == "requirement" {
-            let requirement_name = root_node.get(0)?.as_string()?.to_string();
-            let children = root_node.children()?;
+            let requirement_name = root_node
+                .get(0)
+                .expect("expected name for the `requirement` block.")
+                .as_string()
+                .expect("the name of a `requirement` block must be a string")
+                .to_string();
+
+            let children = root_node
+                .children()
+                .expect("expected children for the `requirement`");
 
             // parse rule field
-            let requirement_ref_child = children.get("from")?;
+            let requirement_ref_child = children.get("from").expect("`requirement` child block needs a `from`");
             let requirement_ref = match requirement_ref_child.get(0)?.as_string()? {
                 "local" => {
                     let repo = requirement_ref_child.get(0)?.as_string()?.to_string();
@@ -119,6 +127,60 @@ pub fn parse_kdl(k: KdlDocument) -> Option<PackageSetup> {
             };
 
             p.requires.insert(requirement_name, requirement);
+        }
+
+        else if n == "versions" {
+            fn parse_rule(n: &KdlNode) -> Option<VersionRule> {
+                let selector_type = n.name().value();
+                    // .expect(&format!("There must be a selector type\n{n}"))
+                    // .expect(&format!("Selector types must be strings\n{n}"));
+
+                let selector_data = n.get(0)?;
+
+                let mut tags = Vec::new();
+                for e in n.children()?.nodes().iter() {
+                    let x = match e.name().value() {
+                        "eol" => VersionTag::EOL,
+                        "gone" => VersionTag::Gone,
+                        "unmaintained" => VersionTag::Unmaintained,
+                        "vulnerable" => VersionTag::Vulnerable(e.get(0)?.as_string()?.to_string()),
+                        "error" => VersionTag::Error(e.get(0)?.as_string()?.to_string()),
+
+                        "branch" => VersionTag::Branch(e.get(0)?.as_string()?.to_string()),
+                        "commit" => VersionTag::Commit(e.get(0)?.as_string()?.to_string()),
+                        other => panic!("unknown version tag {other}")
+                    };
+                    tags.push(x);
+                };
+
+                return Some(VersionRule {
+                    selector: match selector_type {
+                        "int" => VersionSelector::Int(selector_data.as_integer()? as u64),
+                        "float" => VersionSelector::Float(selector_data.as_float()? as f64),
+                        "flag" => VersionSelector::Flag(selector_data.as_bool()?),
+                        other => panic!("unknown version selector type {other}")
+                    },
+                    rules: tags
+                })
+            }
+
+            for child in root_node.children()?.nodes() {
+                // we're parsing the `rules ...` block
+                let mut v = VersionDefinition::default();
+                if child.name().value() != "rules" { panic!("expected `rules`"); }
+                let name = child.get(0)
+                    .expect("expected name for a `rules` block")
+                    .as_string()
+                    .expect("the name of a `rules` block must be a string")
+                    .to_string();
+
+                for n in child.children()?.nodes() {
+                    // we're parsing individual rules now
+                    v.rules.push(parse_rule(n)?);
+                }
+
+                p.version.insert(name, v);
+            }
         }
     }
 

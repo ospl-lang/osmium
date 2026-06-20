@@ -6,6 +6,9 @@ pub enum Action {
     Compiling,
     Linking,
 
+    Entering,
+    Leaving,
+
     Warning,
     Failed,
 

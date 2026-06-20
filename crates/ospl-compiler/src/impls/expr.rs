@@ -1,7 +1,7 @@
 use ospl_common::{ast::spanning::Spannable, inst::{make, optimized::{Inst, InstBuilder, Opc}}};
 use tracing::error;
 
-use crate::{CE, CEData, Compiler, EvalResult, Res, Type, TypeExpectation, ast::{Expr, LV, LValue, Literal}};
+use crate::{CE, CEData, Compiler, EvalResult, Res, Type, TypeExpectation, ast::{Expr, LV, LValue, Literal}, impls::stmt::Control};
 
 impl Compiler {
     pub fn eval(
@@ -125,6 +125,40 @@ impl Compiler {
                         ty: new_into.clone()
                     })
                 }
+            },
+            Expr::Block(b) => {
+                if b.len() == 0 {
+                    ob.push(InstBuilder::new()
+                        .opcode(Opc::PushLiteral)
+                        .value(make::nul(()))
+                        .build());
+
+                    return Ok(EvalResult {
+                        address: self.next_var(),
+                        ty: Type::Nul
+                    })
+                }
+
+                // This is a dummy evalresult that we know will be overwritten.
+                let mut eval = None;
+                for s in b {
+                    match self.compile_stmt(s, ob)? {
+                        Control::Return(y) => {
+                            eval = Some(y);
+                        },
+                        Control::ReturnScope => {
+                            // error: unsupported
+                            todo!("error unsupported")
+                        }
+                        _ => {}
+                    }
+                }
+
+                if eval.is_none() {
+                    panic!("bug")
+                }
+
+                return Ok(eval.expect("bug"));
             }
         }
     }
