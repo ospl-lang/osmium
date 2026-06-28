@@ -23,6 +23,10 @@ pub enum Token {
     Try,
     Copy,
 
+    /* macro stuff */
+    Macro,
+    DollarSign,
+
     /* values */
     Nul,
     Undefined,
@@ -98,7 +102,7 @@ pub enum Token {
 }
 
 pub struct TokenExpectation {
-    pub matches: fn(&Token) -> bool,
+    pub matches: Box<dyn Fn(&Token) -> bool>,
     pub label: &'static str,
 }
 
@@ -110,8 +114,8 @@ pub struct TokenExpectation {
             )|+)
         }
 
-        TokenExpectation {
-            matches,
+        $crate::lexer::token::TokenExpectation {
+            matches: Box::new(matches),
             label: concat!($(stringify!($variant), " | "),+),
         }
     }};
@@ -119,26 +123,29 @@ pub struct TokenExpectation {
 
 #[macro_export] macro_rules! tComb {
     ($label:expr, $($exp:expr),+ $(,)?) => {
-        TokenExpectation {
-            matches: |t| {
+        $crate::lexer::token::TokenExpectation {
+            matches: Box::new(|t| {
                 false $(|| (($exp).matches)(t))+
-            },
+            }),
             label: $label,
         }
     };
 }
 
-pub const EXP_KEYWORD: TokenExpectation =
-    tExp!(Fn, Do, Def, Let, Scope, Return, Break, Continue, For, While, If, Else, Loop, Use);
+pub fn exp_keyword() -> TokenExpectation {
+    return tExp!(Fn, Do, Def, Let, Scope, Return, Break, Continue, For, While, If, Else, Loop, Use)
+}
 
-pub const EXP_IDENT: TokenExpectation = TokenExpectation {
-    matches: |t| -> bool {
-        matches!(t, Token::Ident(_))
-    },
-    label: "Ident"
-};
+pub fn exp_ident() -> TokenExpectation {
+    TokenExpectation {
+        matches: Box::new(|t| -> bool {
+            matches!(t, Token::Ident(_))
+        }),
+        label: "Ident"
+    }
+}
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Span(Position, Token);
 
 impl Span {

@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 ospl-common = { path="../ospl-common" }
+tracing = "0.1.44"

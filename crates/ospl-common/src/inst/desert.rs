@@ -33,6 +33,13 @@ impl Serialize for RuntimeValue {
 
                 RT::Nul | RT::Undefined => {
                     tup.serialize_element(&())?
+                },
+
+                RT::Union => {
+                    tup.serialize_element(&(
+                        self.data.union_.0,
+                        (**self.data.union_.1).clone()
+                    ))?;
                 }
             }
         }
@@ -134,6 +141,14 @@ impl<'de> Deserialize<'de> for RuntimeValue {
                         data: RV {
                             foreign: seq.next_element()?.unwrap(),
                         },
+                    },
+
+                    RT::Union => RuntimeValue {
+                        tag,
+                        data: RV { union_: (
+                            seq.next_element()?.unwrap(),
+                            std::mem::ManuallyDrop::new(Box::new(seq.next_element()?.unwrap())),
+                        ) }
                     },
 
                     RT::Nul | RT::Undefined => RuntimeValue {

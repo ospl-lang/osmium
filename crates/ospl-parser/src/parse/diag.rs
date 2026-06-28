@@ -31,6 +31,7 @@ pub fn print_diag(_p: &Parser, e: PE) {
         },
         PE::RequiredPrimitiveType => {
             println!("a primitive type is required.")
-        }
+        },
+        other => println!("{other:?}")
     }
 }

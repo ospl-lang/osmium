@@ -253,7 +253,7 @@ pub fn parse_file<P: AsRef<Path> + Debug>(f: P) -> Vec<Statement> {
     let tokens = l.all_tokens();
 
     let mut p = ospl_parser::parse::Parser::new(&tokens);
-    let ast = match p.parse_file() {
+    let ast = match p.parse_tlc() {
         Ok(ast) => ast, 
         Err(e) => panic!("failed to parse file {f:?}: {e:?}")
     };

@@ -1,5 +1,5 @@
 use ospl_common::ast::{ArgNaming, FunctionType, FunctionValue, Scope, Type, UType};
-use crate::{lexer::token::{EXP_IDENT, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
+use crate::{lexer::token::{exp_ident, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
 
 impl<'a> Parser<'a> {
     pub fn parse_function_literal(&mut self) -> Res<FunctionValue> {
@@ -13,7 +13,7 @@ impl<'a> Parser<'a> {
                 let id = self.expect(tComb!(
                     "identifier | RBracket",
                     tExp!(RBracket),
-                    EXP_IDENT
+                    exp_ident()
                 ))?;
 
                 let (_, Token::Ident(id)) = id.destructure()
@@ -28,13 +28,13 @@ impl<'a> Parser<'a> {
         let mut arg_values = Vec::new();
         self.expect(tExp!(LParen))?;
         loop {
-            let (_, token) = self.expect(EXP_NAMED_ARG_MEMBER)?.destructure();
+            let (_, token) = self.expect(exp_named_arg_member())?.destructure();
             match token {
                 Token::Ident(i) => arg_values.push(ArgNaming {
                     name: i,
                 }),
                 Token::Def => {
-                    let span = self.expect(EXP_IDENT)?;
+                    let span = self.expect(exp_ident())?;
                     let (_, Token::Ident(t)) = span.destructure()
                         else { unreachable!() };
                     
@@ -71,7 +71,7 @@ impl<'a> Parser<'a> {
             let span = self.expect_peek(tComb!(
                 "RAngle | start of ID",
                 tExp!(RAngle),
-                EXP_IDENT,
+                exp_ident(),
             ))?;
 
             if let Token::RAngle = span.token() {
@@ -97,7 +97,7 @@ impl<'a> Parser<'a> {
         self.expect(tExp!(LParen))?;
         let mut args = Vec::new();
         loop {
-            let s = self.expect_peek(EXP_ARG_MEMBER)?;
+            let s = self.expect_peek(exp_arg_member())?;
             if *s.token() == Token::RParen {
                 break;
             }
@@ -171,7 +171,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_type(&mut self) -> Res<UType> {
-        let span = self.expect_peek(EXP_TYPE_STARTER)?;
+        let span = self.expect_peek(exp_type_starter())?;
         let (_, t) = span.destructure();
 
         let mut working_type = self.parse_type_atom(t)?;
@@ -180,7 +180,7 @@ impl<'a> Parser<'a> {
             if let Token::Dot = self.peek()?.token() {
                 self.next()?;
 
-                let initial_span = self.expect(EXP_IDENT)?;
+                let initial_span = self.expect(exp_ident())?;
                 let (_, Token::Ident(id)) = initial_span.destructure()
                     else { unreachable!() };
 
@@ -215,7 +215,7 @@ impl<'a> Parser<'a> {
         loop {
             let (_, token) = self.expect(tComb!(
                 "Ident | RParen | Semicolon",
-                EXP_IDENT,
+                exp_ident(),
                 tExp!(RParen, Semicolon),
             ))?.destructure();
             let name = match token {
@@ -237,20 +237,26 @@ impl<'a> Parser<'a> {
     }
 }
 
-const EXP_ARG_MEMBER: TokenExpectation = tComb!(
-    "EXP_TYPE_STARTER | RParen",
-    EXP_TYPE_STARTER,
-    tExp!(RParen)
-);
+pub fn exp_arg_member() -> TokenExpectation {
+    tComb!(
+        "EXP_TYPE_STARTER | RParen",
+        exp_type_starter(),
+        tExp!(RParen)
+    )
+}
 
-const EXP_NAMED_ARG_MEMBER: TokenExpectation = tComb!(
-    "Ident | Def | RParen",
-    EXP_IDENT,
-    tExp!(RParen, Def)
-);
+pub fn exp_named_arg_member() -> TokenExpectation {
+    tComb!(
+        "Ident | Def | RParen",
+        exp_ident(),
+        tExp!(RParen, Def)
+    )
+}
 
-pub const EXP_TYPE_STARTER: TokenExpectation = tComb!(
-    "Fn | Atsign | IntT | FloatT | StrT | CharT | BoolT | ListT | AddrT | UnknownT | AnyT | Undefined | Ident | Scope",
-    tExp!(Fn, Atsign, IntT, FloatT, StrT, CharT, BoolT, ListT, AddrT, UnknownT, Undefined, AnyT, LParen, Scope),
-    EXP_IDENT,
-);
+pub fn exp_type_starter() -> TokenExpectation {
+    tComb!(
+        "Fn | Atsign | IntT | FloatT | StrT | CharT | BoolT | ListT | AddrT | UnknownT | AnyT | Undefined | Ident | Scope",
+        tExp!(Fn, Atsign, IntT, FloatT, StrT, CharT, BoolT, ListT, AddrT, UnknownT, Undefined, AnyT, LParen, Scope),
+        exp_ident(),
+    )
+}

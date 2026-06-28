@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::lexer::token::{Span, TokenExpectation};
 
 #[derive(Debug)]
@@ -5,6 +7,11 @@ pub enum PE {
     Expected(TokenExpected),
     RequiredPrimitiveType,
     UnexpectedEOF,
+    MacroCallWithNoMacrosToCall,
+    NoSuchMacro(String),
+    NoSuchMacroInput(String),
+    NoSuchMacroConstruct(String),
+    MacroInvocationError(Box<PE>)
 }
 
 pub type Res<T> = Result<T, PE>;
@@ -15,8 +22,10 @@ pub struct TokenExpected {
     pub got: Span,
 }
 
+#[derive(Clone)]
 pub struct Parser<'a> {
     tokens: &'a [Span],
+    local_macros: Vec<HashMap<String, macros::Macro>>,
     current_token: usize,
 }
 
@@ -24,6 +33,7 @@ impl<'a> Parser<'a> {
     pub fn new(tokens: &'a [Span]) -> Self {
         return Self {
             tokens,
+            local_macros: Vec::new(),
             current_token: 0,
         }
     }
@@ -91,6 +101,7 @@ mod expr;
 mod lit;
 mod cond;
 mod ffi;
+mod macros;
 
 pub mod diag;
 

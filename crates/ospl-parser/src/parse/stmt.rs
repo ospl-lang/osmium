@@ -1,19 +1,23 @@
+use std::collections::HashMap;
+
 use ospl_common::ast::{LValue, Statement, Stmt, UType, decl::{AliasDeclaration, Declaration}, ops::AssignOp};
 
-use crate::{lexer::token::{EXP_IDENT, EXP_KEYWORD, Span, Token, TokenExpectation}, parse::{Parser, Res, expr::{EXP_BINARY_OPERATION, token_to_binaryop}}, tComb, tExp};
+use crate::{lexer::token::{exp_ident, Span, Token, TokenExpectation, exp_keyword}, parse::{Parser, Res, expr::{exp_binary_operation, token_to_binaryop}}, tComb, tExp};
+
+pub fn exp_stmt_starter() -> TokenExpectation {
+    return tComb!("Keyword | lvalue", exp_keyword(), exp_ident())
+}
 
 impl<'a> Parser<'a> {
-    pub const EXP_STMT_STARTER: TokenExpectation = tComb!("Keyword | lvalue", EXP_KEYWORD, EXP_IDENT);
-
     pub fn parse_stmt(&mut self) -> Res<Statement> {
-        let t = self.expect_peek(Self::EXP_STMT_STARTER)?;
+        let t = self.expect_peek(exp_stmt_starter())?;
 
         match t.token() {
             Token::Def => {
                 self.next()?;  // consume `t`
 
                 // ugly way of this...
-                let _id = self.expect(EXP_IDENT)?;
+                let _id = self.expect(exp_ident())?;
                 let (_, Token::Ident(id)) = _id.destructure()
                     else { unreachable!() };
 
@@ -47,7 +51,7 @@ impl<'a> Parser<'a> {
             Token::Let => {
                 self.next()?;  // consume `t`
                 // ugly way of this...
-                let _id = self.expect(EXP_IDENT)?;
+                let _id = self.expect(exp_ident())?;
                 let (_, Token::Ident(id)) = _id.destructure()
                     else { unreachable!() };
 
@@ -119,7 +123,7 @@ impl<'a> Parser<'a> {
             Token::Ident(_) => {
                 let lv = self.parse_lvalue()?;
 
-                if (EXP_BINARY_OPERATION.matches)(self.peek()?.token()) {
+                if (exp_binary_operation().matches)(self.peek()?.token()) {
                     let op = self.next()?;
                     self.expect(tExp!(Equals))?;
 
@@ -156,11 +160,29 @@ impl<'a> Parser<'a> {
         self.expect(tExp!(LSquirly))?;
 
         let mut stmts = Vec::new();
+        self.local_macros.push(HashMap::new());
 
         loop {
             if *self.peek()?.token() == Token::RSquirly {
                 self.next()?;  // consume it
                 break;
+            }
+
+            // `macro` construct
+            if *self.peek()?.token() == Token::Macro
+            {
+                self.next()?;
+                let (mname, mdef) = self.parse_macro_definition()?;
+                self.expect(tExp!(Semicolon))?;
+
+                let Some(macros) = self.local_macros.last_mut()
+                else { panic!("wtf?"); };
+
+                // println!("Registered macro: {mname}");
+
+                macros.insert(mname, mdef);
+
+                continue;
             }
 
             let s = self.parse_stmt()?;
@@ -169,10 +191,13 @@ impl<'a> Parser<'a> {
             self.expect(tExp!(Semicolon))?;
         }
 
+        self.local_macros.pop();
+
         return Ok(stmts)
     }
 
-    pub fn parse_file(&mut self) -> Res<Vec<Statement>> {
+    /// Parses a top-level construct (usually a file)
+    pub fn parse_tlc(&mut self) -> Res<Vec<Statement>> {
         let mut stmts = Vec::new();
 
         loop {

@@ -181,6 +181,7 @@ impl<'a> Lexer<'a> {
                     "try" => Token::Try,
                     "copy" => Token::Copy,
                     "select" => Token::Select,
+                    "macro" => Token::Macro,
 
                     /* types */
                     "int" => Token::IntT,
@@ -216,6 +217,8 @@ impl<'a> Lexer<'a> {
                     Token::StringLit(s)
                 }
             },
+
+            '$' => Token::DollarSign,
 
             _ => panic!("Unexpected character: {c}"),
         };

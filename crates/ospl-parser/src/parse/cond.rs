@@ -1,6 +1,6 @@
 use ospl_common::ast::{Expr, Expression, LV, LValue, Statement, Stmt, decl::Declaration, ops::{BinaryOp, BinaryOpType, UnaryOp, UnaryOpType}};
 
-use crate::{lexer::token::{EXP_IDENT, Token, TokenExpectation}, parse::{Parser, Res}, tExp};
+use crate::{lexer::token::{exp_ident, Token}, parse::{Parser, Res}, tExp};
 
 impl<'a> Parser<'a> {
     pub fn parse_if(&mut self) -> Res<Statement> {
@@ -40,7 +40,7 @@ impl<'a> Parser<'a> {
         self.expect(tExp!(As))?;
 
         // id
-        let (_, Token::Ident(id)) = self.expect(EXP_IDENT)?.destructure()
+        let (_, Token::Ident(id)) = self.expect(exp_ident())?.destructure()
         else { unreachable!() };
 
         self.expect(tExp!(Equals))?;
@@ -131,7 +131,7 @@ impl<'a> Parser<'a> {
         let thing = self.expect(tExp!(For))?;
         
         // id
-        let (_, Token::Ident(id)) = self.expect(EXP_IDENT)?.destructure()
+        let (_, Token::Ident(id)) = self.expect(exp_ident())?.destructure()
         else { unreachable!() };
 
         // expr

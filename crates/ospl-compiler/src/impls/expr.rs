@@ -127,18 +127,6 @@ impl Compiler {
                 }
             },
             Expr::Block(b) => {
-                if b.len() == 0 {
-                    ob.push(InstBuilder::new()
-                        .opcode(Opc::PushLiteral)
-                        .value(make::nul(()))
-                        .build());
-
-                    return Ok(EvalResult {
-                        address: self.next_var(),
-                        ty: Type::Nul
-                    })
-                }
-
                 // This is a dummy evalresult that we know will be overwritten.
                 let mut eval = None;
                 for s in b {
@@ -155,7 +143,15 @@ impl Compiler {
                 }
 
                 if eval.is_none() {
-                    panic!("bug")
+                    ob.push(InstBuilder::new()
+                        .opcode(Opc::PushLiteral)
+                        .value(make::nul(()))
+                        .build());
+
+                    return Ok(EvalResult {
+                        address: self.next_var(),
+                        ty: Type::Nul
+                    })
                 }
 
                 return Ok(eval.expect("bug"));

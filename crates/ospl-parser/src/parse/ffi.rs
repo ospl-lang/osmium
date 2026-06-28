@@ -1,11 +1,13 @@
 use ospl_common::ast::{Expr, Expression};
 
-use crate::{lexer::token::{EXP_IDENT, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
+use crate::{lexer::token::{exp_ident, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
 
-pub const EXP_INT: TokenExpectation = TokenExpectation {
-    matches: |t| matches!(t, Token::Integer(_)),
-    label: "Integer"
-};
+pub fn exp_int() -> TokenExpectation {
+    TokenExpectation {
+        matches: Box::new(|t| matches!(t, Token::Integer(_))),
+        label: "Integer"
+    }
+}
 
 impl<'a> Parser<'a> {
     pub fn parse_foreign_expr(&mut self) -> Res<Expression> {
@@ -14,7 +16,7 @@ impl<'a> Parser<'a> {
         let span = self.expect_peek(tComb!(
             "Fn | begining of lvalue",
             tExp!(Fn),
-            EXP_IDENT,
+            exp_ident(),
         ))?;
         match span.token() {
             // Token::Use => self.parse_foreign_load(),
@@ -30,7 +32,7 @@ impl<'a> Parser<'a> {
         let libname = self.parse_lvalue()?;
         let fname = self.parse_atom()?;
 
-        let id = self.expect(EXP_IDENT)?;
+        let id = self.expect(exp_ident())?;
         let Token::Ident(id) = id.token() else { unreachable!() };
 
         let rtype = id_to_type_number(id);
@@ -41,8 +43,8 @@ impl<'a> Parser<'a> {
             let span = self.expect(tComb!(
                 "RSquirly | Ident | Integer",
                 tExp!(RSquirly),
-                EXP_IDENT,
-                EXP_INT,
+                exp_ident(),
+                exp_int(),
             ))?;
 
             match span.token() {

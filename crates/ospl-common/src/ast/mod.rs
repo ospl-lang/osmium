@@ -3,7 +3,7 @@ use crate::ast::{decl::{AliasDeclaration, Declaration}, ops::AssignOp};
 
 pub use types::*;
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Position {
     pub line: usize,
     pub column: usize,
