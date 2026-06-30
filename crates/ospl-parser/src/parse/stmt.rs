@@ -169,8 +169,7 @@ impl<'a> Parser<'a> {
             }
 
             // `macro` construct
-            if *self.peek()?.token() == Token::Macro
-            {
+            if *self.peek()?.token() == Token::Macro {
                 let (mname, mdef) = self.parse_macro_definition()?;
                 let Some(macros) = self.local_macros.last_mut()
                 else { panic!("wtf?"); };
@@ -196,6 +195,24 @@ impl<'a> Parser<'a> {
         let mut stmts = Vec::new();
 
         loop {
+            // `macro` construct
+            let peek = self.peek();
+            if let Err(PE::EOF) = peek {
+                break;
+            }
+
+            let peek = peek?;
+
+            if *peek.token() == Token::Macro {
+                let (mname, mdef) = self.parse_macro_definition()?;
+                let Some(macros) = self.local_macros.last_mut()
+                else { panic!("wtf?"); };
+
+                macros.insert(mname, mdef);
+
+                continue;
+            }
+
             let s = self.parse_stmt();
             if let Err(PE::EOF) = s {
                 break;

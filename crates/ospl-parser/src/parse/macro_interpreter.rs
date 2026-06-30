@@ -13,11 +13,11 @@ pub struct MacroScope {
 pub enum MacroValue {
     /// A list of macro-time values
     List(Vec<Rc<RefCell<MacroValue>>>),
-
     Token(Span),
-
-    Nul,
     Address(u64),
+    Int(i64),
+    Float(f64),
+    Str(String),
 }
 
 pub struct MacroVM {
@@ -152,8 +152,43 @@ impl MacroVM {
                                 )
                             )
                         ),
+                        MacroValue::Int(a) => items.push(
+                            Rc::new(
+                                RefCell::new(
+                                    MacroValue::Token(
+                                        Span::new(
+                                            Position::default(),
+                                            Token::Integer(*a)
+                                        )
+                                    )
+                                )
+                            )
+                        ),
+                        MacroValue::Float(a) => items.push(
+                            Rc::new(
+                                RefCell::new(
+                                    MacroValue::Token(
+                                        Span::new(
+                                            Position::default(),
+                                            Token::Float(*a)
+                                        )
+                                    )
+                                )
+                            )
+                        ),
+                        MacroValue::Str(a) => items.push(
+                            Rc::new(
+                                RefCell::new(
+                                    MacroValue::Token(
+                                        Span::new(
+                                            Position::default(),
+                                            Token::StringLit(a.to_owned())
+                                        )
+                                    )
+                                )
+                            )
+                        ),
                         MacroValue::Token(_) => items.push(eval.clone()),
-                        other => panic!("not allowed in template: {other:?}")
                     }
                 }
 

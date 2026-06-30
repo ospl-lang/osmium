@@ -2,7 +2,7 @@ use std::{collections::{HashMap, VecDeque}, hash::Hash, path::PathBuf, sync::{Ar
 use ospl_common::{ast::Statement, inst::{optimized::Inst, symbols::DebugSymbolTable}};
 use ospl_compiler::{BuildData, Compiler};
 
-use crate::{Log, graph::resolv0::{PkgRef, VersionRuleRef}};
+use crate::{BUILD_FOLDER, Log, graph::resolv0::{PkgRef, VersionRuleRef}};
 
 pub struct CxxNode {
     pub required_as: String,
@@ -89,13 +89,19 @@ pub fn compile(graph: &Graph) -> Vec<Inst> {
         for cxx in &node.cxx_deps {
             Log!(Invoking, "C compiler on {:?}", cxx.c_file);
             let so_file = cxx.o_file.with_extension("so");
-            let obj_file = cxx.o_file.with_extension("o");
+
+            let mut so_file2 = PathBuf::from(BUILD_FOLDER);
+            so_file2.push(cxx.o_file.with_extension("so"));
+
+            let mut obj_file2 = PathBuf::from(BUILD_FOLDER);
+            obj_file2.push(cxx.o_file.with_extension("o"));
+
             if !std::process::Command::new("cc")
                 .arg("-fPIC")
                 .arg("-c")
                 .arg(&cxx.c_file)
                 .arg("-o")
-                .arg(&obj_file)
+                .arg(&obj_file2)
                 .spawn()
                 .expect("failed to summon cc")
                 .wait()
@@ -105,9 +111,9 @@ pub fn compile(graph: &Graph) -> Vec<Inst> {
 
             if !std::process::Command::new("cc")
                 .arg("-shared")
-                .arg(obj_file)
+                .arg(obj_file2)
                 .arg("-o")
-                .arg(&so_file)
+                .arg(&so_file2)
                 .spawn()
                 .expect("failed to summon cc")
                 .wait()
