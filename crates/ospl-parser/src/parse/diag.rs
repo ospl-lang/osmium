@@ -29,6 +29,9 @@ pub fn print_diag(_p: &Parser, e: PE) {
         PE::UnexpectedEOF => {
             println!("unexpected end-of-file.")
         },
+        PE::EOF => {
+            println!("normal EOF, no error.")
+        }
         PE::RequiredPrimitiveType => {
             println!("a primitive type is required.")
         },

@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-
 use ospl_common::ast::{Expr, Expression, LV, LValue, Literal, UType, ops::{BinaryOp, BinaryOpType, UnaryOp, UnaryOpType}};
 
-use crate::{lexer::token::{Span, Token, TokenExpectation, exp_ident}, parse::{PE, Parser, Res, macros::{self, MacroControl, MacroExpr, MacroStatement}}, tComb, tExp};
+use crate::{lexer::token::{Span, Token, TokenExpectation, exp_ident}, parse::{PE, Parser, Res, macros::MacroTokType}, tComb, tExp};
 
 // pub const EXP_STRING_LITERAL: TokenExpectation = TokenExpectation {
 //     matches: |t| matches!(t, Token::StringLit(_)),
@@ -172,165 +170,40 @@ impl<'a> Parser<'a> {
                 })
             }
 
-            Token::Macro => {
+            Token::DollarSign => {
                 self.next()?;
-
-                let (_, Token::Ident(name)) = self.expect(exp_ident())?.destructure()
-                else { unreachable!() };
+                let name = self.parse_ident()?;
 
                 let Some(m) = self.local_macros.last()
-                else { return Err(PE::MacroCallWithNoMacrosToCall) };
+                else { return Err(PE::NoSuchMacro(name)); };
 
-                let Some(mac) = m.get(&name).cloned()
-                else { return Err(PE::NoSuchMacro(name)) };
+                let Some(m) = m.get(&name).cloned()  // slow!
+                else { return Err(PE::NoSuchMacro(name)); };
 
-                let mut mac_locals: HashMap<String, Vec<Span>> = HashMap::new();
-                fn parse_macro_construct<'a>(p: &mut Parser<'a>, t: &macros::MacroConstructKind) -> Res<Vec<Span>> {
-                    let toks =  match t {
-                        macros::MacroConstructKind::Expr => p.parse_with_tokens(Parser::parse_expr)?.1,
-                        macros::MacroConstructKind::Atom => p.parse_with_tokens(Parser::parse_atom)?.1,
-                        macros::MacroConstructKind::Stmt => p.parse_with_tokens(Parser::parse_stmt)?.1,
-                        macros::MacroConstructKind::Ident => {
-                            let x = p.expect(exp_ident())?;
-                            &[x]
-                        },
-                        macros::MacroConstructKind::Type => p.parse_with_tokens(Parser::parse_type)?.1,
-                        macros::MacroConstructKind::SingleToken => p.parse_with_tokens(Parser::next)?.1,
-                        // macros::MacroConstructKind::SpecificTokens(tt) => p.parse_with_tokens(|p| {
-                        //     p.expect(TokenExpectation {
-                        //         label: "???",
-                        //         matches: Box::new(|t| { tt.contains(t) })
-                        //     })?;
+                let mut mi = crate::parse::macro_interpreter::MacroVM::default();
 
-                        //     Ok(())
-                        // })?.1
-                        macros::MacroConstructKind::SpecificTokens(_) => unimplemented!()
-                    };
+                let mut ts = Vec::new();
+                for stmt in &m.body {
+                    let toks = mi.exec_stmt(self, &stmt)
+                        .map_err(|e| PE::MacroInvocationError(Box::new(e)))?;
 
-                    tracing::debug!("parsed construct {t:?}: {toks:?}");
-
-                    return Ok(toks.to_vec());
+                    ts.extend(toks);
                 }
 
-                fn parse_macro_expr<'a>(
-                    p: &mut Parser<'a>,
-                    mac_locals: &HashMap<String, Vec<Span>>,
-                    expr: &macros::MacroExpr
-                ) -> Res<Vec<Span>> {
-                    let spans = match expr {
-                        macros::MacroExpr::Parse(c) => {
-                            let x = parse_macro_construct(p, &c)?;
-                            x
-                        },
-                        macros::MacroExpr::Var(v) => {
-                            let Some(toks) = mac_locals.get(v)
-                            else { return Err(PE::NoSuchMacroInput(v.to_owned())) };
+                // slow!
+                let mut subparser = Parser {
+                    current_token: 0,
+                    local_macros: self.local_macros.clone(),
+                    tokens: &ts
+                };
 
-                            toks.to_owned()
-                        },
-                        macros::MacroExpr::Literal(tok) => {
-                            let pos = p.peek()?.destructure().0;
-                            vec![Span::new(pos, tok.to_owned())]
-                        },
-                        macros::MacroExpr::Template(t) => {
-                            let mut spns = Vec::new();
-                            for thing in t {
-                                spns.extend(parse_macro_expr(p, mac_locals, thing)?);
-                            }
-
-                            spns
-                        },
-                        macros::MacroExpr::Peek(c) => {
-                            let mut subparser = p.clone();
-                            let x = parse_macro_construct(&mut subparser, &c)?;
-                            x
-                        }
-                    };
-
-
-                    return Ok(spans)
-                }
-
-                fn run_macro_stmts<'a>(
-                    p: &mut Parser<'a>,
-                    mac_locals: &mut HashMap<String, Vec<Span>>,
-                    v: &[MacroStatement],
-                    output: &mut Vec<Span>
-                ) -> Res<MacroControl>
-                {
-                    fn macro_if<'a>(
-                        p: &mut Parser<'a>, mac_locals: &mut HashMap<String, Vec<Span>>,
-                        cond: &MacroExpr, expected_toks: &MacroExpr, v: &[MacroStatement],
-                        output: &mut Vec<Span>, invert: bool,
-                    ) -> Res<MacroControl>
-                    {
-                        let tokens = parse_macro_expr(p, mac_locals, cond)?;
-                        let expected_toks = parse_macro_expr(p, mac_locals, expected_toks)?;
-                        tracing::debug!("macro testing: {tokens:?} == {expected_toks:?}");
-                        let eq =
-                            if invert { tokens != expected_toks }
-                            else { tokens == expected_toks };
-
-                        if eq {
-                            tracing::debug!("macro if statement succeeded {tokens:?} == {expected_toks:?}");
-                            return run_macro_stmts(p, mac_locals, &v, output);
-                        } else {
-                            tracing::debug!("macro if statement failed: {tokens:?} != {expected_toks:?}");
-                            return Ok(MacroControl::Default)
-                        }  
-                    }
-
-                    for stmt in v {
-                        match stmt {
-                            macros::MacroStatement::Define(var, expr) => {
-                                let spans = parse_macro_expr(p, &mac_locals, &expr)?;
-                                mac_locals.insert(var.to_owned(), spans);
-                            },
-                            macros::MacroStatement::Emit(expr) => {
-                                let spans = parse_macro_expr(p, &mac_locals, &expr)?;
-                                output.extend(spans);
-                            },
-                            macros::MacroStatement::Loop(l) => {
-                                p.expect(tExp!(LBracket))?;
-                                loop {
-                                    if let Token::RBracket = p.peek()?.token() {
-                                        p.next()?;
-                                        break;
-                                    }
-
-                                    let mut out2 = Vec::new();
-                                    if let MacroControl::BreakLoop = run_macro_stmts(p, mac_locals, l, &mut out2)? {
-                                        tracing::debug!("breaking out of loop");
-                                        break;
-                                    }
-
-                                    output.extend(out2);
-                                }
-                            },
-                            MacroStatement::If(cond, expected_toks, v) => {
-                                return macro_if(p, mac_locals, cond, expected_toks, v, output, false);
-                            },
-                            MacroStatement::IfNot(cond, expected_toks, v) => {
-                                return macro_if(p, mac_locals, cond, expected_toks, v, output, true);
-                            },
-                            MacroStatement::Do(expr) => {
-                                parse_macro_expr(p, mac_locals, expr)?;
-                            }
-                            MacroStatement::BreakLoop => return Ok(MacroControl::BreakLoop)
-                        }
-                    };
-
-                    return Ok(MacroControl::Default)
-                }
-
-                let mut output = Vec::new();
-
-                run_macro_stmts(self, &mut mac_locals, &mac.body, &mut output)?;
-
-                let mut p = Parser::new(&output);
-                match p.parse_expr() {
-                    Ok(e) => return Ok(e),
-                    Err(e) => return Err(PE::MacroInvocationError(Box::new(e)))
+                match m.return_type {
+                    MacroTokType::Atom => subparser.parse_atom().map_err(|e| PE::MacroParsingError(Box::new(e))),
+                    MacroTokType::Expr => subparser.parse_expr().map_err(|e| PE::MacroParsingError(Box::new(e))),
+                    _ => return Err(PE::InnapropriateMacroForPlace {
+                        mac: m.to_owned(),
+                        placename: "expression".to_string()
+                    })
                 }
             }
 
@@ -342,10 +215,10 @@ impl<'a> Parser<'a> {
 
     pub fn exp_expr_starter() -> TokenExpectation {
         tComb!(
-            "start of LValue | start of atom | foreign",
+            "start of LValue | start of atom | foreign | dollarsign (macro starter)",
             exp_ident(),
             exp_literal_starter(),
-            tExp!(LParen, LSquirly, Foreign, Macro),
+            tExp!(LParen, LSquirly, Foreign, DollarSign),
         )
     }
 
@@ -419,7 +292,12 @@ impl<'a> Parser<'a> {
     pub fn parse_expr(&mut self) -> Res<Expression> {
         let mut a1 = self.parse_primary()?;
         loop {
-            let span = self.peek()?;  // here
+            let span = self.peek();  // here
+            if let Err(PE::EOF) = span {
+                break;
+            }
+
+            let span = span?;
 
             // parse operations
             if (exp_binary_operation().matches)(span.token()) {

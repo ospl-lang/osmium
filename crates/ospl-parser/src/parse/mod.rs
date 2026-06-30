@@ -1,17 +1,24 @@
 use std::collections::HashMap;
+use tracing::instrument;
 
-use crate::lexer::token::{Span, TokenExpectation};
+use crate::{lexer::token::{Span, TokenExpectation}, parse::{macro_interpreter::MacroValue, macros::Macro}};
 
 #[derive(Debug)]
 pub enum PE {
     Expected(TokenExpected),
     RequiredPrimitiveType,
     UnexpectedEOF,
+    EOF,
     MacroCallWithNoMacrosToCall,
     NoSuchMacro(String),
-    NoSuchMacroInput(String),
-    NoSuchMacroConstruct(String),
-    MacroInvocationError(Box<PE>)
+    NoSuchMacroVariable(String),
+    MacroInvocationError(Box<PE>),
+    MacroParsingError(Box<PE>),
+    UnsupportedMacroOperation(MacroValue, MacroValue),
+    InnapropriateMacroForPlace {
+        mac: Macro,
+        placename: String
+    }
 }
 
 pub type Res<T> = Result<T, PE>;
@@ -22,7 +29,7 @@ pub struct TokenExpected {
     pub got: Span,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Parser<'a> {
     tokens: &'a [Span],
     local_macros: Vec<HashMap<String, macros::Macro>>,
@@ -38,9 +45,11 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[instrument]
     fn expect(&mut self, exp: TokenExpectation) -> Res<Span> {
         let got = self.next()?;
         if (exp.matches)(got.token()) {
+            tracing::trace!("Unexpected token in expect()");
             return Ok(got)
         }
 
@@ -50,9 +59,11 @@ impl<'a> Parser<'a> {
         }))
     }
 
+    #[instrument]
     fn expect_peek(&mut self, exp: TokenExpectation) -> Res<Span> {
         let got = self.peek()?;
         if (exp.matches)(got.token()) {
+            tracing::trace!("Unexpected token in expect_peek()");
             return Ok(got)
         }
 
@@ -62,11 +73,12 @@ impl<'a> Parser<'a> {
         }))
     }
 
+    #[instrument]
     fn next(&mut self) -> Res<Span> {
         let ct = self.current_token;
         let Some(t) = self.tokens.get(ct)
         else {
-            // panic!("unexpected EOF");
+            tracing::trace!("Unexpected EOF in next()");
             return Err(PE::UnexpectedEOF)
         };
 
@@ -75,21 +87,12 @@ impl<'a> Parser<'a> {
         return Ok(t.clone())
     }
 
+    #[instrument]
     fn peek(&self) -> Res<Span> {
         let Some(t) = self.tokens.get(self.current_token)  
         else {
-            // panic!("unexpected EOF in peek()");
-            return Err(PE::UnexpectedEOF)
-        };
-
-        return Ok(t.clone())
-    }
-
-    fn peekn(&self, next_n: usize) -> Res<Span> {
-        let Some(t) = self.tokens.get(self.current_token + next_n)  
-        else {
-            // panic!("unexpected EOF in peek()");
-            return Err(PE::UnexpectedEOF)
+            tracing::trace!("Unexpected EOF in peek()");
+            return Err(PE::EOF)
         };
 
         return Ok(t.clone())
@@ -101,7 +104,8 @@ mod expr;
 mod lit;
 mod cond;
 mod ffi;
-mod macros;
+pub mod macros;
+pub mod macro_interpreter;
 
 pub mod diag;
 

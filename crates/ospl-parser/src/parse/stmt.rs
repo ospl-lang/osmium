@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use ospl_common::ast::{LValue, Statement, Stmt, UType, decl::{AliasDeclaration, Declaration}, ops::AssignOp};
 
-use crate::{lexer::token::{exp_ident, Span, Token, TokenExpectation, exp_keyword}, parse::{Parser, Res, expr::{exp_binary_operation, token_to_binaryop}}, tComb, tExp};
+use crate::{lexer::token::{Span, Token, TokenExpectation, exp_ident, exp_keyword}, parse::{PE, Parser, Res, expr::{exp_binary_operation, token_to_binaryop}}, tComb, tExp};
 
 pub fn exp_stmt_starter() -> TokenExpectation {
     return tComb!("Keyword | lvalue", exp_keyword(), exp_ident())
@@ -102,11 +102,11 @@ impl<'a> Parser<'a> {
                 })
             },
             Token::For => {
-                if let Token::As = self.peekn(1)?.token() {
-                    return self.parse_for_as()
-                } else {
-                    return self.parse_for_loop()
-                }
+                // if let Token::As = self.peekn(1)?.token() {
+                    // return self.parse_for_as()
+                // } else {
+                return self.parse_for_loop()
+                // }
             },
             Token::While => return self.parse_while(),
             Token::Loop => return self.parse_loop(),
@@ -171,7 +171,6 @@ impl<'a> Parser<'a> {
             // `macro` construct
             if *self.peek()?.token() == Token::Macro
             {
-                self.next()?;
                 let (mname, mdef) = self.parse_macro_definition()?;
                 self.expect(tExp!(Semicolon))?;
 
@@ -201,11 +200,12 @@ impl<'a> Parser<'a> {
         let mut stmts = Vec::new();
 
         loop {
-            if self.peek().is_err() {
+            let s = self.parse_stmt();
+            if let Err(PE::EOF) = s {
                 break;
             }
 
-            let s = self.parse_stmt()?;
+            let s = s?;
             stmts.push(s);
 
             self.expect(tExp!(Semicolon))?;
