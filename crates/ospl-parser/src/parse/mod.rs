@@ -7,9 +7,7 @@ use crate::{lexer::token::{Span, TokenExpectation}, parse::{macro_interpreter::M
 pub enum PE {
     Expected(TokenExpected),
     RequiredPrimitiveType,
-    UnexpectedEOF,
     EOF,
-    MacroCallWithNoMacrosToCall,
     NoSuchMacro(String),
     NoSuchMacroVariable(String),
     MacroInvocationError(Box<PE>),
@@ -79,7 +77,7 @@ impl<'a> Parser<'a> {
         let Some(t) = self.tokens.get(ct)
         else {
             tracing::trace!("Unexpected EOF in next()");
-            return Err(PE::UnexpectedEOF)
+            return Err(PE::EOF)
         };
 
         self.current_token += 1;

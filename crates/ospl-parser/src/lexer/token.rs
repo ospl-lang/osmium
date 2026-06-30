@@ -28,6 +28,7 @@ pub enum Token {
     /* macro stuff */
     Macro,
     DollarSign,
+    Backslash,
 
     /* values */
     Nul,
@@ -39,7 +40,7 @@ pub enum Token {
     IntT, FloatT, StrT, BoolT, ListT, AddrT, UnknownT, AnyT,
 
     /* punctuation */
-    Atsign, Comma, Dot, Ellipsis, Colon, Semicolon, Question,
+    Atsign, Comma, Dot, Ellipsis, Colon, Question,
 
     /// `->` symbol
     Arrow,

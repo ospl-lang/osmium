@@ -214,14 +214,13 @@ impl<'a> Parser<'a> {
         let mut current = 0;  // imitate addresses being correct
         loop {
             let (_, token) = self.expect(tComb!(
-                "Ident | RParen | Semicolon",
+                "Ident | RParen",
                 exp_ident(),
-                tExp!(RParen, Semicolon),
+                tExp!(RParen),
             ))?.destructure();
             let name = match token {
                 Token::Ident(i) => i,
                 Token::RParen => break,
-                Token::Semicolon => continue,
                 _ => unreachable!()
             };
 

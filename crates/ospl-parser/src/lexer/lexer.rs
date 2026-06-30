@@ -116,7 +116,6 @@ impl<'a> Lexer<'a> {
             } else { Token::Dot }
 
             '@' => Token::Atsign,
-            ';' => Token::Semicolon,
             ':' => Token::Colon,
 
             '#' => {
@@ -219,6 +218,7 @@ impl<'a> Lexer<'a> {
             },
 
             '$' => Token::DollarSign,
+            '\\' => Token::Backslash,
 
             _ => panic!("Unexpected character: {c}"),
         };

@@ -27,6 +27,7 @@ pub enum MacroExpr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MacroStmt {
+    Debug(MacroExpr),
     Define(MacroIdent, MacroExpr),
     Assign(MacroIdent, MacroExpr),
     Yeild(MacroExpr),
@@ -53,8 +54,8 @@ impl<'a> Parser<'a> {
 
     fn parse_macro_expr_inner(&mut self) -> Res<MacroExpr> {
         let s = self.expect(tComb!(
-            "LBracket | DollarSign | Ident | ListT | Continue | Do | AddressLiteral",
-            tExp!(LBracket, ListT, Continue, DollarSign, Do),
+            "LBracket | Plus | Colon | Ident | ListT | Continue | Do | AddressLiteral | Backslash",
+            tExp!(LBracket, ListT, Continue, Plus, Colon, Do, Backslash),
             exp_addr(),
             exp_ident(),
         ))?;
@@ -96,21 +97,15 @@ impl<'a> Parser<'a> {
             Token::Ident(i) => {
                 return Ok(MacroExpr::Var(MacroIdent(i.to_owned())));
             },
-            Token::DollarSign => {
+            Token::Plus => {
                 let s1 = self.parse_macro_expr()?;
-                let sop = self.expect(tExp!(Plus, Dot))?;
-
-                match sop.token() {
-                    Token::Plus => {
-                        let s2 = self.parse_macro_expr()?;
-                        return Ok(MacroExpr::BinaryAdd(Box::new(s1), Box::new(s2)));
-                    },
-                    Token::Dot => {
-                        let s2 = self.parse_macro_expr()?;
-                        return Ok(MacroExpr::ListGet(Box::new(s1), Box::new(s2)))
-                    },
-                    _ => unreachable!()
-                }
+                let s2 = self.parse_macro_expr()?;
+                return Ok(MacroExpr::BinaryAdd(Box::new(s1), Box::new(s2)));
+            },
+            Token::Colon => {
+                let s1 = self.parse_macro_expr()?;
+                let s2 = self.parse_macro_expr()?;
+                return Ok(MacroExpr::ListGet(Box::new(s1), Box::new(s2)))
             },
             Token::AddressLiteral(l) => {
                 return Ok(MacroExpr::Address(*l))
@@ -119,6 +114,13 @@ impl<'a> Parser<'a> {
                 let blk = self.parse_macro_block()?;
                 return Ok(MacroExpr::Do(blk))
             },
+            
+            // escape tokens
+            Token::Backslash => {
+                let x = self.next()?;
+                return Ok(MacroExpr::LiteralToken(x))
+            },
+
             _ => unimplemented!()
         }
     }
@@ -148,6 +150,14 @@ impl<'a> Parser<'a> {
                 return Ok(MacroStmt::Define(MacroIdent(name), expr))
             },
             Token::Ident(i) => {
+                // check for __DEBUG calls
+                if i.as_str() == "__DEBUG" {
+                    let e = self.parse_macro_expr()?;
+                    println!("macro debug (parse) @ {}: {e:?}", self.current_token);
+                    return Ok(MacroStmt::Debug(e))
+                }
+
+                // normal case
                 self.expect(tExp!(Equals))?;
                 let e = self.parse_macro_expr()?;
                 return Ok(MacroStmt::Assign(MacroIdent(i.to_owned()), e))
@@ -168,7 +178,7 @@ impl<'a> Parser<'a> {
                 let blk = self.parse_macro_block()?;
 
                 return Ok(MacroStmt::For(i, e, blk))
-            }
+            },
             _ => unreachable!()
         }
     }
@@ -183,7 +193,6 @@ impl<'a> Parser<'a> {
             }
 
             contents.push(self.parse_macro_stmt()?);
-            self.expect(tExp!(Semicolon))?;
         }
 
         return Ok(contents)

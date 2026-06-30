@@ -172,8 +172,6 @@ impl<'a> Parser<'a> {
             if *self.peek()?.token() == Token::Macro
             {
                 let (mname, mdef) = self.parse_macro_definition()?;
-                self.expect(tExp!(Semicolon))?;
-
                 let Some(macros) = self.local_macros.last_mut()
                 else { panic!("wtf?"); };
 
@@ -186,8 +184,6 @@ impl<'a> Parser<'a> {
 
             let s = self.parse_stmt()?;
             stmts.push(s);
-
-            self.expect(tExp!(Semicolon))?;
         }
 
         self.local_macros.pop();
@@ -207,8 +203,6 @@ impl<'a> Parser<'a> {
 
             let s = s?;
             stmts.push(s);
-
-            self.expect(tExp!(Semicolon))?;
         }
 
         return Ok(stmts)

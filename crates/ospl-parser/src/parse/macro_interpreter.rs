@@ -1,5 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+use ospl_common::ast::Position;
+
 use crate::{lexer::token::{Span, Token}, parse::{PE, Parser, Res, macros::{MacroExpr, MacroIdent, MacroStmt, MacroTokType}}, tExp};
 
 #[derive(Default, Clone, PartialEq)]
@@ -12,9 +14,9 @@ pub enum MacroValue {
     /// A list of macro-time values
     List(Vec<Rc<RefCell<MacroValue>>>),
 
-    /// A sequence of tokens, the heart of the macro system
-    Tokens(Vec<Span>),
+    Token(Span),
 
+    Nul,
     Address(u64),
 }
 
@@ -74,11 +76,16 @@ impl MacroVM {
                 }
             },
             MacroExpr::Do(things) => {
+                let mut tokens = Vec::new();
                 for thing in things {
-                    self.exec_stmt(p, thing)?;
+                    tokens.extend(self.exec_stmt(p, thing)?);
                 }
 
-                return Ok(Rc::new(RefCell::new(MacroValue::Tokens(vec![]))));
+                let tokens = tokens.into_iter()
+                    .map(|e| Rc::new(RefCell::new(MacroValue::Token(e))))
+                    .collect();
+
+                return Ok(Rc::new(RefCell::new(MacroValue::List(tokens))))
             },
             MacroExpr::ListGet(a, b) => {
                 let aa = self.eval(p, &*a)?;
@@ -97,7 +104,7 @@ impl MacroVM {
                 }
             },
             MacroExpr::LiteralToken(l) => {
-                return Ok(Rc::new(RefCell::new(MacroValue::Tokens(vec![l.to_owned()]))));
+                return Ok(Rc::new(RefCell::new(MacroValue::Token(l.to_owned()))));
             },
             MacroExpr::NewList(l) => {
                 let mut new_l = Vec::new();
@@ -117,21 +124,40 @@ impl MacroVM {
                     MacroTokType::Type => p.parse_with_tokens(Parser::parse_type)?.1,
                 }.to_vec();
 
-                return Ok(Rc::new(RefCell::new(MacroValue::Tokens(x))));
+                let x = x
+                    .into_iter()
+                    .map(|e| Rc::new(RefCell::new(MacroValue::Token(e))))
+                    .collect();
+
+                return Ok(Rc::new(RefCell::new(MacroValue::List(x))));
             },
             MacroExpr::NextToken(_t) => todo!(),
             MacroExpr::Template(t) => {
-                let mut tokens: Vec<Span> = Vec::new();
+                let mut items = Vec::new();
                 for expr in t {
                     let eval = self.eval(p, expr)?;
-                    let eeval = eval.borrow();
-                    let MacroValue::Tokens(eeeval) = &*eeval
-                    else { todo!("PUT AN ERROR HERE") };
-
-                    tokens.extend_from_slice(eeeval);
+                    match &*eval.borrow() {
+                        MacroValue::List(t) => {
+                            items.extend_from_slice(t);
+                        },
+                        MacroValue::Address(a) => items.push(
+                            Rc::new(
+                                RefCell::new(
+                                    MacroValue::Token(
+                                        Span::new(
+                                            Position::default(),
+                                            Token::AddressLiteral(*a)
+                                        )
+                                    )
+                                )
+                            )
+                        ),
+                        MacroValue::Token(_) => items.push(eval.clone()),
+                        other => panic!("not allowed in template: {other:?}")
+                    }
                 }
 
-                return Ok(Rc::new(RefCell::new(MacroValue::Tokens(tokens))));
+                return Ok(Rc::new(RefCell::new(MacroValue::List(items))));
             }
         }
     }
@@ -146,23 +172,22 @@ impl MacroVM {
             MacroStmt::Assign(id, expr) => {
                 let x = self.eval(p, expr)?;
                 if let Some(thing) = self.top_mut().members.get_mut(id) {
-                    *thing = x;
+                    thing.replace(x.borrow().clone());
                 }
             }
             MacroStmt::For(thing, thingys, do_these_things) => {
-                let value = self.eval(p, thingys)?;
-                let rc_value = value.clone();
-
-                let MacroValue::Tokens(ref t) = *value.borrow()
+                let value = self.eval(p, thingys)?.clone();
+                let MacroValue::List(ref t) = *value.borrow()
                 else { todo!("put error here") };
 
-                for _ in t {
+                for v in t {
                     self.stack.push(self.top().clone());
-                    self.top_mut().members.insert(thing.clone(), rc_value.clone());
+                    self.top_mut().members.insert(thing.to_owned(), v.clone());
 
                     for thing in do_these_things {
                         token_stream.extend(self.exec_stmt(p, thing)?);
                     }
+
                     self.stack.pop();
                 }
             },
@@ -184,9 +209,24 @@ impl MacroVM {
             MacroStmt::Yeild(y) => {
                 let x = self.eval(p, y)?;
                 match &*x.borrow() {
-                    MacroValue::Tokens(l) => token_stream.extend(l.clone()),
+                    MacroValue::List(l) => {
+                        let toks: Vec<Span> = l
+                            .iter()
+                            .filter_map(|e| {
+                                if let MacroValue::Token(t) = &*e.borrow() {
+                                    return Some(t.to_owned())
+                                } else { return None }
+                            })
+                            .collect();
+
+                        token_stream.extend(toks);
+                    },
                     _ => todo!("cannot do the thingy - put a real error here")
                 }
+            },
+            MacroStmt::Debug(expr) => {
+                let eval = self.eval(p, expr)?;
+                println!("macro debug (call) for {:?}: {eval:?}", expr);
             }
         }
 
