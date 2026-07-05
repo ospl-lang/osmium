@@ -1,22 +1,11 @@
-use std::collections::HashMap;
 use tracing::instrument;
 
-use crate::{lexer::token::{Span, TokenExpectation}, parse::{macro_interpreter::MacroValue, macros::Macro}};
+use crate::{lexer::token::{Span, Token, TokenExpectation, exp_ident}};
 
 #[derive(Debug)]
 pub enum PE {
     Expected(TokenExpected),
-    RequiredPrimitiveType,
     EOF,
-    NoSuchMacro(String),
-    NoSuchMacroVariable(String),
-    MacroInvocationError(Box<PE>),
-    MacroParsingError(Box<PE>),
-    UnsupportedMacroOperation(MacroValue, MacroValue),
-    InnapropriateMacroForPlace {
-        mac: Macro,
-        placename: String
-    }
 }
 
 pub type Res<T> = Result<T, PE>;
@@ -30,7 +19,6 @@ pub struct TokenExpected {
 #[derive(Clone, Debug)]
 pub struct Parser<'a> {
     tokens: &'a [Span],
-    local_macros: Vec<HashMap<String, macros::Macro>>,
     current_token: usize,
 }
 
@@ -38,7 +26,6 @@ impl<'a> Parser<'a> {
     pub fn new(tokens: &'a [Span]) -> Self {
         return Self {
             tokens,
-            local_macros: Vec::new(),
             current_token: 0,
         }
     }
@@ -95,6 +82,14 @@ impl<'a> Parser<'a> {
 
         return Ok(t.clone())
     }
+
+    pub fn parse_ident(&mut self) -> Res<String> {
+        let id = self.expect(exp_ident())?;
+        let (_, Token::Ident(id)) = id.destructure()
+        else { unreachable!() };
+
+        return Ok(id)
+    }
 }
 
 mod stmt;
@@ -102,8 +97,6 @@ mod expr;
 mod lit;
 mod cond;
 mod ffi;
-pub mod macros;
-pub mod macro_interpreter;
 
 pub mod diag;
 

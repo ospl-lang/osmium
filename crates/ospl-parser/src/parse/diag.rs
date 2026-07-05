@@ -29,9 +29,5 @@ pub fn print_diag(_p: &Parser, e: PE) {
         PE::EOF => {
             println!("end-of-file.")
         },
-        PE::RequiredPrimitiveType => {
-            println!("a primitive type is required.")
-        },
-        other => println!("{other:?}")
     }
 }

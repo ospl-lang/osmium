@@ -9,6 +9,7 @@ pub fn exp_int() -> TokenExpectation {
     }
 }
 
+#[allow(unused)]
 pub fn exp_addr() -> TokenExpectation {
     TokenExpectation {
         matches: Box::new(|t| matches!(t, Token::AddressLiteral(_))),

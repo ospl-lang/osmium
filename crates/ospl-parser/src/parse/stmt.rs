@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use ospl_common::ast::{LValue, Statement, Stmt, UType, decl::{AliasDeclaration, Declaration}, ops::AssignOp};
 
 use crate::{lexer::token::{Span, Token, TokenExpectation, exp_ident, exp_keyword}, parse::{PE, Parser, Res, expr::{exp_binary_operation, token_to_binaryop}}, tComb, tExp};
@@ -160,32 +158,15 @@ impl<'a> Parser<'a> {
         self.expect(tExp!(LSquirly))?;
 
         let mut stmts = Vec::new();
-        self.local_macros.push(HashMap::new());
-
         loop {
             if *self.peek()?.token() == Token::RSquirly {
                 self.next()?;  // consume it
                 break;
             }
 
-            // `macro` construct
-            if *self.peek()?.token() == Token::Macro {
-                let (mname, mdef) = self.parse_macro_definition()?;
-                let Some(macros) = self.local_macros.last_mut()
-                else { panic!("wtf?"); };
-
-                // println!("Registered macro: {mname}");
-
-                macros.insert(mname, mdef);
-
-                continue;
-            }
-
             let s = self.parse_stmt()?;
             stmts.push(s);
         }
-
-        self.local_macros.pop();
 
         return Ok(stmts)
     }
@@ -201,17 +182,7 @@ impl<'a> Parser<'a> {
                 break;
             }
 
-            let peek = peek?;
-
-            if *peek.token() == Token::Macro {
-                let (mname, mdef) = self.parse_macro_definition()?;
-                let Some(macros) = self.local_macros.last_mut()
-                else { panic!("wtf?"); };
-
-                macros.insert(mname, mdef);
-
-                continue;
-            }
+            peek?;
 
             let s = self.parse_stmt();
             if let Err(PE::EOF) = s {
