@@ -178,10 +178,10 @@ impl<'a> Parser<'a> {
 
     pub fn exp_expr_starter() -> TokenExpectation {
         tComb!(
-            "start of LValue | start of atom | foreign | dollarsign (macro starter)",
+            "start of LValue | start of atom | foreign",
             exp_ident(),
             exp_literal_starter(),
-            tExp!(LParen, LSquirly, Foreign, DollarSign),
+            tExp!(LParen, LSquirly, Foreign),
         )
     }
 

@@ -1,4 +1,4 @@
-use ospl_common::{ast::Type, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{AStore, Entry, RStore, Type}, inst::optimized::{Inst, InstBuilder, Opc}};
 
 pub enum Control {
     Default,
@@ -26,17 +26,24 @@ impl Compiler {
                 let _enter = _span.enter();
                 let eval = self.eval(&dcl.rhs, ob)?;
 
-                self.stack.top_mut().declare(dcl.name.to_string(), eval.address, eval.ty);
+                self.stack.top_mut().direct_declare(dcl.name.to_string(), Entry::Runtime(RStore {
+                    address: eval.address,
+                    typ: eval.ty.clone()
+                }));
             },
 
             Stmt::DefineTypeAlias(dcl) => {
                 let t = self.rt(self.stack.top(), &dcl.ty, s)?;
-                self.stack.top_mut().declare_non_addressable(dcl.name.clone(), t);
+                self.stack.top_mut().direct_declare(dcl.name.clone(), Entry::Alias(AStore {
+                    typ: t
+                }));
             },
 
             Stmt::DefineNominalTypeAlias(dcl) => {
                 let t = self.rt(self.stack.top(), &dcl.ty, s)?;
-                self.stack.top_mut().declare_non_addressable(dcl.name.clone(), t);
+                self.stack.top_mut().direct_declare(dcl.name.clone(), Entry::Alias(AStore {
+                    typ: t
+                }));
             }
 
             Stmt::Expr(e) => {

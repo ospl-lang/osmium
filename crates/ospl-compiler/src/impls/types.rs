@@ -6,7 +6,7 @@ impl Compiler {
     pub fn rt(&self, scope: &Scope<Type>, ty: &UType, span: &dyn Spannable) -> Res<Type> {
         match ty {
             UType::Typeof(name) => {
-                let Some((_, t)) = scope.get_combined_with_nonaddressable(name)
+                let Some(t) = scope.get_entry_type(name)
                 else { return Err(CE {
                     at: span.spanned(),
                     during: "Type resolution - TypeOfVar",
@@ -54,7 +54,7 @@ impl Compiler {
                 let br = self.rt(scope, &b, span)?;
                 match br {
                     Type::Scope(s) => {
-                        let Some(bv) = s.get_inner().get(p)
+                        let Some(bv) = s.get_entry_type(p)
                         else { return Err(CE {
                             at: span.spanned(),
                             during: "Type resolution - Property",
@@ -64,7 +64,7 @@ impl Compiler {
 
                         tracing::debug!("getting type property: {bv:?}");
 
-                        return Ok(bv.get_type().clone())
+                        return Ok(bv.clone())
                     },
                     _ => return Err(CE {
                         at: span.spanned(),
@@ -99,9 +99,10 @@ impl Compiler {
             UType::Scope(s) => {
                 let mut s2: Scope<Type> = Scope::default();
                 for (key, value) in s.get_inner() {
-                    let t = value.get_type();
-                    let t = self.rt(scope, t, span)?;
-                    s2.direct_declare(key.clone(), value.get_address(), t);
+                    let ent = value.clone().map_type_into_resultant(|e| {
+                        self.rt(scope, &e, span)
+                    })?;
+                    s2.direct_declare(key.clone(), ent);
                 };
                 return Ok(Type::Scope(s2))
             },
@@ -149,10 +150,10 @@ impl Compiler {
             },
             Type::Scope(s) => {
                 let mut s2 = Scope::default();
-                for (name, stor) in s.into_inner() {
-                    let address = stor.get_address();
-                    let ty = self.nominal_application(stor.into_type(), replacements, span)?;
-                    s2.direct_declare(name, address, ty);
+                for (name, ent) in s.into_inner() {
+                    s2.direct_declare(name, ent.map_type_into_resultant(|ent| {
+                        self.nominal_application(ent, replacements, span)
+                    })?);
                 }
 
                 return Ok(Type::Scope(s2))

@@ -1,4 +1,4 @@
-use ospl_common::{ast::{Expression, FunctionType, Scope, spanning::Spannable}, inst::{make, optimized::{Inst, InstBuilder, Opc}}};
+use ospl_common::{ast::{Entry, Expression, FunctionType, RStore, Scope, spanning::Spannable}, inst::{make, optimized::{Inst, InstBuilder, Opc}}};
 
 use crate::{CE, CEData, Compiler, EvalResult, Res, Type, ast::FunctionValue, impls::stmt::Control};
 
@@ -15,41 +15,43 @@ impl Compiler {
         // add the captures
         let mut capture_indexes = Vec::new();
         for capture in &func.captures {
-            let (u, t) = {
-                let scope = 
-                    self.stack.scopes.last()
-                        .ok_or_else(|| CE {
-                            at: span.spanned(),
-                            msg: None,
-                            during: "capture handling",
-                            error: CEData::NoScopeToCapture,
-                        })?;
-
-                let x = scope.get_combined_with_nonaddressable(&capture);
-                match x {
-                    // capture nonaddressables
-                    Some((None, ty)) => {
-                        new_scope.declare_non_addressable(capture.clone(), ty.clone());
-                        continue;
-                    },
-
-                    Some((Some(x), ty)) => (x, ty.clone()),
-
-                    _ => return Err(CE {
+            let scope = 
+                self.stack.scopes.last()
+                    .ok_or_else(|| CE {
                         at: span.spanned(),
-                        msg: Some("perhaps you meant to chain the capture across multiple scopes?"),
+                        msg: None,
                         during: "capture handling",
-                        error: CEData::NotFoundInScope {
-                            needed: capture.clone(),
-                            scope: scope.clone()
-                        }
-                    }),
-                }
-            };
+                        error: CEData::NoScopeToCapture,
+                    })?;
 
-            let variable = new_scope.next_post();
-            new_scope.declare(capture.clone(), variable, t);
-            capture_indexes.push(u);
+            let x = scope.get_entry(&capture);
+            match x {
+                // capture nonaddressables
+                Some(a @ Entry::Alias(_)) => {
+                    new_scope.direct_declare(capture.clone(), a.clone());
+                    continue;
+                },
+
+                Some(Entry::Runtime(rr)) => {
+                    let variable = new_scope.next_post();
+                    new_scope.direct_declare(capture.clone(), Entry::Runtime(RStore {
+                        address: variable,
+                        typ: rr.typ.clone()
+                    }));
+                    capture_indexes.push(rr.address);
+                    continue;
+                }
+
+                _ => return Err(CE {
+                    at: span.spanned(),
+                    msg: Some("perhaps you meant to chain the capture across multiple scopes?"),
+                    during: "capture handling",
+                    error: CEData::NotFoundInScope {
+                        needed: capture.clone(),
+                        scope: scope.clone()
+                    }
+                }),
+            }
         }
 
         // add the args
@@ -60,7 +62,10 @@ impl Compiler {
 
             let t = self.rt(&new_scope, ty, span)?;
 
-            new_scope.declare(arg.name.clone(), variable, t.clone());
+            new_scope.direct_declare(arg.name.clone(), Entry::Runtime(RStore {
+                address: variable,
+                typ: t.clone(),
+            }));
             arg_types.push(t);
         }
 
