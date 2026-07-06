@@ -12,7 +12,7 @@ impl Compiler {
     {
         match &*expr.inner {
             Expr::Literal(l) => self.literal(l, expr, ob),
-            Expr::Call(func, args) => self.do_call(func, args, ob),
+            Expr::Call(func, args) => self.do_fn_call(func, args, ob),
             Expr::BinaryOp(b) => self.binary_op(b, ob),
             Expr::UnaryOp(u) => self.unary_op(u, ob, expr),
             Expr::LValue(lv) => {

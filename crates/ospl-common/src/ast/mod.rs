@@ -357,3 +357,4 @@ pub mod ops;
 pub mod spanning;
 pub mod decl;
 mod types;
+pub mod macros;

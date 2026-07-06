@@ -127,7 +127,7 @@ impl Compiler {
         })
     }
 
-    pub fn do_call(
+    pub fn do_fn_call(
         &mut self,
         call_func: &Expression,
         args: &[Expression],

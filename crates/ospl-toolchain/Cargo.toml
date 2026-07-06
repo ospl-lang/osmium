@@ -3,6 +3,10 @@ name = "ospl-toolchain"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "ospt"
+path = "src/main.rs"
+
 [dependencies]
 ospl-parser = { path = "../ospl-parser" }
 ospl-compiler = { path = "../ospl-compiler" }
