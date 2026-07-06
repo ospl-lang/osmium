@@ -9,6 +9,14 @@ pub fn exp_int() -> TokenExpectation {
     }
 }
 
+#[allow(unused)]
+pub fn exp_addr() -> TokenExpectation {
+    TokenExpectation {
+        matches: Box::new(|t| matches!(t, Token::AddressLiteral(_))),
+        label: "AddressLiteral"
+    }
+}
+
 impl<'a> Parser<'a> {
     pub fn parse_foreign_expr(&mut self) -> Res<Expression> {
         self.expect(tExp!(Foreign))?;

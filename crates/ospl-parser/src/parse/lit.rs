@@ -1,4 +1,4 @@
-use ospl_common::ast::{ArgNaming, FunctionType, FunctionValue, Scope, Type, UType};
+use ospl_common::ast::{ArgNaming, FunctionType, FunctionValue, Type, UType};
 use crate::{lexer::token::{exp_ident, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
 
 impl<'a> Parser<'a> {
@@ -164,8 +164,11 @@ impl<'a> Parser<'a> {
                 self.next()?;
                 UType::Resolved(Type::Unknown)
             },
+            Token::Scope => {
+                self.next()?;
+                UType::InferScope
+            }
 
-            Token::Scope => self.parse_scope_type()?,
             other => unreachable!("{other:?}")
         });
     }
@@ -200,40 +203,6 @@ impl<'a> Parser<'a> {
         }
 
         return Ok(working_type)
-    }
-
-    pub fn parse_scope_type(&mut self) -> Res<UType> {
-        self.expect(tExp!(Scope))?;
-
-        if *self.peek()?.token() != Token::LParen {
-            return Ok(UType::InferScope)
-        }
-
-        self.expect(tExp!(LParen))?;
-        let mut scope: Scope<UType> = Scope::default();
-        let mut current = 0;  // imitate addresses being correct
-        loop {
-            let (_, token) = self.expect(tComb!(
-                "Ident | RParen | Semicolon",
-                exp_ident(),
-                tExp!(RParen, Semicolon),
-            ))?.destructure();
-            let name = match token {
-                Token::Ident(i) => i,
-                Token::RParen => break,
-                Token::Semicolon => continue,
-                _ => unreachable!()
-            };
-
-            self.expect(tExp!(Colon))?;
-
-            let ty = self.parse_type()?;
-            scope.declare(name, current, ty);
-
-            current += 1;
-        }  // NOTE: we consumed RParen in the loop
-
-        return Ok(UType::Scope(scope))
     }
 }
 

@@ -1,4 +1,4 @@
-use ospl_common::{ast::ops::{AssignOp, BinaryOp, BinaryOpType}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{Type, ops::{AssignOp, BinaryOp, BinaryOpType}}, inst::optimized::{Inst, InstBuilder, Opc}};
 
 use crate::{CE, CEData, Compiler, EvalResult, Res};
 
@@ -13,23 +13,42 @@ impl Compiler {
         let right = self.eval(&b.right, ob)?;
 
         // don't do the type checking for the question mark operator
-        match b.kind {
-            BinaryOpType::Question => {},
-
-            // normal typecheck
-            _ => {
-                if left.ty != right.ty {
-                    return Err(CE {
-                        at: Box::new(b.left.clone()),
-                        msg: Some("Perhaps you meant to cast one type?"),
-                        during: "binary operation - type check",
-                        error: CEData::MismatchedTypes {
-                            expected: crate::TypeExpectation::Exact(left.ty),
-                            got: right.ty
-                        }
-                    })
+        match (&left.ty, &right.ty, &b.kind) {
+            // question operator bypasses type equality rules
+            (_, _, BinaryOpType::Question) => {}
+            (Type::Function(_), Type::Function(f2), BinaryOpType::Add) => {
+                if f2.args.len() != 0 || f2.ret != Type::Nul {
+                    todo!("ERROR")
                 }
             }
+
+            // numeric ops: only same-type allowed
+            (Type::Int, Type::Int, op) if op.supports_numerical() => {}
+            (Type::Address, Type::Address, op) if op.supports_numerical() => {}
+            (Type::Float, Type::Float, op) if op.supports_numerical() => {}
+
+            // simple exact matches for non-numeric ops
+            (Type::Bool, Type::Bool, BinaryOpType::Equals) => {}
+            (Type::Bool, Type::Bool, BinaryOpType::NotEquals) => {}
+
+            (Type::Str, Type::Str, BinaryOpType::Add) => {}
+            (Type::Str, Type::Str, BinaryOpType::Equals) => {}
+            (Type::Str, Type::Str, BinaryOpType::NotEquals) => {}
+
+            // fallback mismatch
+            (lty, rty, _) if lty != rty => {
+                return Err(CE {
+                    at: Box::new(b.left.clone()),
+                    msg: Some("Refer to The Absolute Guide to OSPL, or ospl-compiler/src/impls/binaryop.rs, for valid operations"),
+                    during: "binary operation - type check",
+                    error: CEData::MismatchedTypes {
+                        expected: crate::TypeExpectation::Exact(left.ty.clone()),
+                        got: right.ty.clone(),
+                    }
+                });
+            }
+
+            _ => {}
         }
 
         let opc = match b.kind {

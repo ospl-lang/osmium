@@ -12,7 +12,7 @@ impl Compiler {
     {
         match &*expr.inner {
             Expr::Literal(l) => self.literal(l, expr, ob),
-            Expr::Call(func, args) => self.do_call(func, args, ob),
+            Expr::Call(func, args) => self.do_fn_call(func, args, ob),
             Expr::BinaryOp(b) => self.binary_op(b, ob),
             Expr::UnaryOp(u) => self.unary_op(u, ob, expr),
             Expr::LValue(lv) => {
@@ -235,7 +235,7 @@ impl Compiler {
                 let eval = self.get_lvalue(lv2, ob)?;
                 let x = match eval.ty {
                     Type::Scope(s) => {
-                        let v = s.get_combined(var)
+                        let v = s.get_runtime(var)
                             // not found in that scope
                             .ok_or_else(|| CE {
                                 at: Box::new(lv2.clone()),
@@ -247,7 +247,11 @@ impl Compiler {
                                 }
                             })?;
 
-                        let x = EvalResult::from(v);
+                        let x = EvalResult {
+                            address: v.get_address(),
+                            ty: v.get_type().clone()
+                        };
+
                         x
                     },
                     t @ (Type::List(_) | Type::Str) => {
@@ -304,7 +308,7 @@ impl Compiler {
 
             // FIXME unwrap
             LV::Variable(var) => {
-                let v = self.stack.top().get_combined(var)
+                let v = self.stack.top().get_runtime(var)
                     .ok_or_else(|| CE {
                         at: Box::new(lv.clone()),
                         msg: Some("Did you type the wrong variable name"),
@@ -315,7 +319,10 @@ impl Compiler {
                         }
                     })?;
 
-                let x = EvalResult::from(v);
+                let x = EvalResult {
+                    address: v.get_address(),
+                    ty: v.get_type().clone()
+                };
                 return Ok(x)
             },
         }

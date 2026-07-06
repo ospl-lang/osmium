@@ -94,9 +94,14 @@ fn main() {
         },
         Cmd::Exec { at } => cmd_exec(at),
         Cmd::ScratchRun => {
-            let pb = PathBuf::from(BUILD_FILE);
-            cmd_build(pb.clone());
-            cmd_exec(pb);
+            // build
+            let bf = PathBuf::from(BUILD_FILE);
+            cmd_build(bf.clone());
+
+            // cd into the build folder
+            let pb2 = PathBuf::from(BUILD_FOLDER);
+            std::env::set_current_dir(pb2).expect("failed to cd into the build folder");
+            cmd_exec(PathBuf::from("dist.ospb"));
         },
         Cmd::New { name, kind } => {
             init::cmd_new(name, kind.to_string());

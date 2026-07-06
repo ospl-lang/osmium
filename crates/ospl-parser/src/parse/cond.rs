@@ -40,8 +40,7 @@ impl<'a> Parser<'a> {
         self.expect(tExp!(As))?;
 
         // id
-        let (_, Token::Ident(id)) = self.expect(exp_ident())?.destructure()
-        else { unreachable!() };
+        let id = self.parse_ident()?;
 
         self.expect(tExp!(Equals))?;
 

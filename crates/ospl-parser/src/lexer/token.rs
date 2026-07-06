@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use ospl_common::ast::Position;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -26,6 +28,7 @@ pub enum Token {
     /* macro stuff */
     Macro,
     DollarSign,
+    Backslash,
 
     /* values */
     Nul,
@@ -37,7 +40,7 @@ pub enum Token {
     IntT, FloatT, StrT, BoolT, ListT, AddrT, UnknownT, AnyT,
 
     /* punctuation */
-    Atsign, Comma, Dot, Ellipsis, Colon, Semicolon, Question,
+    Atsign, Comma, Dot, Ellipsis, Colon, Question,
 
     /// `->` symbol
     Arrow,
@@ -106,11 +109,17 @@ pub struct TokenExpectation {
     pub label: &'static str,
 }
 
+impl Debug for TokenExpectation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        return write!(f, "{}", self.label)
+    }
+}
+
 #[macro_export] macro_rules! tExp {
     ($($variant:ident),+ $(,)?) => {{
-        fn matches(t: &Token) -> bool {
+        fn matches(t: &$crate::lexer::token::Token) -> bool {
             matches!(t, $(
-                Token::$variant
+                $crate::lexer::token::Token::$variant
             )|+)
         }
 

@@ -14,7 +14,7 @@ pub struct AssignOp {
     pub kind: BinaryOpType
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum BinaryOpType {
     /* mathematical */
     Add,
@@ -33,6 +33,12 @@ pub enum BinaryOpType {
     Question,
 
     /* logical */
+}
+
+impl BinaryOpType {
+    pub fn supports_numerical(&self) -> bool {
+        *self != Self::Question
+    }
 }
 
 #[derive(Debug, Clone)]

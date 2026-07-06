@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use crate::{BUILD_FOLDER, graph::{build::{CxxNode, Graph, ModuleNode, ModuleNodeMeta, Requirement}, resolv0::{RModRef, PkgRef}, resolv1::HighGraph}};
+use crate::{graph::{build::{CxxNode, Graph, ModuleNode, ModuleNodeMeta, Requirement}, resolv0::{RModRef, PkgRef}, resolv1::HighGraph}};
 
 pub fn lower(high: HighGraph) -> Graph {
     let mut modules: HashMap<u32, ModuleNode> = HashMap::new();
@@ -38,7 +38,8 @@ pub fn lower(high: HighGraph) -> Graph {
         for (name, cxx) in &high_mod.extensions {
             let hsh = crate::util::hash_file(&cxx.file).expect("failed to get hash for CXX Extension");
 
-            let mut so_file = PathBuf::from(BUILD_FOLDER);
+            // let mut so_file = PathBuf::from(BUILD_FOLDER);
+            let mut so_file = PathBuf::from(".");
             so_file.push(hsh.to_hex().to_string());
 
             cxx_deps.push(CxxNode {

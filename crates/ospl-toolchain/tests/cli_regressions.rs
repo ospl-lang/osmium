@@ -6,7 +6,7 @@ use std::{
 };
 
 fn bin() -> &'static str {
-    env!("CARGO_BIN_EXE_ospl-toolchain")
+    env!("CARGO_BIN_EXE_ospt")
 }
 
 fn temp_dir(name: &str) -> PathBuf {
@@ -24,7 +24,7 @@ fn run(args: &[&str], cwd: &Path) -> std::process::Output {
         .args(args)
         .current_dir(cwd)
         .output()
-        .expect("failed to run ospl-toolchain")
+        .expect("failed to run ospt")
 }
 
 fn write_binary_package(dir: &Path, source: &str) {

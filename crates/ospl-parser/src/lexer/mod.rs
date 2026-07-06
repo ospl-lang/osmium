@@ -8,7 +8,7 @@ mod tests {
 
     #[test]
     fn lex_def() {
-        let mut l = Lexer::new("def x = 10;");
+        let mut l = Lexer::new("def x = 10");
         let spans = l.all_tokens();
         let mut toks = Vec::new();
         for span in spans {
@@ -22,7 +22,6 @@ mod tests {
                 Token::Ident("x".to_string()),
                 Token::Equals,
                 Token::Integer(10),
-                Token::Semicolon,
             ]
         );
     }

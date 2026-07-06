@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::HashMap, fmt::{Debug, Display}, hash::{Hash, Hasher}};
+use std::{collections::HashMap, fmt::{Debug, Display}, hash::{Hash, Hasher}};
 use crate::ast::{decl::{AliasDeclaration, Declaration}, ops::AssignOp};
 
 pub use types::*;
@@ -163,9 +163,60 @@ impl<T: Debug> Display for FunctionType<T> {
 /// A single block of variables.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Scope<T> {
-    map: HashMap<String, Store<T>>,
+    map: HashMap<String, Entry<T>>,
 
     next_id: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Entry<T> {
+    Runtime(RStore<T>),
+    Alias(AStore<T>),
+}
+
+impl<T> Entry<T> {
+    pub fn get_type(&self) -> Option<&T> {
+        let t = match self {
+            Entry::Alias(a) => &a.typ,
+            Entry::Runtime(rt) => &rt.typ,
+            // _ => return None
+        };
+
+        Some(t)
+    }
+
+    pub fn map_type_into<I>(self, f: impl Fn(T) -> I) -> Entry<I> {
+        return match self {
+            Self::Alias(a) => Entry::Alias(AStore {
+                typ: f(a.typ)
+            }),
+            Self::Runtime(r) => Entry::Runtime(RStore {
+                address: r.address,
+                typ: f(r.typ)
+            })
+        }
+    }
+
+    pub fn map_type_into_resultant<I, E>(self, f: impl Fn(T) -> Result<I, E>) -> Result<Entry<I>, E> {
+        return Ok(match self {
+            Self::Alias(a) => Entry::Alias(AStore {
+                typ: f(a.typ)?
+            }),
+            Self::Runtime(r) => Entry::Runtime(RStore {
+                address: r.address,
+                typ: f(r.typ)?
+            })
+        })
+    }
+}
+
+impl<T: Hash> Hash for Entry<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Self::Runtime(r) => r.hash(state),
+            Self::Alias(a) => a.hash(state),
+        }
+    }
 }
 
 impl<T: Hash> Hash for Scope<T> {
@@ -193,38 +244,19 @@ impl<T> Default for Scope<T> {
     }
 }
 
-impl<T: PartialEq + Eq> PartialOrd for Scope<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self.map == other.map {
-            return Some(Ordering::Equal)
-        }
-
-        // do we at least contain the same values
-        let mut greater = true;
-        for (ak, at) in &other.map {
-            if self.map.contains_key(ak) {
-                if self.map[ak].get_type() == at.get_type() {
-                    continue;  // live to see another day
-                } else { greater = false }
-            } else { greater = false }
-        }
-
-        if greater {
-            return Some(Ordering::Greater)
-        }
-
-        return Some(Ordering::Less)
-    }
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct RStore<T> {
+    pub address: usize,
+    pub typ: T,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Store<T> {
-    address: Option<usize>,
-    typ: T,
+pub struct AStore<T> {
+    pub typ: T,
 }
 
-impl<T> Store<T> {
-    pub fn get_address(&self) -> Option<usize> {
+impl<T> RStore<T> {
+    pub fn get_address(&self) -> usize {
         return self.address
     }
 
@@ -238,18 +270,8 @@ impl<T> Store<T> {
 }
 
 impl<T: Clone> Scope<T> {
-    pub fn declare(&mut self, key: String, address: usize, ty: T) {
-        self.map.insert(key, Store {
-            address: Some(address),
-            typ: ty
-        });
-    }
-
-    pub fn direct_declare(&mut self, key: String, address: Option<usize>, ty: T) {
-        self.map.insert(key, Store {
-            address: address,
-            typ: ty
-        });
+    pub fn direct_declare(&mut self, key: String, e: Entry<T>) {
+        self.map.insert(key, e);
     }
 
     pub fn jump(&mut self, to: usize) {
@@ -258,13 +280,6 @@ impl<T: Clone> Scope<T> {
 
     pub fn tell(&self) -> usize {
         return self.next_id;
-    }
-
-    pub fn declare_non_addressable(&mut self, key: String, ty: T) {
-        self.map.insert(key, Store {
-            address: None,
-            typ: ty
-        });
     }
 
     pub fn delete(&mut self, k: &str) {
@@ -280,27 +295,36 @@ impl<T: Clone> Scope<T> {
 
     /// This function may be removed in the future! DO NOT USE unless you
     /// REALLY NEED IT
-    pub fn get_inner(&self) -> &HashMap<String, Store<T>> {
+    pub fn get_inner(&self) -> &HashMap<String, Entry<T>> {
         return &self.map
     }
 
-    pub fn into_inner(self) -> HashMap<String, Store<T>> {
+    /// Gets a runtime value
+    pub fn get_runtime(&self, t: &str) -> Option<&RStore<T>> {
+        return match self.get_inner().get(t)? {
+            Entry::Runtime(r) => Some(r),
+            _ => None
+        }
+    }
+
+    /// Gets an alias
+    pub fn get_alias(&self, t: &str) -> Option<&AStore<T>> {
+        return match self.get_inner().get(t)? {
+            Entry::Alias(a) => Some(a),
+            _ => None
+        }
+    }
+
+    pub fn get_entry(&self, t: &str) -> Option<&Entry<T>> {
+        return self.get_inner().get(t);
+    }
+
+    pub fn get_entry_type(&self, t: &str) -> Option<&T> {
+        return self.get_inner().get(t)?.get_type();
+    }
+
+    pub fn into_inner(self) -> HashMap<String, Entry<T>> {
         return self.map
-    }
-
-    pub fn get_combined(&self, k: &str) -> Option<(usize, &T)> {
-        let x = self.map.get(k)?;
-        return Some((x.address?, &x.typ))
-    }
-
-    pub fn get_combined_copy(&self, k: &str) -> Option<(usize, T)> {
-        let x = self.map.get(k)?;
-        return Some((x.address?, x.typ.clone()))
-    }
-
-    pub fn get_combined_with_nonaddressable(&self, k: &str) -> Option<(Option<usize>, &T)> {
-        let x = self.map.get(k)?;
-        return Some((x.address, &x.typ))
     }
 
     pub fn next_post(&mut self) -> usize {
@@ -333,3 +357,4 @@ pub mod ops;
 pub mod spanning;
 pub mod decl;
 mod types;
+pub mod macros;

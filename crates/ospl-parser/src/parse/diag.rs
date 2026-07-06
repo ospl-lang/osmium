@@ -26,12 +26,8 @@ pub fn print_diag(_p: &Parser, e: PE) {
                 // reconstruction_tx
             );
         },
-        PE::UnexpectedEOF => {
-            println!("unexpected end-of-file.")
+        PE::EOF => {
+            println!("end-of-file.")
         },
-        PE::RequiredPrimitiveType => {
-            println!("a primitive type is required.")
-        },
-        other => println!("{other:?}")
     }
 }
