@@ -1,7 +1,7 @@
 {
     "name": "ospl-textmate",
     "displayName": "OSPL grammars",
-    "description": "Provide TextMate grammars for OSPL",
+    "description": "Provide TextMate grammars and LSP for OSPL",
     "version": "0.0.1",
     "publisher": "ospl",
     "scripts": {
@@ -40,6 +40,16 @@
                 "label": "OSPL",
                 "uiTheme": "vs-dark",
                 "path": "./themes/ospl-color-theme.json"
+            }
+        ],
+        "commands": [
+            {
+                "command": "ospl.stopLsp",
+                "title": "ospl: stop lsp"
+            },
+            {
+                "command": "ospl.startLsp",
+                "title": "ospl: start lsp"
             }
         ]
     },

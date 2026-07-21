@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use ospl_common::ast::{LValue, Statement, Stmt, UType, decl::{AliasDeclaration, Declaration}, ops::AssignOp};
 
 use crate::{lexer::token::{Span, Token, TokenExpectation, exp_ident, exp_keyword}, parse::{PE, Parser, Res, expr::{exp_binary_operation, token_to_binaryop}}, tComb, tExp};
@@ -30,6 +32,7 @@ impl<'a> Parser<'a> {
                         let rvalue = self.parse_expr()?;
 
                         return Ok(Statement {
+                            file: Arc::clone(&self.filename),
                             inner: Box::new(Stmt::Define(Declaration {
                                 name: id,
                                 rhs: rvalue,
@@ -42,6 +45,7 @@ impl<'a> Parser<'a> {
                         let rvalue = self.parse_type()?;
 
                         return Ok(Statement {
+                            file: Arc::clone(&self.filename),
                             inner: Box::new(Stmt::DefineTypeAlias(AliasDeclaration {
                                 name: id,
                                 ty: rvalue,
@@ -65,6 +69,7 @@ impl<'a> Parser<'a> {
                 let typ = self.parse_type()?;
 
                 return Ok(Statement {
+                    file: Arc::clone(&self.filename),
                     at: *t.position(),
                     inner: Box::new(Stmt::DefineNominalTypeAlias(AliasDeclaration {
                         name: id,
@@ -79,6 +84,7 @@ impl<'a> Parser<'a> {
                 if *self.peek()?.token() == Token::Scope {
                     self.next()?;
                     return Ok(Statement {
+                        file: Arc::clone(&self.filename),
                         inner: Box::new(Stmt::ReturnScope),
                         at: *t.position(),
                         notes
@@ -87,6 +93,7 @@ impl<'a> Parser<'a> {
 
                 else {
                     return Ok(Statement {
+                        file: Arc::clone(&self.filename),
                         at: *t.position(),
                         inner: Box::new(Stmt::Return(self.parse_expr()?)),
                         notes
@@ -97,6 +104,7 @@ impl<'a> Parser<'a> {
                 self.next()?;  // consume `t`
 
                 return Ok(Statement {
+                    file: Arc::clone(&self.filename),
                     at: *t.position(),
                     inner: Box::new(Stmt::Break),
                     notes
@@ -106,6 +114,7 @@ impl<'a> Parser<'a> {
                 self.next()?;  // consume `t`
 
                 return Ok(Statement {
+                    file: Arc::clone(&self.filename),
                     at: *t.position(),
                     inner: Box::new(Stmt::Continue),
                     notes
@@ -127,6 +136,7 @@ impl<'a> Parser<'a> {
                 let expr = self.parse_expr()?;
                 return Ok(Statement {
                     at: *t.position(),
+                    file: Arc::clone(&self.filename),
                     inner: Box::new(Stmt::Expr(expr)),
                     notes
                 })
@@ -146,6 +156,7 @@ impl<'a> Parser<'a> {
                 let right = self.parse_expr()?;
 
                 return Ok(Statement {
+                    file: Arc::clone(&self.filename),
                     at: lv.at,
                     inner: Box::new(Stmt::Assign(lv, right)),
                     notes
@@ -159,6 +170,7 @@ impl<'a> Parser<'a> {
         let rhs = self.parse_expr()?;
 
         return Ok(Statement {
+            file: Arc::clone(&self.filename),
             at: lv.at,
             inner: Box::new(Stmt::AssignOp(AssignOp {
                 kind: token_to_binaryop(&op.token()),

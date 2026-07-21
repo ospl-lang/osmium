@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use ospl_common::ast::{Expr, Expression, LV, LValue, Statement, Stmt, decl::Declaration, ops::{BinaryOp, BinaryOpType, UnaryOp, UnaryOpType}};
 
 use crate::{lexer::token::{exp_ident, Token}, parse::{Parser, Res}, tExp};
@@ -21,6 +23,7 @@ impl<'a> Parser<'a> {
                 yes,
                 no
             )),
+            file: Arc::clone(&self.filename),
             notes: String::new(),
         })
     }
@@ -32,6 +35,7 @@ impl<'a> Parser<'a> {
             at: *start.position(),
             inner: Box::new(Stmt::Loop(x)),
             notes: String::new(),
+            file: Arc::clone(&self.filename),
         })
     }
 
@@ -73,6 +77,7 @@ impl<'a> Parser<'a> {
                     name: id.clone(),
                     rhs: expr2,
                 })),
+                file: Arc::clone(&self.filename),
                 notes: String::new(),
             },
             Statement {
@@ -82,16 +87,20 @@ impl<'a> Parser<'a> {
                         at: *thing.position(),
                         inner: Box::new(Expr::UnaryOp(UnaryOp {
                             expr: Expression {
+                                file: Arc::clone(&self.filename),
                                 at: *thing.position(),
                                 inner: Box::new(Expr::LValue(LValue {
                                     at: *thing.position(),
-                                    inner: Box::new(LV::Variable(id.clone()))
-                                }))     
+                                    inner: Box::new(LV::Variable(id.clone())),
+                                    file: Arc::clone(&self.filename),
+                                }))
                             },
                             kind: UnaryOpType::LogicNot
-                        }))
+                        })),
+                        file: Arc::clone(&self.filename),
                     },
                     vec![Statement {
+                        file: Arc::clone(&self.filename),
                         at: *thing.position(),
                         inner: Box::new(Stmt::Break),
                         notes: String::new(),
@@ -99,6 +108,7 @@ impl<'a> Parser<'a> {
                     vec![]
                 )),
                 notes: String::new(),
+                file: Arc::clone(&self.filename),
             },
         ];
         body.extend_from_slice(&user_body);
@@ -111,11 +121,13 @@ impl<'a> Parser<'a> {
                     rhs: expr1
                 })),
                 notes: String::new(),
+                file: Arc::clone(&self.filename),
             },
             Statement {
                 at: *thing.position(),
                 inner: Box::new(Stmt::Loop(body)),
                 notes: String::new(),
+                file: Arc::clone(&self.filename),
             }
         ];
         
@@ -124,12 +136,14 @@ impl<'a> Parser<'a> {
             inner: Box::new(Stmt::If(
                 Expression {
                     at: *thing.position(),
-                    inner: Box::new(Expr::Literal(ospl_common::ast::Literal::Bool(true)))
+                    inner: Box::new(Expr::Literal(ospl_common::ast::Literal::Bool(true))),
+                    file: Arc::clone(&self.filename),
                 },
                 code,
                 vec![]  // unreachable
             )),
             notes: String::new(),
+            file: Arc::clone(&self.filename),
         })
     }
 
@@ -154,6 +168,7 @@ impl<'a> Parser<'a> {
                     rhs: expr
                 })),
                 notes: String::new(),
+                file: Arc::clone(&self.filename),
             },
             Statement {
                 at: *thing.position(),
@@ -166,25 +181,31 @@ impl<'a> Parser<'a> {
                                 at: *thing.position(),
                                 inner: Box::new(Expr::LValue(LValue {
                                     at: *thing.position(),
-                                    inner: Box::new(LV::Variable(id.clone()))
-                                }))
+                                    inner: Box::new(LV::Variable(id.clone())),
+                                    file: Arc::clone(&self.filename),
+                                })),
+                                file: Arc::clone(&self.filename),
                             },
                             right: Expression {
                                 at: *thing.position(),
-                                inner: Box::new(Expr::Literal(ospl_common::ast::Literal::Undefined))
+                                inner: Box::new(Expr::Literal(ospl_common::ast::Literal::Undefined)),
+                                file: Arc::clone(&self.filename),
                             }
-                        }))
+                        })),
+                        file: Arc::clone(&self.filename),
                     },
                     vec![
                         Statement {
                             at: *thing.position(),
                             inner: Box::new(Stmt::Break),
                             notes: String::new(),
+                            file: Arc::clone(&self.filename),
                         }
                     ],
                     vec![]
                 )),
                 notes: String::new(),
+                file: Arc::clone(&self.filename),
             }
         ];
 
@@ -194,6 +215,7 @@ impl<'a> Parser<'a> {
             at: *thing.position(),
             inner: Box::new(Stmt::Loop(body)),
             notes: String::new(),
+            file: Arc::clone(&self.filename),
         });
     }
 
@@ -212,9 +234,11 @@ impl<'a> Parser<'a> {
                         at: *thing.position(),
                         inner: Box::new(Stmt::Break),
                         notes: String::new(),
+                        file: Arc::clone(&self.filename),
                     }]
                 )),
                 notes: String::new(),
+                file: Arc::clone(&self.filename),
             }
         ];
         loop_body.extend(body);
@@ -223,6 +247,7 @@ impl<'a> Parser<'a> {
             at: *thing.position(),
             inner: Box::new(Stmt::Loop(loop_body)),
             notes: String::new(),
+            file: Arc::clone(&self.filename),
         })
     }
 }

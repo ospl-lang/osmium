@@ -15,7 +15,12 @@ impl<'a> Lexer<'a> {
         Self {
             chars: input.chars(),
             peeked: None,
-            position: Position::default(),
+            position: Position {
+                ch: 0,
+                column: 1,
+                line: 1,
+                token_num: 0
+            }
         }
     }
 

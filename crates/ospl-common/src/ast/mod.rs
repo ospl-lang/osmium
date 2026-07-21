@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::{Debug, Display}, hash::{Hash, Hasher}};
+use std::{collections::HashMap, fmt::{Debug, Display}, hash::{Hash, Hasher}, sync::Arc};
 use crate::ast::{decl::{AliasDeclaration, Declaration}, ops::AssignOp};
 
 pub use types::*;
@@ -20,7 +20,7 @@ impl Display for Position {
 impl Position {
     pub fn next_line(&mut self) {
         self.line += 1;
-        self.column = 0;
+        self.column = 1;
     }
 
     pub fn next_column(&mut self) {
@@ -32,7 +32,8 @@ impl Position {
 pub struct Statement {
     pub inner: Box<Stmt>,
     pub at: Position,
-    pub notes: String
+    pub notes: String,
+    pub file: Arc<String>,
 }
 
 impl Statement {
@@ -40,7 +41,8 @@ impl Statement {
         return Self {
             inner: Box::new(s),
             at: Position::default(),
-            notes: String::new()
+            notes: String::new(),
+            file: Arc::new(String::new())
         }
     }
 }
@@ -66,13 +68,15 @@ pub enum Stmt {
 pub struct Expression {
     pub inner: Box<Expr>,
     pub at: Position,
+    pub file: Arc<String>
 }
 
 impl Expression {
     pub fn test(s: Expr) -> Self {
         return Self {
             inner: Box::new(s),
-            at: Position::default()
+            at: Position::default(),
+            file: Arc::new(String::from("test"))
         }
     }
 }
@@ -98,14 +102,16 @@ pub enum Expr {
 #[derive(Debug, Clone)]
 pub struct LValue {
     pub inner: Box<LV>,
-    pub at: Position
+    pub at: Position,
+    pub file: Arc<String>,
 }
 
 impl LValue {
     pub fn test(s: LV) -> Self {
         return Self {
             inner: Box::new(s),
-            at: Position::default()
+            at: Position::default(),
+            file: Arc::new(String::new()),
         }
     }
 }

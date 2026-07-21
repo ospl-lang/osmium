@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use ospl_common::ast::{Expr, Expression, LV, LValue, Literal, UType, ops::{BinaryOp, BinaryOpType, UnaryOp, UnaryOpType}};
 
 use crate::{lexer::token::{Span, Token, TokenExpectation, exp_ident}, parse::{PE, Parser, Res}, tComb, tExp};
@@ -59,41 +61,49 @@ impl<'a> Parser<'a> {
                     Token::Integer(i) => Expression {
                         at: t.0,
                         inner: Box::new(Expr::Literal(Literal::Int(i))),
+                        file: Arc::clone(&self.filename),
                     },
 
                     Token::AddressLiteral(u) => Expression {
                         at: t.0,
                         inner: Box::new(Expr::Literal(Literal::Address(u))),
+                        file: Arc::clone(&self.filename),
                     },
 
                     Token::Float(f) => Expression {
                         at: t.0,
                         inner: Box::new(Expr::Literal(Literal::Float(f))),
+                        file: Arc::clone(&self.filename),
                     },
 
                     Token::Char(c) => Expression {
                         at: t.0,
                         inner: Box::new(Expr::Literal(Literal::Char(c))),
+                        file: Arc::clone(&self.filename),
                     },
 
                     Token::True => Expression {
                         at: t.0,
                         inner: Box::new(Expr::Literal(Literal::Bool(true))),
+                        file: Arc::clone(&self.filename),
                     }, 
 
                     Token::False => Expression {
                         at: t.0,
                         inner: Box::new(Expr::Literal(Literal::Bool(false))),
+                        file: Arc::clone(&self.filename),
                     },
 
                     Token::Nul => Expression {
                         at: t.0,
                         inner: Box::new(Expr::Literal(Literal::Nul)),
+                        file: Arc::clone(&self.filename),
                     },
 
                     Token::Undefined => Expression {
                         at: t.0,
                         inner: Box::new(Expr::Literal(Literal::Undefined)),
+                        file: Arc::clone(&self.filename),
                     },
 
                     Token::Ident(i) => Expression {
@@ -101,7 +111,9 @@ impl<'a> Parser<'a> {
                         inner: Box::new(Expr::LValue(LValue {
                             inner: Box::new(LV::Variable(i)),
                             at: t.0,
+                            file: Arc::clone(&self.filename),
                         })),
+                        file: Arc::clone(&self.filename),
                     },
 
                     _ => unreachable!(),
@@ -113,6 +125,7 @@ impl<'a> Parser<'a> {
                 return Ok(Expression {
                     at: *t.position(),
                     inner: Box::new(Expr::Literal(Literal::Str(s.to_string()))),
+                    file: Arc::clone(&self.filename),
                 });
             }
 
@@ -147,12 +160,14 @@ impl<'a> Parser<'a> {
                 return Ok(Expression {
                     at: *t.position(),
                     inner: Box::new(Expr::Literal(Literal::List(lty, exprs))),
+                    file: Arc::clone(&self.filename),
                 })
             }
 
             Token::Fn => Ok(Expression {
                 at: *t.position(),
                 inner: Box::new(Expr::Literal(Literal::Function(self.parse_function_literal()?))),
+                    file: Arc::clone(&self.filename),
             }),
 
             Token::LParen => {
@@ -166,7 +181,8 @@ impl<'a> Parser<'a> {
                 let b = self.parse_block()?;
                 return Ok(Expression {
                     at: *t.position(),
-                    inner: Box::new(Expr::Block(b))
+                    inner: Box::new(Expr::Block(b)),
+                    file: Arc::clone(&self.filename),
                 })
             }
 
@@ -196,6 +212,7 @@ impl<'a> Parser<'a> {
                 Expression {
                     at: lv.at,
                     inner: Box::new(Expr::LValue(lv)),
+                    file: Arc::clone(&self.filename),
                 }
             },
 
@@ -276,6 +293,7 @@ impl<'a> Parser<'a> {
                         right: a2,
                         kind: optype
                     })),
+                    file: Arc::clone(&self.filename),
                 };
             }
 
@@ -297,6 +315,7 @@ impl<'a> Parser<'a> {
                         expr: a1,
                         kind: optype
                     })),
+                    file: Arc::clone(&self.filename),
                 };
             }
 
@@ -306,7 +325,8 @@ impl<'a> Parser<'a> {
 
                 a1 = Expression {
                     at: a1.at,
-                    inner: Box::new(Expr::Cast(a1, t))
+                    inner: Box::new(Expr::Cast(a1, t)),
+                    file: Arc::clone(&self.filename),
                 }
             }
 
@@ -319,7 +339,8 @@ impl<'a> Parser<'a> {
                 let map = self.parse_nominal_application()?;
                 a1 = Expression {
                     at: a1.at,
-                    inner: Box::new(Expr::Apply(a1, map))
+                    inner: Box::new(Expr::Apply(a1, map)),
+                    file: Arc::clone(&self.filename),
                 };
             }
 
@@ -329,6 +350,7 @@ impl<'a> Parser<'a> {
                 a1 = Expression {
                     at: a1.at,
                     inner: Box::new(Expr::Call(a1, args)),
+                    file: Arc::clone(&self.filename),
                 };
             }
 
@@ -349,7 +371,8 @@ impl<'a> Parser<'a> {
 
         let mut node = LValue {
             inner: Box::new(LV::Variable(id.to_string())),
-            at: *initial_span.position()
+            at: *initial_span.position(),
+            file: Arc::clone(&self.filename),
         };
 
         while let Ok(t) = self.peek() {
@@ -363,7 +386,8 @@ impl<'a> Parser<'a> {
 
                     node = LValue {
                         inner: Box::new(LV::Property(node, id.to_string())),
-                        at: *span.position()
+                        at: *span.position(),
+                        file: Arc::clone(&self.filename),
                     };
                 },
                 Token::Colon => {
@@ -379,10 +403,12 @@ impl<'a> Parser<'a> {
                             inner: Box::new(LV::Slice(
                                 Expression {
                                     at: a.at,
-                                    inner: Box::new(Expr::LValue(node))
+                                    inner: Box::new(Expr::LValue(node)),
+                                    file: Arc::clone(&self.filename),
                                 },
                                 a, b,
-                            ))
+                            )),
+                            file: Arc::clone(&self.filename),
                         }
                     }
 
@@ -392,10 +418,12 @@ impl<'a> Parser<'a> {
                             inner: Box::new(LV::Index(
                                 Expression {
                                     at: node.at,
-                                    inner: Box::new(Expr::LValue(node))
+                                    inner: Box::new(Expr::LValue(node)),
+                                    file: Arc::clone(&self.filename),
                                 },
                                 a
-                            ))
+                            )),
+                            file: Arc::clone(&self.filename),
                         };
                     }
                 }

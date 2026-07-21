@@ -1,8 +1,8 @@
-use std::{any::Any, fmt::Debug};
+use std::{fmt::Debug, sync::Arc};
 
 use crate::ast::{Expr, Expression, LV, LValue, Literal, Position, Statement, Stmt};
 
-pub trait Spannable: Any + Debug {
+pub trait Spannable: Debug + Send + Sync {
     fn get_pos(&self) -> Position;
 
     fn symbol(&self) -> Option<String>;
@@ -10,6 +10,8 @@ pub trait Spannable: Any + Debug {
     fn user_symbol(&self) -> String {
         return self.symbol().unwrap_or_else(|| "???".to_string())
     }
+
+    fn original_file(&self) -> Arc<String>;
 
     // ugly hack to get around some crap
     fn spanned(&self) -> Box<dyn Spannable>;
@@ -30,6 +32,10 @@ impl Spannable for UnknownLocation {
     fn symbol(&self) -> Option<String> {
         return None
     }
+
+    fn original_file(&self) -> Arc<String> {
+        Arc::new(String::from("unknown"))
+    }
 }
 
 impl Spannable for Statement {
@@ -48,6 +54,10 @@ impl Spannable for Statement {
 
     fn spanned(&self) -> Box<dyn Spannable> {
         return Box::new(self.clone())
+    }
+
+    fn original_file(&self) -> Arc<String> {
+        Arc::clone(&self.file)
     }
 }
 
@@ -83,6 +93,10 @@ impl Spannable for Expression {
     fn spanned(&self) -> Box<dyn Spannable> {
         return Box::new(self.clone())
     }
+
+    fn original_file(&self) -> Arc<String> {
+        Arc::clone(&self.file)
+    }
 }
 
 impl Spannable for LValue {
@@ -101,5 +115,9 @@ impl Spannable for LValue {
 
     fn spanned(&self) -> Box<dyn Spannable> {
         return Box::new(self.clone())
+    }
+
+    fn original_file(&self) -> Arc<String> {
+        Arc::clone(&self.file)
     }
 }

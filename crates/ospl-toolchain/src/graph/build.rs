@@ -76,7 +76,7 @@ pub fn genmods(graph: &Graph) -> HashMap<u32, GeneratedModule> {
         for req in &node.deps {
             // Log!(Linking, "with {}", req.ident);
             let requirement = finished[&req.id].clone();
-            let requirement = super::wrap_in_iife_declaration(&req.ident, requirement.stmts);
+            let requirement = super::wrap_in_iife_declaration(&req.ident, requirement.stmts, Arc::new(requirement.file));
             input_code.push(requirement);
         }
 
@@ -118,42 +118,44 @@ pub fn getmain<'a>(graph: &'a Graph, m: &'a HashMap<u32, GeneratedModule>) -> Op
 }
 
 pub fn buildmain(graph: &Graph, mut m: HashMap<u32, GeneratedModule>) -> Result<Vec<Inst>, ospl_compiler::CE> {
+    for (_, every_node) in &m {
+        for cxx in &every_node.cxx_deps {
+            Log!(Invoking, "C compiler on {:?}", cxx.c_file);
+            let mut so_file2 = PathBuf::from(BUILD_FOLDER);
+            so_file2.push(cxx.o_file.with_extension("so"));
+
+            let mut obj_file2 = PathBuf::from(BUILD_FOLDER);
+            obj_file2.push(cxx.o_file.with_extension("o"));
+
+            if !std::process::Command::new("cc")
+                .arg("-fPIC")
+                .arg("-c")
+                .arg(&cxx.c_file)
+                .arg("-o")
+                .arg(&obj_file2)
+                .spawn()
+                .expect("failed to summon cc")
+                .wait()
+                .expect("failed to wait for cc")
+                .success()
+            { panic!("CC failed to run") }
+
+            if !std::process::Command::new("cc")
+                .arg("-shared")
+                .arg(obj_file2)
+                .arg("-o")
+                .arg(&so_file2)
+                .spawn()
+                .expect("failed to summon cc")
+                .wait()
+                .expect("failed to wait for cc")
+                .success()
+            { panic!("CC failed to run") }
+        };
+    }
+
     let m = m.remove(&graph.main)
         .expect("the entrypoint is missing");
-
-    for cxx in &m.cxx_deps {
-        Log!(Invoking, "C compiler on {:?}", cxx.c_file);
-        let mut so_file2 = PathBuf::from(BUILD_FOLDER);
-        so_file2.push(cxx.o_file.with_extension("so"));
-
-        let mut obj_file2 = PathBuf::from(BUILD_FOLDER);
-        obj_file2.push(cxx.o_file.with_extension("o"));
-
-        if !std::process::Command::new("cc")
-            .arg("-fPIC")
-            .arg("-c")
-            .arg(&cxx.c_file)
-            .arg("-o")
-            .arg(&obj_file2)
-            .spawn()
-            .expect("failed to summon cc")
-            .wait()
-            .expect("failed to wait for cc")
-            .success()
-        { panic!("CC failed to run") }
-
-        if !std::process::Command::new("cc")
-            .arg("-shared")
-            .arg(obj_file2)
-            .arg("-o")
-            .arg(&so_file2)
-            .spawn()
-            .expect("failed to summon cc")
-            .wait()
-            .expect("failed to wait for cc")
-            .success()
-        { panic!("CC failed to run") }
-    };
 
     let build_data = Arc::new(BuildData {
         next_resource_id: AtomicUsize::new(0),

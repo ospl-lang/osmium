@@ -61,10 +61,6 @@ pub enum CEData {
     TypeDoesntHaveAReturn {
         t: Type
     },
-    InvalidBinaryOpForType {
-        op: BinaryOpType,
-        ty: Type
-    },
     InvalidUnaryOpForType {
         op: UnaryOpType,
         ty: Type
@@ -77,12 +73,12 @@ pub enum CEData {
         special: String,
     },
     UnexpectedPrimitive,
-    InternalError(Box<dyn std::error::Error>),
+    InternalError(Box<dyn std::error::Error + Send + Sync>),
     Bug,
 }
 
-impl From<Box<dyn std::error::Error>> for CEData {
-    fn from(value: Box<dyn std::error::Error>) -> Self {
+impl From<Box<dyn std::error::Error + Send + Sync>> for CEData {
+    fn from(value: Box<dyn std::error::Error + Send + Sync>) -> Self {
         return Self::InternalError(value)
     }
 }
@@ -106,8 +102,8 @@ impl From<(usize, &Type)> for EvalResult {
     }
 }
 
-impl From<Box<dyn std::error::Error>> for CE {
-    fn from(value: Box<dyn std::error::Error>) -> Self {
+impl From<Box<dyn std::error::Error + Send + Sync>> for CE {
+    fn from(value: Box<dyn std::error::Error + Send + Sync>) -> Self {
         return Self {
             at: Box::new(UnknownLocation),
             during: "unknown...",

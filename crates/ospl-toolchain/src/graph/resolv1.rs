@@ -2,6 +2,7 @@ use std::{collections::HashMap, fmt::Debug, path::{Path, PathBuf}};
 // use std::path::PathBuf;
 // use std::collections::HashSet;
 use ospl_common::ast::Statement;
+use ospl_parser::parse::PE;
 use serde::{Deserialize, Serialize};
 
 use crate::{BUILD_FOLDER, Log, graph::{build::UnresolvedRequirement, resolv0::{FinalPackageSetup, ModSrc, PkgRef, RModRef, VersionRuleRef, VersionTag}}, load_package_cfg};
@@ -70,7 +71,16 @@ impl Default for RecursionInfo {
     }
 }
 
-pub fn resolve_pkg(p: FinalPackageSetup, q: &mut HighGraph, re: RecursionInfo) {
+#[derive(Debug)]
+pub enum ResolvErr {
+    PE {
+        file: String,
+        err: PE
+    }
+}
+
+#[must_use]
+pub fn resolve_pkg(p: FinalPackageSetup, q: &mut HighGraph, re: RecursionInfo) -> Result<(), ResolvErr> {
     // --- build modules ---
     for (name, mdl) in &p.includes {
         let key = (re.pkg.clone(), name.clone());
@@ -84,7 +94,7 @@ pub fn resolve_pkg(p: FinalPackageSetup, q: &mut HighGraph, re: RecursionInfo) {
             ModSrc::File(f) => {
                 let mut p = re.current_folder.clone();
                 p.push(f);
-                let code = parse_file(&p);
+                let code = parse_file(&p)?;
 
                 code
             }
@@ -118,7 +128,7 @@ pub fn resolve_pkg(p: FinalPackageSetup, q: &mut HighGraph, re: RecursionInfo) {
     // --- recurse dependencies ---
     for rq in &p.requires {
         match &rq.re {
-            PkgRef::Local(l) => do_folder(l, q, rq, &re),
+            PkgRef::Local(l) => do_folder(l, q, rq, &re)?,
             PkgRef::Git(repo) => {
                 let hsh = blake3::hash(repo.as_bytes());
                 let t = hsh.to_hex();
@@ -143,14 +153,16 @@ pub fn resolve_pkg(p: FinalPackageSetup, q: &mut HighGraph, re: RecursionInfo) {
                 // let old = std::env::current_dir().unwrap();
                 // std::env::set_current_dir(&folder).unwrap();
                 // do_folder(&".", q, rq, &re);
-                do_folder(&folder, q, rq, &re);
+                do_folder(&folder, q, rq, &re)?;
                 // std::env::set_current_dir(old).unwrap();
             }
         }
     }
+
+    Ok(())
 }
 
-fn do_folder<P: AsRef<Path>>(l: &P, q: &mut HighGraph, rq: &UnresolvedRequirement, re: &RecursionInfo) {
+fn do_folder<P: AsRef<Path>>(l: &P, q: &mut HighGraph, rq: &UnresolvedRequirement, re: &RecursionInfo) -> Result<(), ResolvErr> {
     let mut pat = re.current_folder.clone();
     pat.push(l);
     let next_re = RecursionInfo {
@@ -191,7 +203,9 @@ fn do_folder<P: AsRef<Path>>(l: &P, q: &mut HighGraph, rq: &UnresolvedRequiremen
     // now we cd back out!
     std::env::set_current_dir(old_wd).unwrap();
 
-    resolve_pkg(p, q, next_re);
+    resolve_pkg(p, q, next_re)?;
+
+    Ok(())
 }
 
 /// Note that this function will permanently make it's environment unusable.
@@ -247,17 +261,19 @@ pub fn apply_rule_to_cwd(rule: &VersionTag) {
     }
 }
 
-pub fn parse_file<P: AsRef<Path> + Debug>(f: P) -> Vec<Statement> {
+pub fn parse_file<P: AsRef<Path> + Debug>(f: P) -> Result<Vec<Statement>, ResolvErr> {
     let s = std::fs::read_to_string(&f).expect("TODO unwrap");
     let mut l = ospl_parser::lexer::lexer::Lexer::new(&s);
     let tokens = l.all_tokens();
 
-    let mut p = ospl_parser::parse::Parser::new(&tokens);
-    let ast = match p.parse_tlc() {
-        Ok(ast) => ast, 
-        Err(e) => panic!("failed to parse file {f:?}: {e:?}")
-    };
-    return ast
+    let fpath: String = f.as_ref().to_string_lossy().to_string();
+    let mut p = ospl_parser::parse::Parser::new(&tokens, fpath.clone());
+    return p.parse_tlc().map_err(|e| {  
+        ResolvErr::PE {
+            file: fpath.clone(),
+            err: e
+        }
+    });
 }
 
 /// Helper to check if the CWD's git repo has uncommited changes

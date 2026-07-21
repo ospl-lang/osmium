@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use tracing::instrument;
 
 use crate::{lexer::token::{Span, Token, TokenExpectation, exp_ident}};
@@ -20,13 +22,15 @@ pub struct TokenExpected {
 pub struct Parser<'a> {
     tokens: &'a [Span],
     current_token: usize,
+    filename: Arc<String>
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(tokens: &'a [Span]) -> Self {
+    pub fn new(tokens: &'a [Span], file: String) -> Self {
         return Self {
             tokens,
             current_token: 0,
+            filename: Arc::new(file)
         }
     }
 

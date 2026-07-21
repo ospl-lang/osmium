@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use ospl_common::ast::{Expr, Expression};
 
 use crate::{lexer::token::{exp_ident, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
@@ -70,7 +72,8 @@ impl<'a> Parser<'a> {
                 fname,
                 rtype,
                 type_numbers
-            ))
+            )),
+            file: Arc::clone(&self.filename),
         })
     }
 
@@ -93,7 +96,8 @@ impl<'a> Parser<'a> {
         let args = self.parse_fn_call_args()?;
         return Ok(Expression {
             at: left.at,
-            inner: Box::new(Expr::FFICall(left, args))
+            inner: Box::new(Expr::FFICall(left, args)),
+            file: Arc::clone(&self.filename),
         })
     }
 }

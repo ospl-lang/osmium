@@ -1,15 +1,10 @@
 use std::{fs, path::PathBuf};
 use ospl_common::inst::optimized::Inst;
+use ospl_toolchain::load_package_cfg;
 use ospl_vm::VM;
 use std::io::Read;
 use clap::{Parser, Subcommand, ValueEnum};
-use crate::{graph::resolv1::RecursionInfo, util::print_diag};
-
-pub mod log;
-pub mod graph;
-pub mod util;
-pub mod init;
-pub mod package;
+use ospl_toolchain::{graph::resolv1::RecursionInfo, util::print_diag};
 
 #[derive(Parser)]
 struct Cli {
@@ -67,11 +62,8 @@ impl ToString for ProjTyp {
     }
 }
 
-const BUILD_FILE: &str = "build/dist.ospb";
-const BUILD_FOLDER: &str = "build/";
-
 pub fn ensure_build_folder() {
-    let pb = PathBuf::from(BUILD_FOLDER);
+    let pb = PathBuf::from(ospl_toolchain::BUILD_FOLDER);
     let _ = std::fs::remove_file(pb.with_file_name("dist.ospb"));
 
     std::fs::DirBuilder::new()
@@ -86,25 +78,25 @@ fn main() {
     let cli = Cli::parse();
     match cli.command {
         Cmd::Build => {
-            cmd_build(PathBuf::from(BUILD_FILE));
+            cmd_build(PathBuf::from(ospl_toolchain::BUILD_FILE));
         },
         Cmd::Run => {
-            let pb = PathBuf::from(BUILD_FILE);
+            let pb = PathBuf::from(ospl_toolchain::BUILD_FILE);
             cmd_exec(pb);
         },
         Cmd::Exec { at } => cmd_exec(at),
         Cmd::ScratchRun => {
             // build
-            let bf = PathBuf::from(BUILD_FILE);
+            let bf = PathBuf::from(ospl_toolchain::BUILD_FILE);
             cmd_build(bf.clone());
 
             // cd into the build folder
-            let pb2 = PathBuf::from(BUILD_FOLDER);
+            let pb2 = PathBuf::from(ospl_toolchain::BUILD_FOLDER);
             std::env::set_current_dir(pb2).expect("failed to cd into the build folder");
             cmd_exec(PathBuf::from("dist.ospb"));
         },
         Cmd::New { name, kind } => {
-            init::cmd_new(name, kind.to_string());
+            ospl_toolchain::init::cmd_new(name, kind.to_string());
         },
         Cmd::Disassemble { file } => cmd_disassemble(file)
     };
@@ -135,20 +127,22 @@ fn cmd_build(out_path: PathBuf) {
     ensure_build_folder();
 
     // high-level
-    let mut gg = graph::resolv1::HighGraph::default();
+    let mut gg = ospl_toolchain::graph::resolv1::HighGraph::default();
     let pi = RecursionInfo::default();
 
-    graph::resolv1::resolve_pkg(root_pkg, &mut gg, pi.clone());
+    if let Err(e) = ospl_toolchain::graph::resolv1::resolve_pkg(root_pkg, &mut gg, pi.clone()) {
+        panic!("Resolver error: {e:?}")
+    }
 
-    gg.main = graph::resolv2::get_package_module_with_name(&pi.pkg, &entry_name, &gg.module_index);
-    LogState!(&"");
+    gg.main = ospl_toolchain::graph::resolv2::get_package_module_with_name(&pi.pkg, &entry_name, &gg.module_index);
+    ospl_toolchain::LogState!(&"");
 
     // low-level
-    let low = graph::resolv2::lower(gg);
+    let low = ospl_toolchain::graph::resolv2::lower(gg);
 
     // compile
-    let out = graph::build::genmods(&low);
-    let out = graph::build::buildmain(&low, out);
+    let out = ospl_toolchain::graph::build::genmods(&low);
+    let out = ospl_toolchain::graph::build::buildmain(&low, out);
     let out = match out {
         Ok(x) => x,
         Err(e) => {
@@ -170,16 +164,6 @@ fn cmd_build(out_path: PathBuf) {
 }
 
 /* ---------------------------------- */
-
-pub fn load_package_cfg<P: AsRef<std::path::Path>>(path: P) -> graph::decl::PackageSetup {
-    let src = std::fs::read_to_string(path)
-        .map_err(|e| e.to_string())
-        .expect("DAMN IT I CANT LOAD PKG.KDL");
-
-    let k = kdl::KdlDocument::parse(&src).expect("failed to parse package.kdl");
-
-    return package::parse_kdl(k).expect("failed to parse the KDL");
-}
 
 fn cmd_disassemble<P: AsRef<std::path::Path>>(path: P) {
     let f = std::fs::read(path)

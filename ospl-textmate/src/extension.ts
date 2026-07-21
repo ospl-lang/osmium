@@ -7,9 +7,9 @@ import {
 
 let client: LanguageClient;
 
-export function activate(context: vscode.ExtensionContext) {
+function startLsp() {
     const serverOptions: ServerOptions = {
-        command: "/home/colton/.local/bin/ospl-lsp"
+        command: "/opt/ospl/ospl-lsp",
     };
 
     const clientOptions: LanguageClientOptions = {
@@ -29,8 +29,27 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     client.start();
+}
 
+function stopLsp() {
+    client?.stop();
+}
+
+export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(client);
+    vscode.commands.registerCommand(
+        "ospl.startLsp",
+        () => {
+            startLsp()
+        }
+    );
+
+    vscode.commands.registerCommand(
+        "ospl.stopLsp",
+        () => {
+            stopLsp()
+        }
+    );
 }
 
 export function deactivate() {

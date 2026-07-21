@@ -98,6 +98,7 @@ impl VM {
         self.stack.top_indexes_mut()[reg] = self.stack.top_indexes()[new];
     }
 
+    #[inline(always)]
     pub fn run_one(&mut self, inst: &Inst) -> Control {
         // you're about to see a lot of unsafe code!
         //
