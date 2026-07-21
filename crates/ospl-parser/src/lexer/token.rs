@@ -29,6 +29,7 @@ pub enum Token {
     Macro,
     DollarSign,
     Backslash,
+    BlockComment(String),
 
     /* values */
     Nul,

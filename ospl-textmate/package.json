@@ -3,7 +3,11 @@
     "displayName": "OSPL grammars",
     "description": "Provide TextMate grammars for OSPL",
     "version": "0.0.1",
-    "publisher": "ospl", 
+    "publisher": "ospl",
+    "scripts": {
+        "compile": "tsc -p ./"
+    },
+    "main": "./out/extension.js",
     "engines": {
         "vscode": "^1.109.2"
     },
@@ -18,7 +22,9 @@
                     "OSPL (Oscar's Stupid Programming Language)",
                     "ospl"
                 ],
-                "extensions": [".ospl"],
+                "extensions": [
+                    ".ospl"
+                ],
                 "configuration": "./language-configuration.json"
             }
         ],
@@ -36,5 +42,10 @@
                 "path": "./themes/ospl-color-theme.json"
             }
         ]
+    },
+    "dependencies": {
+        "vscode-languageclient": "^10.1.0",
+        "@types/node": "^22",
+        "@types/vscode": "^1.100.0"
     }
 }

@@ -167,6 +167,7 @@ impl PartialEq for RuntimeValue {
             (RT::Addr, RT::Addr) => self.data.address == other.data.address,
             (RT::Float, RT::Float) => self.data.float == other.data.float,
             (RT::Str, RT::Str) => self.data.str == other.data.str,
+            (RT::Char, RT::Char) => self.data.char == other.data.char,
             (RT::Bool, RT::Bool) => self.data.bool == other.data.bool,
 
             (RT::Undefined, RT::Undefined) => true,

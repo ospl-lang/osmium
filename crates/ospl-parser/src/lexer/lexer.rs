@@ -62,6 +62,45 @@ impl<'a> Lexer<'a> {
             return one
         } else { return zero }
     }
+
+    fn do_block_comment(&mut self) -> Option<Token> {
+        // We have already consumed the first '*'.
+        // Consume the remaining four stars of the opening delimiter.
+        for _ in 0..4 {
+            if self.peek()? != '*' {
+                return Some(Token::Star);
+            }
+            self.bump()?;
+        }
+
+        let mut contents = String::new();
+
+        loop {
+            let c = self.bump()?;
+
+            if c == '*' {
+                // Possible closing *****
+                let mut is_end = true;
+
+                for _ in 0..4 {
+                    if self.peek()? != '*' {
+                        is_end = false;
+                        break;
+                    }
+                    self.bump()?;
+                }
+
+                if is_end {
+                    return Some(Token::BlockComment(contents));
+                } else {
+                    contents.push(c);
+                    continue;
+                }
+            }
+
+            contents.push(c);
+        }
+    }
 }
 
 impl<'a> Lexer<'a> {
@@ -103,7 +142,13 @@ impl<'a> Lexer<'a> {
                     _ => Token::Dash
                 }
             }
-            '*' => Token::Star,
+            '*' => {
+                if self.peek() == Some('*') {
+                    self.do_block_comment()?
+                } else {
+                    Token::Star
+                }
+            },
             '/' => Token::Slash,
             '%' => Token::Percent,
 
@@ -249,16 +294,35 @@ impl<'a> Lexer<'a> {
         let mut s = String::new();
         s.push(starting);
 
-        while matches!(self.peek(), Some(p) if p.is_ascii_digit()) {
+        while matches!(self.peek(), Some(p) if p.is_ascii_digit() || p == ',') {
             s.push(self.bump().unwrap());
         }
 
-        if let Some('@') = self.peek() {
+        // fix float syntax for Rust
+        let s = s.replace(',', ".");
+
+        if let Some('u') = self.peek() {
             self.bump().expect("failed to bump");
             return Token::AddressLiteral(s.parse().unwrap())
         }
 
-        return Token::Integer(s.parse().unwrap())
+        else if let Some('f') = self.peek() {
+            self.bump().expect("failed to bump");
+            if let Some('m') = self.peek() {
+                self.bump().expect("failed to bump");
+                return Token::Float(-s.parse::<f64>().unwrap())
+            }
+            return Token::Float(s.parse().unwrap())
+        }
+
+        else if let Some('m') = self.peek() {
+            self.bump().expect("failed to bump");
+            return Token::Integer(-s.parse::<i64>().unwrap())
+        }
+
+        else {
+            return Token::Integer(s.parse().unwrap())
+        }
     }
 
     pub fn all_tokens(&mut self) -> Vec<Span> {

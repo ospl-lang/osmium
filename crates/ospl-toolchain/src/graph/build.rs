@@ -4,6 +4,7 @@ use ospl_compiler::{BuildData, Compiler};
 
 use crate::{BUILD_FOLDER, Log, graph::resolv0::{PkgRef, VersionRuleRef}};
 
+#[derive(Clone)]
 pub struct CxxNode {
     pub required_as: String,
     pub o_file: PathBuf,
@@ -55,39 +56,31 @@ pub struct UnresolvedRequirement {
     pub ver: VersionRuleRef
 }
 
-pub fn compile(graph: &Graph) -> Vec<Inst> {
+pub fn genmods(graph: &Graph) -> HashMap<u32, GeneratedModule> {
     let keys: Vec<u32> = graph.modules.keys().cloned().collect();
     let order = topo_sort(
         &keys,
         |id| graph.modules[id].deps.iter().map(|e| e.id).collect(),
     ).expect("cycle in dependency graph!");
 
-    let mut finished: HashMap<ModuleId, Vec<Statement>> = HashMap::new();
-    let mut finished_compilations: HashMap<ModuleId, Vec<Inst>> = HashMap::new();
-
-    let bd = Arc::new(BuildData {
-        next_resource_id: AtomicUsize::new(0),
-        symbols: Mutex::new(DebugSymbolTable::default())
-    });
+    let mut finished: HashMap<u32, GeneratedModule> = HashMap::new();
 
     for node_id in order {
         let node = &graph.modules[&node_id];
 
         // LogState!(&format!("node {node_id}"));
 
-        Log!(Compiling, "module {node:?}");
+        Log!(Linking, "module {node:?}");
 
-        let mut local_compiler = Compiler::new(bd.clone());
         let mut input_code = Vec::new();
         for req in &node.deps {
             // Log!(Linking, "with {}", req.ident);
             let requirement = finished[&req.id].clone();
-            let requirement = super::wrap_in_iife_declaration(&req.ident, requirement);
+            let requirement = super::wrap_in_iife_declaration(&req.ident, requirement.stmts);
             input_code.push(requirement);
         }
 
         for cxx in &node.cxx_deps {
-            Log!(Invoking, "C compiler on {:?}", cxx.c_file);
             let so_file = cxx.o_file.with_extension("so");
 
             let mut so_file2 = PathBuf::from(BUILD_FOLDER);
@@ -96,51 +89,83 @@ pub fn compile(graph: &Graph) -> Vec<Inst> {
             let mut obj_file2 = PathBuf::from(BUILD_FOLDER);
             obj_file2.push(cxx.o_file.with_extension("o"));
 
-            if !std::process::Command::new("cc")
-                .arg("-fPIC")
-                .arg("-c")
-                .arg(&cxx.c_file)
-                .arg("-o")
-                .arg(&obj_file2)
-                .spawn()
-                .expect("failed to summon cc")
-                .wait()
-                .expect("failed to wait for cc")
-                .success()
-            { panic!("CC failed to run") }
-
-            if !std::process::Command::new("cc")
-                .arg("-shared")
-                .arg(obj_file2)
-                .arg("-o")
-                .arg(&so_file2)
-                .spawn()
-                .expect("failed to summon cc")
-                .wait()
-                .expect("failed to wait for cc")
-                .success()
-            { panic!("CC failed to run") }
-
             let s = super::create_ffi(&cxx.required_as, &so_file);
             input_code.push(s);
-        }
+        };
 
         input_code.extend_from_slice(&node.ast);
-
-        let mut output_code: Vec<Inst> = Vec::new();
-        if let Err(e) = local_compiler.compile_all(&input_code, &mut output_code) {
-            crate::util::print_diag(e);
-            std::process::exit(101);
-        }
-
-        finished_compilations.insert(node_id, output_code);
-        finished.insert(node_id, input_code);
+        finished.insert(node_id, GeneratedModule {
+            cxx_deps: node.cxx_deps.clone(),
+            file: "(unknown)".to_string(),
+            stmts: input_code,
+            deps: node.deps.clone()
+        });
     }
 
-    let main = finished_compilations.remove(&graph.main)
-        .expect("no main module found");
+    return finished;
+}
 
-    return main
+#[derive(Clone)]
+pub struct GeneratedModule {
+    pub stmts: Vec<Statement>,
+    pub file: String,
+    pub cxx_deps: Vec<CxxNode>,
+    pub deps: Vec<Requirement>,
+}
+
+pub fn getmain<'a>(graph: &'a Graph, m: &'a HashMap<u32, GeneratedModule>) -> Option<&'a GeneratedModule> {
+    return m.get(&graph.main)
+}
+
+pub fn buildmain(graph: &Graph, mut m: HashMap<u32, GeneratedModule>) -> Result<Vec<Inst>, ospl_compiler::CE> {
+    let m = m.remove(&graph.main)
+        .expect("the entrypoint is missing");
+
+    for cxx in &m.cxx_deps {
+        Log!(Invoking, "C compiler on {:?}", cxx.c_file);
+        let mut so_file2 = PathBuf::from(BUILD_FOLDER);
+        so_file2.push(cxx.o_file.with_extension("so"));
+
+        let mut obj_file2 = PathBuf::from(BUILD_FOLDER);
+        obj_file2.push(cxx.o_file.with_extension("o"));
+
+        if !std::process::Command::new("cc")
+            .arg("-fPIC")
+            .arg("-c")
+            .arg(&cxx.c_file)
+            .arg("-o")
+            .arg(&obj_file2)
+            .spawn()
+            .expect("failed to summon cc")
+            .wait()
+            .expect("failed to wait for cc")
+            .success()
+        { panic!("CC failed to run") }
+
+        if !std::process::Command::new("cc")
+            .arg("-shared")
+            .arg(obj_file2)
+            .arg("-o")
+            .arg(&so_file2)
+            .spawn()
+            .expect("failed to summon cc")
+            .wait()
+            .expect("failed to wait for cc")
+            .success()
+        { panic!("CC failed to run") }
+    };
+
+    let build_data = Arc::new(BuildData {
+        next_resource_id: AtomicUsize::new(0),
+        symbols: Mutex::new(DebugSymbolTable::default())
+    });
+
+    Log!(Compiling, "everything");
+    let mut comp = Compiler::new(build_data);
+    let mut root = Vec::new();
+    comp.compile_all(&m.stmts, &mut root)?;
+
+    return Ok(root)
 }
 
 /// Generic topological sort using Kahn's algorithm.

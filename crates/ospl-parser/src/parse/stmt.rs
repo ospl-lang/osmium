@@ -8,6 +8,11 @@ pub fn exp_stmt_starter() -> TokenExpectation {
 
 impl<'a> Parser<'a> {
     pub fn parse_stmt(&mut self) -> Res<Statement> {
+        let notes = if let (_, Token::BlockComment(block)) = self.peek()?.destructure() {
+            self.next()?;
+            block
+        } else { String::new() };
+
         let t = self.expect_peek(exp_stmt_starter())?;
 
         match t.token() {
@@ -29,7 +34,8 @@ impl<'a> Parser<'a> {
                                 name: id,
                                 rhs: rvalue,
                             })),
-                            at: *t.position()
+                            at: *t.position(),
+                            notes
                         });
                     },
                     Token::Colon => {
@@ -40,7 +46,8 @@ impl<'a> Parser<'a> {
                                 name: id,
                                 ty: rvalue,
                             })),
-                            at: *t.position()
+                            at: *t.position(),
+                            notes
                         })
                     }
                     _ => unreachable!()
@@ -62,7 +69,8 @@ impl<'a> Parser<'a> {
                     inner: Box::new(Stmt::DefineNominalTypeAlias(AliasDeclaration {
                         name: id,
                         ty: UType::Nominal(Box::new(typ))
-                    }))
+                    })),
+                    notes
                 })
             },
             Token::Return => {
@@ -72,14 +80,16 @@ impl<'a> Parser<'a> {
                     self.next()?;
                     return Ok(Statement {
                         inner: Box::new(Stmt::ReturnScope),
-                        at: *t.position()
+                        at: *t.position(),
+                        notes
                     });
                 }
 
                 else {
                     return Ok(Statement {
                         at: *t.position(),
-                        inner: Box::new(Stmt::Return(self.parse_expr()?))
+                        inner: Box::new(Stmt::Return(self.parse_expr()?)),
+                        notes
                     })
                 }
             },
@@ -89,6 +99,7 @@ impl<'a> Parser<'a> {
                 return Ok(Statement {
                     at: *t.position(),
                     inner: Box::new(Stmt::Break),
+                    notes
                 })
             },
             Token::Continue => {
@@ -97,6 +108,7 @@ impl<'a> Parser<'a> {
                 return Ok(Statement {
                     at: *t.position(),
                     inner: Box::new(Stmt::Continue),
+                    notes
                 })
             },
             Token::For => {
@@ -115,7 +127,8 @@ impl<'a> Parser<'a> {
                 let expr = self.parse_expr()?;
                 return Ok(Statement {
                     at: *t.position(),
-                    inner: Box::new(Stmt::Expr(expr))
+                    inner: Box::new(Stmt::Expr(expr)),
+                    notes
                 })
             }
             Token::Ident(_) => {
@@ -126,7 +139,7 @@ impl<'a> Parser<'a> {
                     self.expect(tExp!(Equals))?;
 
                     // it's an assign op
-                    return self.parse_assign_op_helper(lv, op);
+                    return self.parse_assign_op_helper(notes, lv, op);
                 }
                 self.expect(tExp!(Equals))?;
 
@@ -134,14 +147,15 @@ impl<'a> Parser<'a> {
 
                 return Ok(Statement {
                     at: lv.at,
-                    inner: Box::new(Stmt::Assign(lv, right))
+                    inner: Box::new(Stmt::Assign(lv, right)),
+                    notes
                 });
             },
             other => unreachable!("invalid token in stmt context: {other:?}")
         }
     }
 
-    fn parse_assign_op_helper(&mut self, lv: LValue, op: Span) -> Res<Statement> {
+    fn parse_assign_op_helper(&mut self, notes: String, lv: LValue, op: Span) -> Res<Statement> {
         let rhs = self.parse_expr()?;
 
         return Ok(Statement {
@@ -150,7 +164,8 @@ impl<'a> Parser<'a> {
                 kind: token_to_binaryop(&op.token()),
                 left: lv,
                 right: rhs
-            }))
+            })),
+            notes
         });
     }
 

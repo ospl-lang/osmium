@@ -223,6 +223,12 @@ impl VM {
 
                     a.push_str(b);
                 },
+                (RT::Str, RT::Char) => {
+                    let a: &mut String = &mut aa.data.str;
+                    let b: &char = &bb.data.char;
+
+                    a.push(*b);
+                }
                 // (RT::Str(s1), RuntimeValue::Char(c1)) => {
                 //     s1.push(*c1);
                 // },

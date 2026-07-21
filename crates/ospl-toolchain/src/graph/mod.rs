@@ -11,7 +11,8 @@ pub mod build;
 pub fn wrap_in_iife_declaration(name: &str, mut v: Vec<Statement>) -> Statement {
     v.push(Statement {
         at: Position::default(),
-        inner: Box::new(Stmt::ReturnScope)
+        inner: Box::new(Stmt::ReturnScope),
+        notes: String::new(),
     });
 
     return Statement {
@@ -36,7 +37,8 @@ pub fn wrap_in_iife_declaration(name: &str, mut v: Vec<Statement>) -> Statement 
                     Vec::new(),
                 ))
             },
-        }))
+        })),
+        notes: String::new(),
     }
 }
 
@@ -52,6 +54,7 @@ pub fn create_ffi(name: &str, file: &Path) -> Statement {
                     inner: Box::new(Expr::Literal(Literal::Str(file.to_string_lossy().to_string()))),
                 }))
             },
-        }))
+        })),
+        notes: String::new(),
     }
 }

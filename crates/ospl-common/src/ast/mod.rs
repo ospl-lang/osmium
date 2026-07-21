@@ -32,13 +32,15 @@ impl Position {
 pub struct Statement {
     pub inner: Box<Stmt>,
     pub at: Position,
+    pub notes: String
 }
 
 impl Statement {
     pub fn test(s: Stmt) -> Self {
         return Self {
             inner: Box::new(s),
-            at: Position::default()
+            at: Position::default(),
+            notes: String::new()
         }
     }
 }

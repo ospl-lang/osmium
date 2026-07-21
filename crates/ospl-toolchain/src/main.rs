@@ -3,7 +3,7 @@ use ospl_common::inst::optimized::Inst;
 use ospl_vm::VM;
 use std::io::Read;
 use clap::{Parser, Subcommand, ValueEnum};
-use crate::graph::resolv1::RecursionInfo;
+use crate::{graph::resolv1::RecursionInfo, util::print_diag};
 
 pub mod log;
 pub mod graph;
@@ -147,7 +147,15 @@ fn cmd_build(out_path: PathBuf) {
     let low = graph::resolv2::lower(gg);
 
     // compile
-    let out = graph::build::compile(&low);
+    let out = graph::build::genmods(&low);
+    let out = graph::build::buildmain(&low, out);
+    let out = match out {
+        Ok(x) => x,
+        Err(e) => {
+            print_diag(e);
+            std::process::exit(101);
+        }
+    };
 
     // write out
     let mut f = std::fs::OpenOptions::new()

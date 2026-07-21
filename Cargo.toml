@@ -4,7 +4,7 @@ members = [
     "crates/ospl-parser",
     "crates/ospl-vm",
     "crates/ospl-compiler",
-    "crates/ospl-toolchain",
+    "crates/ospl-toolchain", "crates/ospl-lsp",
 ]
 resolver = "3"
 

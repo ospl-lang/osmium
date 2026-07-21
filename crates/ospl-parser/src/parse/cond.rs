@@ -20,7 +20,8 @@ impl<'a> Parser<'a> {
                 left,
                 yes,
                 no
-            ))
+            )),
+            notes: String::new(),
         })
     }
 
@@ -30,6 +31,7 @@ impl<'a> Parser<'a> {
         return Ok(Statement {
             at: *start.position(),
             inner: Box::new(Stmt::Loop(x)),
+            notes: String::new(),
         })
     }
 
@@ -70,7 +72,8 @@ impl<'a> Parser<'a> {
                 inner: Box::new(Stmt::Define(Declaration {
                     name: id.clone(),
                     rhs: expr2,
-                }))
+                })),
+                notes: String::new(),
             },
             Statement {
                 at: *thing.position(),
@@ -90,10 +93,12 @@ impl<'a> Parser<'a> {
                     },
                     vec![Statement {
                         at: *thing.position(),
-                        inner: Box::new(Stmt::Break)
+                        inner: Box::new(Stmt::Break),
+                        notes: String::new(),
                     }],
                     vec![]
-                ))  
+                )),
+                notes: String::new(),
             },
         ];
         body.extend_from_slice(&user_body);
@@ -104,11 +109,13 @@ impl<'a> Parser<'a> {
                 inner: Box::new(Stmt::Define(Declaration {
                     name: id.clone(),
                     rhs: expr1
-                }))
+                })),
+                notes: String::new(),
             },
             Statement {
                 at: *thing.position(),
-                inner: Box::new(Stmt::Loop(body))
+                inner: Box::new(Stmt::Loop(body)),
+                notes: String::new(),
             }
         ];
         
@@ -121,7 +128,8 @@ impl<'a> Parser<'a> {
                 },
                 code,
                 vec![]  // unreachable
-            ))
+            )),
+            notes: String::new(),
         })
     }
 
@@ -144,7 +152,8 @@ impl<'a> Parser<'a> {
                 inner: Box::new(Stmt::Define(Declaration {
                     name: id.clone(),
                     rhs: expr
-                }))
+                })),
+                notes: String::new(),
             },
             Statement {
                 at: *thing.position(),
@@ -169,11 +178,13 @@ impl<'a> Parser<'a> {
                     vec![
                         Statement {
                             at: *thing.position(),
-                            inner: Box::new(Stmt::Break)
+                            inner: Box::new(Stmt::Break),
+                            notes: String::new(),
                         }
                     ],
                     vec![]
-                ))
+                )),
+                notes: String::new(),
             }
         ];
 
@@ -181,7 +192,8 @@ impl<'a> Parser<'a> {
 
         return Ok(Statement {
             at: *thing.position(),
-            inner: Box::new(Stmt::Loop(body))
+            inner: Box::new(Stmt::Loop(body)),
+            notes: String::new(),
         });
     }
 
@@ -198,16 +210,19 @@ impl<'a> Parser<'a> {
                     vec![],
                     vec![Statement {
                         at: *thing.position(),
-                        inner: Box::new(Stmt::Break)
+                        inner: Box::new(Stmt::Break),
+                        notes: String::new(),
                     }]
-                ))
+                )),
+                notes: String::new(),
             }
         ];
         loop_body.extend(body);
 
         return Ok(Statement {
             at: *thing.position(),
-            inner: Box::new(Stmt::Loop(loop_body))
+            inner: Box::new(Stmt::Loop(loop_body)),
+            notes: String::new(),
         })
     }
 }
