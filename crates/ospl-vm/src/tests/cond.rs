@@ -1,6 +1,6 @@
 use ospl_common::inst::{make, optimized::{Inst, InstBuilder, Opc}};
 
-use crate::{RuntimeValue, VM, tests};
+use crate::{RuntimeValue, VM, tests__};
 
 pub fn loops_code(x:i64) -> Vec<Inst> {
     let insts = vec![

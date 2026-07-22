@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use ospl_common::ast::{Scope, Type};
+use ospl_common::{ast::{Scope, Type}, inst::optimized::Inst};
 
 use crate::{BuildData, Compiler, RelativeVarID, ScopeStack};
 
-impl Compiler {
+impl<'a> Compiler<'a> {
     /// Increments to the next index, returning the previous one,
     /// like a postincrement
     fn next_var(&mut self) -> RelativeVarID {
@@ -12,11 +12,12 @@ impl Compiler {
         return t.next_post()
     }
 
-    pub fn new(bd: Arc<BuildData>) -> Self {
+    pub fn new(bd: Arc<BuildData>, root: &'a mut Vec<Inst>) -> Self {
         return Self {
             stack: ScopeStack { scopes: vec![
                 Scope::default()
             ] },
+            insts: root,
             bd
         }
     }

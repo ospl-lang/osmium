@@ -1,16 +1,15 @@
-use ospl_common::{ast::{Type, ops::{UnaryOp, UnaryOpType}, spanning::Spannable}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{Type, ops::{UnaryOp, UnaryOpType}, spanning::Spannable}, inst::optimized::{InstBuilder, Opc}};
 
 use crate::{CE, CEData, Compiler, EvalResult, Res};
 
-impl Compiler {
+impl<'a> Compiler<'a> {
     pub fn unary_op(
         &mut self,
         u: &UnaryOp,
-        ob: &mut Vec<Inst>,
         span: &dyn Spannable,
     ) -> Res<EvalResult>
     {
-        let eval = self.eval(&u.expr, ob)?;
+        let eval = self.eval(&u.expr)?;
 
         let new_ty = match (&eval.ty, &u.kind) {
             (ty, UnaryOpType::LogicNot) => ty.clone(),
@@ -30,7 +29,7 @@ impl Compiler {
             })
         };
 
-        ob.push(InstBuilder::new()
+        self.insts.push(InstBuilder::new()
             .opcode(unary_op_to_opc(&u.kind))
             .index(eval.address)
             .build());

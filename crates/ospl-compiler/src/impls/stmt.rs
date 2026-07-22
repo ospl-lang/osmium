@@ -1,4 +1,4 @@
-use ospl_common::{ast::{AStore, Entry, RStore, Type}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{AStore, Entry, RStore, Type}, inst::optimized::{InstBuilder, Opc}};
 
 pub enum Control {
     Default,
@@ -10,11 +10,10 @@ pub enum Control {
 
 use crate::{CE, CEData, Compiler, EvalResult, Res, ast::{Statement, Stmt}};
 
-impl Compiler {
+impl<'a> Compiler<'a> {
     pub fn compile_stmt(
         &mut self,
         s: &Statement,
-        ob: &mut Vec<Inst>
     ) -> Res<Control>
     {
         // tracing::trace!(stmt=?s, "compiling stmt");
@@ -24,7 +23,7 @@ impl Compiler {
             Stmt::Define(dcl) => {
                 let _span = tracing::debug_span!("dcl", id=dcl.name);
                 let _enter = _span.enter();
-                let eval = self.eval(&dcl.rhs, ob)?;
+                let eval = self.eval(&dcl.rhs)?;
 
                 self.stack.top_mut().direct_declare(dcl.name.to_string(), Entry::Runtime(RStore {
                     address: eval.address,
@@ -47,7 +46,7 @@ impl Compiler {
             }
 
             Stmt::Expr(e) => {
-                let _ = self.eval(e, ob)?;
+                let _ = self.eval(e)?;
             },
 
             Stmt::ReturnScope => {
@@ -55,38 +54,38 @@ impl Compiler {
                     .opcode(Opc::RetScope)
                     .build();
                 
-                ob.push(inst);
+                self.insts.push(inst);
                 return Ok(Control::ReturnScope)
             },
 
             Stmt::Return(e) => {
-                let eval = self.eval(e, ob)?;
-                ob.push(InstBuilder::new().opcode(Opc::Ret).index(eval.address).build());
+                let eval = self.eval(e)?;
+                self.insts.push(InstBuilder::new().opcode(Opc::Ret).index(eval.address).build());
                 return Ok(Control::Return(eval))
             },
 
             Stmt::If(left, yes, no) => 
-                self.compile_if_stmt(left, yes, no, ob)?,
+                self.compile_if_stmt(left, yes, no)?,
 
             Stmt::Break => {
-                ob.push(InstBuilder::new().opcode(Opc::Break).build());
+                self.insts.push(InstBuilder::new().opcode(Opc::Break).build());
                 return Ok(Control::Break)
             },
 
             Stmt::Continue => {
-                ob.push(InstBuilder::new().opcode(Opc::Continue).build());
+                self.insts.push(InstBuilder::new().opcode(Opc::Continue).build());
                 return Ok(Control::Continue)
             },
 
-            Stmt::Loop(l) => self.compile_loop_stmt(l, ob)?,
+            Stmt::Loop(l) => self.compile_loop_stmt(l)?,
 
             Stmt::Assign(lv, to) => {
                 // BUGNOTE: I'm unsure if this get_lvalue() call is safe
                 // because we're going to interpret it under the current
                 // scope. get_lvalue may or may not work this way and I
                 // honestly forgot.
-                let reval = self.eval(to, ob)?;
-                let leval = self.get_lvalue(lv, ob)?;
+                let reval = self.eval(to)?;
+                let leval = self.get_lvalue(lv)?;
                 // don't check if we're currently of undefined type
                 if leval.ty != Type::Undefined {
                     if leval.ty != reval.ty {
@@ -105,10 +104,10 @@ impl Compiler {
                     .index(reval.address)
                     .build();
 
-                ob.push(i);
+                self.insts.push(i);
             },
             Stmt::AssignOp(b) => {
-                self.assign_op(b, ob)?;
+                self.assign_op(b)?;
             },
         }
 
@@ -118,11 +117,10 @@ impl Compiler {
     pub fn compile_block(
         &mut self,
         s: &[Statement],
-        ob: &mut Vec<Inst>
     ) -> Res<()>
     {
         for stmt in s {
-            self.compile_stmt(stmt, ob)?;
+            self.compile_stmt(stmt)?;
         }
 
         return Ok(())
@@ -136,9 +134,8 @@ impl Compiler {
     pub fn compile_all(
         &mut self,
         s: &[Statement],
-        ob: &mut Vec<Inst>
     ) -> Res<()>
     {
-        return self.compile_block(s, ob);
+        return self.compile_block(s);
     }
 }

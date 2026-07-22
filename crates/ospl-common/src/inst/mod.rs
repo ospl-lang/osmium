@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 // use crate::inst::unoptimized::VMInstruction;
-use crate::{ast::frame::RuntimeFrame, inst::optimized::Inst};
+use crate::ast::frame::RuntimeFrame;
 
 pub mod list;
 pub mod optimized;
@@ -247,7 +247,7 @@ pub union RV {
 pub struct RuntimeFunction {
     /// Absolute address
     pub captures: Vec<crate::types::AbsAddress>,
-    pub code: Vec<Inst>
+    pub code: (usize, usize)
 }
 
 // pub mod unoptimized;

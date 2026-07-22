@@ -19,13 +19,13 @@ arrayvec = "0.7.6"
 criterion = "0.5.1"
 pprof = { version = "0.14.0", features = ["protobuf", "flamegraph", "criterion"] }
 
-[[bench]]
-name = "main"
-harness = false
+# [[bench]]
+# name = "main"
+# harness = false
 
 # [[bench]]
 # name = "test"
 # harness = false
 
-[lib]
-bench = false
+# [lib]
+# bench = false

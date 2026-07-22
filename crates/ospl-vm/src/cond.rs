@@ -1,7 +1,7 @@
 //! This module presents implementations for conditionals and control flow on
 //! [`VM`], such as if statements, loops, selections, checks, and truthiness.
 
-use ospl_common::inst::{RT, optimized::Inst};
+use ospl_common::inst::RT;
 
 use crate::{Control, VM, arena::ArenaIndex};
 
@@ -32,12 +32,13 @@ impl VM {
     pub fn if_statement(
         &mut self,
         cond: ArenaIndex,
-        yes: &[Inst],
-        no: &[Inst],
+        yes: (usize, usize),
+        no: (usize, usize),
     ) -> Control {
         let control = if self.get_truthiness(cond) {
-            self.stack.push_parental();
-            let out = self.run_all(yes);
+            self.stack.push_parental(self.instruction_pointer);
+            self.instruction_pointer = yes.0;
+            let out = self.run_forever();
 
             #[cfg(debug_assertions)] let _dbg = crate::debug::DbgMark::new(format!("true if done: {out:?}"));
 
@@ -46,8 +47,9 @@ impl VM {
             self.stack.end();
             out
         } else {
-            self.stack.push_parental();
-            let out = self.run_all(no);
+            self.stack.push_parental(self.instruction_pointer);
+            self.instruction_pointer = no.0;
+            let out = self.run_forever();
 
             #[cfg(debug_assertions)] let _dbg = crate::debug::DbgMark::new(format!("false if done: {out:?}"));
 
@@ -61,23 +63,24 @@ impl VM {
     /// Runs the given code forever until a [`Control::Break`] is issued.
     pub fn run_loop(
         &mut self,
-        code: &[Inst]
+        code: (usize, usize)
     ) -> Control {
         loop {
-            self.stack.push_parental();
-            match self.run_all(code) {
+            self.stack.push_parental(self.instruction_pointer);
+            self.instruction_pointer = code.0;
+            match self.run_all(code.1) {
                 Control::Break => {
-                    self.stack.end();
+                    self.instruction_pointer = self.stack.end();
                     return Control::Default
                 }
                 Control::Continue => {
-                    self.stack.end();
+                    self.instruction_pointer = self.stack.end();
                     continue;
                 },
                 Control::Default => {},
                 other => return other
             }
-            self.stack.end();
+            self.instruction_pointer = self.stack.end();
         }
     }
 }

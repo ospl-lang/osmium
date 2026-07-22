@@ -1,6 +1,6 @@
 use std::hint::unreachable_unchecked;
 
-use ospl_common::inst::{RT, RuntimeFunction, list::List, make};
+use ospl_common::inst::{RT, list::List, make};
 
 use crate::{VM, RuntimeValue};
 
@@ -77,17 +77,6 @@ impl VM {
                 let mut s = aa.data.str.clone();
                 s.push_str(&bb.data.str);
                 s.to_string()
-            }),
-            (RT::Func, RT::Func) => make::func({
-                let mut code1 = unsafe{&aa.data.func}.code.clone();
-                let code2 = unsafe{&bb.data.func}.code.clone();
-
-                code1.extend(code2);
-
-                RuntimeFunction {
-                    captures: unsafe{&aa.data.func}.captures.clone(),
-                    code: code1
-                }
             }),
             other => unimplemented!("{other:?}")
         }

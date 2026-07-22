@@ -1,16 +1,15 @@
-use ospl_common::{ast::{Type, ops::{AssignOp, BinaryOp, BinaryOpType}}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{Type, ops::{AssignOp, BinaryOp, BinaryOpType}}, inst::optimized::{InstBuilder, Opc}};
 
 use crate::{CE, CEData, Compiler, EvalResult, Res};
 
-impl Compiler {
+impl<'a> Compiler<'a> {
     pub fn binary_op(
         &mut self,
         b: &BinaryOp,
-        ob: &mut Vec<Inst>
     ) -> Res<EvalResult>
     {
-        let left = self.eval(&b.left, ob)?;
-        let right = self.eval(&b.right, ob)?;
+        let left = self.eval(&b.left)?;
+        let right = self.eval(&b.right)?;
 
         // don't do the type checking for the question mark operator
         match (&left.ty, &right.ty, &b.kind) {
@@ -72,7 +71,7 @@ impl Compiler {
             .index(right.address)
             .build();
 
-        ob.push(inst);
+        self.insts.push(inst);
 
         return Ok(EvalResult {
             address: self.next_var(),
@@ -87,11 +86,10 @@ impl Compiler {
     pub fn assign_op(
         &mut self,
         b: &AssignOp,
-        ob: &mut Vec<Inst>
     ) -> Res<()>
     {
-        let left = self.get_lvalue(&b.left, ob)?;
-        let right = self.eval(&b.right, ob)?;
+        let left = self.get_lvalue(&b.left)?;
+        let right = self.eval(&b.right)?;
 
         let opc = match &b.kind {
             BinaryOpType::Add       => Opc::Addl,
@@ -113,7 +111,7 @@ impl Compiler {
             .index(right.address)
             .build();
 
-        ob.push(inst);
+        self.insts.push(inst);
 
         return Ok(())
     }

@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf};
 use ospl_common::inst::optimized::Inst;
-use ospl_toolchain::load_package_cfg;
+use ospl_toolchain::{Program, load_package_cfg};
 use ospl_vm::VM;
 use std::io::Read;
 use clap::{Parser, Subcommand, ValueEnum};
@@ -87,8 +87,15 @@ fn main() {
         Cmd::Exec { at } => cmd_exec(at),
         Cmd::ScratchRun => {
             // build
-            let bf = PathBuf::from(ospl_toolchain::BUILD_FILE);
-            cmd_build(bf.clone());
+            cmd_build(
+                PathBuf::from(
+                    format!(
+                        "{}/{}",
+                        ospl_toolchain::BUILD_FOLDER.to_string(),
+                        ospl_toolchain::BUILD_FILE.to_string()
+                    )
+                )
+            );
 
             // cd into the build folder
             let pb2 = PathBuf::from(ospl_toolchain::BUILD_FOLDER);
@@ -102,6 +109,7 @@ fn main() {
     };
 }
 
+
 fn cmd_exec(at: PathBuf) {
     let mut f = fs::OpenOptions::new()
         .create(false)
@@ -112,12 +120,12 @@ fn cmd_exec(at: PathBuf) {
     let mut bytes = Vec::new();
     f.read_to_end(&mut bytes).expect("failed to read file");
 
-    let insts: Vec<Inst> = postcard::from_bytes(bytes.as_slice())
+    let p: Program = postcard::from_bytes(bytes.as_slice())
         .expect("failed to deserialize (is this program for an older OSPL version?)");
 
-    let mut vm = VM::new();
+    let mut vm = VM::new(p.instructions, p.entry);
     ospl_vm::debug::setup_debug_panic_handler();
-    vm.run_all(&insts);
+    vm.run_forever();
 }
 
 fn cmd_build(out_path: PathBuf) {
@@ -143,12 +151,17 @@ fn cmd_build(out_path: PathBuf) {
     // compile
     let out = ospl_toolchain::graph::build::genmods(&low);
     let out = ospl_toolchain::graph::build::buildmain(&low, out);
-    let out = match out {
+    let (out, entry) = match out {
         Ok(x) => x,
         Err(e) => {
             print_diag(e);
             std::process::exit(101);
         }
+    };
+
+    let prog = Program {
+        instructions: out.clone(),
+        entry: entry,
     };
 
     // write out
@@ -159,7 +172,7 @@ fn cmd_build(out_path: PathBuf) {
         .open(out_path)
         .expect("failed to open output file");
 
-    postcard::to_io(&out, &mut f)
+    postcard::to_io(&prog, &mut f)
         .expect("failed to write dist.ospb");
 }
 

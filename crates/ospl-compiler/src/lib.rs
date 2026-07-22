@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex, PoisonError, atomic::AtomicUsize};
 
-use ospl_common::{ast::{Scope, Type, ops::{BinaryOpType, UnaryOpType}, spanning::UnknownLocation}, inst::symbols::DebugSymbolTable};
+use ospl_common::{ast::{Scope, Type, ops::{BinaryOpType, UnaryOpType}, spanning::UnknownLocation}, inst::{optimized::Inst, symbols::DebugSymbolTable}};
 
 pub type RelativeVarID = usize;
 
@@ -13,9 +13,10 @@ pub struct ScopeStack {
 }
 
 #[derive(Debug)]
-pub struct Compiler {
+pub struct Compiler<'a> {
     pub stack: ScopeStack,
     pub bd: Arc<BuildData>,
+    pub insts: &'a mut Vec<Inst>
 }
 
 #[derive(Debug)]

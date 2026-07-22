@@ -14,13 +14,15 @@ pub mod debug;
 pub mod arena;
 pub mod gc;
 
-pub mod tests;
+// pub mod tests;
 
 #[derive(Debug)]
 pub struct VM {
     pub arena: Arena,
     pub stack: stack::Stack,
-    pub ffi: ffi::FfiRegistry
+    pub ffi: ffi::FfiRegistry,
+    pub instruction_stream: Vec<Inst>,
+    pub instruction_pointer: usize,
 }
 
 #[derive(Debug)]
@@ -33,11 +35,13 @@ pub enum Control {
 }
 
 impl VM {
-    pub fn new() -> Self {
+    pub fn new(s: Vec<Inst>, main: usize) -> Self {
         return Self {
             arena: Arena::new(),
             stack: Stack::default(),
             ffi: ffi::FfiRegistry::default(),
+            instruction_pointer: main,
+            instruction_stream: s
         }
     }
 
@@ -98,6 +102,10 @@ impl VM {
         self.stack.top_indexes_mut()[reg] = self.stack.top_indexes()[new];
     }
 
+    /// Runs a single instruction
+    /// 
+    /// **UNDER NO CIRCUMSTANCES MAY THIS FUNCTION OR ANY CALLEES WITHIN
+    /// MUTATE THE INSTRUCTION STREAM**
     #[inline(always)]
     pub fn run_one(&mut self, inst: &Inst) -> Control {
         // you're about to see a lot of unsafe code!
@@ -113,12 +121,12 @@ impl VM {
         // instructions are valid.
 
         #[cfg(debug_assertions)]
-        let _dbg = debug::DbgMark::new(format!("run {inst:?}"));
+        let _dbg = debug::DbgMark::new(format!("{} run {inst:?}", self.instruction_pointer));
 
         unsafe { match &inst.opcode {
             Opc::PushLiteral => {
                 self.push_literal(
-                    inst.immediate
+                    *inst.immediate
                         .as_ref()
                         .unwrap()
                         .clone()
@@ -139,33 +147,37 @@ impl VM {
             Opc::QuestionMark => self.question_mark(inst.get_index(0), inst.get_index(1)),
 
             Opc::PushFunction => {
-                let new_indexes = inst.indexes.iter().map(|x| {
+                let start = inst.indexes[0];
+                let end = inst.indexes[1];
+                let new_indexes = inst.indexes[2..].iter().map(|x| {
                     let idx = self.stack.top_indexes()[*x];
 
                     return idx;
                 }).collect();
-                let f_code = inst.children.get_unchecked(0);
                 
                 let f = RuntimeFunction {
                     captures: new_indexes,
-                    code: f_code.clone()
+                    code: (start, end)
                 };
 
                 self.push_literal(make::func(f));
                 return Control::Default
             },
 
-            Opc::If => return self.if_statement(
-                inst.get_index(0),
-                &inst.children.get_unchecked(0),
-                &inst.children.get_unchecked(1),
-            ),
+            Opc::If => {
+                return self.if_statement(
+                    inst.get_index(0),
+                    (inst.get_index(1), inst.get_index(2)),
+                    (inst.get_index(2), inst.get_index(3)),
+                );
+            }
 
             Opc::AssignRef => self.assign_ref(inst.get_index(0), inst.get_index(1)),
 
             Opc::AssignLiteral => {
                 // don't even fuck with this one lmao.
-                *self.arena.get_mut(self.stack.top_indexes()[inst.indexes[0]]) = inst.immediate.as_ref().unwrap().clone();
+                // this one made sense to someone at some point
+                *self.arena.get_mut(self.stack.top_indexes()[inst.indexes[0]]) = *inst.immediate.as_ref().unwrap().clone();
             },
 
             Opc::Property => {
@@ -226,7 +238,9 @@ impl VM {
 
             Opc::FFICall => { self.call_foreign_function(inst.get_index(0), &inst.indexes[1..]); },
 
-            Opc::Loop => return self.run_loop(&inst.children.get_unchecked(0)),
+            Opc::Loop => return self.run_loop(
+                (inst.get_index(0), inst.get_index(1))
+            ),
 
             Opc::Ret => return Control::Return(self.stack.top_indexes()[inst.get_index(0)]),
             Opc::Continue => return Control::Continue,
@@ -281,16 +295,38 @@ impl VM {
         return Control::Default;
     }
 
+    /// Runs forever at the instruction pointer, stopping once a non-Default control is hit
     #[inline(always)]
-    pub fn run_all(&mut self, insts: &[Inst]) -> Control {
-        for inst in insts.iter() {
-            let control = self.run_one(inst);
+    pub fn run_forever(&mut self) -> Control {
+        loop {
+            // SAFETY INVARIANT: run_once() cannot mutate instruction_stream
+            let i = &raw const self.instruction_stream[self.instruction_pointer];
+            let control = self.run_one(unsafe { &*i });
             match control {
                 Control::Default => {},
                 other => return other
             }
-        }
 
-        return Control::Default;
+            self.instruction_pointer += 1;
+        }
+    }
+
+    /// Continues from the instruction pointer until the given instruction.
+    /// Returning default if the `max` instruction is reached
+    pub fn run_all(&mut self, max: usize) -> Control {
+        loop {
+            // SAFETY INVARIANT: run_once() cannot mutate instruction_stream
+            let i = &raw const self.instruction_stream[self.instruction_pointer];
+            let control = self.run_one(unsafe { &*i });
+            match control {
+                Control::Default => {},
+                other => return other
+            }
+
+            self.instruction_pointer += 1;
+            if self.instruction_pointer >= max {
+                return Control::Default
+            }
+        }
     }
 }

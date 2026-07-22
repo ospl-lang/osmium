@@ -37,16 +37,19 @@ impl VM {
     pub fn call_fn(&mut self, at: usize, args: &[ArenaIndex]) -> Control {
         let mut frame = RuntimeFrame::default();
 
-        let f = self.get_value_top(at);
-        let f = match f.as_fn() {
-            Some(o) => o,
-            None => {
-                panic!("VM error: can't call object of type {f:?} | at={at} | top={:?}", self.stack.top_indexes());
-            },
-        };
+        let (c_start, c_end) = {
+            let f = self.get_value_top(at);
+            let f = match f.as_fn() {
+                Some(o) => o,
+                None => {
+                    panic!("VM error: can't call object of type {f:?} | at={at} | top={:?}", self.stack.top_indexes());
+                },
+            };
 
-        // CAPTURES
-        frame.indexes.extend_from_slice(f.captures.as_slice());
+            // CAPTURES
+            frame.indexes.extend_from_slice(f.captures.as_slice());
+            f.code
+        };
 
         // ARGUMENTS
         {
@@ -61,17 +64,12 @@ impl VM {
             }
         };
 
-        // INVARIANT: I guarantee that the number of args passed in matches the
-        // function's expectations. If this invariant is broken, then the OSPL
-        // function (and any function using the returned scope of the function)
-        // may experience undefined behaviour.
-        // now, since Rust sucks, we're gonna do unsafe
-        // SAFETY: I PROMISE THAT `f.code` AND ITS PARENTS WILL NOT BE MUTATED
-        unsafe {
-            let very_good_safe = &raw const f.code;
-            self.stack.push_frame_value(frame);  // needs to be in unsafe because of course it does.
+        self.stack.push_frame_value(frame, self.instruction_pointer);
 
-            for inst in &*very_good_safe {
+        unsafe {
+            let x = &raw const self.instruction_stream[c_start..c_end];
+
+            for inst in &*x {
                 let run = self.run_one(inst);
                 match run {
                     Control::Return(i) => {
@@ -91,6 +89,7 @@ impl VM {
     }
 
     /// Returns the value to the previous stack frame
+    /// and switches the instruction pointer accordingly
     pub fn ret(&mut self, address: AbsAddress) {
         let _ = self.stack.end();
         self.stack.top_add_index(address);

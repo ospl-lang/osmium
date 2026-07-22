@@ -1,13 +1,12 @@
-use ospl_common::{ast::{Entry, Expression, FunctionType, RStore, Scope, spanning::Spannable}, inst::{make, optimized::{Inst, InstBuilder, Opc}}};
+use ospl_common::{ast::{Entry, Expression, FunctionType, RStore, Scope, spanning::Spannable}, inst::{make, optimized::{InstBuilder, Opc}}};
 
 use crate::{CE, CEData, Compiler, EvalResult, Res, Type, ast::FunctionValue, impls::stmt::Control};
 
-impl Compiler {
+impl<'a> Compiler<'a> {
     pub fn fn_literal(
         &mut self,
         func: &FunctionValue,
         span: &dyn Spannable,
-        ob: &mut Vec<Inst>
     ) -> Res<EvalResult>
     {
         let mut new_scope = Scope::default();
@@ -69,13 +68,18 @@ impl Compiler {
             arg_types.push(t);
         }
 
+        /**************************************
+         * START INSTRUCTION BUILDING
+         **************************************/
+
         // PUSH HERE
         self.stack.scopes.push(new_scope);
 
-        let mut insts = Vec::<Inst>::new();
+        let insts_start = self.insts.len();
+
         let mut has_a_return = false;
         for stmt in &func.block {
-            match self.compile_stmt(stmt, &mut insts)? {
+            match self.compile_stmt(stmt)? {
                 Control::Return(_) => {
                     has_a_return = true;
                 },
@@ -91,16 +95,22 @@ impl Compiler {
             tracing::warn!("auto-inserting return");
             let v = self.next_var();
 
-            insts.push(InstBuilder::new()
+            self.insts.push(InstBuilder::new()
                 .opcode(Opc::PushLiteral)
                 .value(make::nul(()))
                 .build());
 
-            insts.push(InstBuilder::new()
+            self.insts.push(InstBuilder::new()
                 .opcode(Opc::Ret)
                 .index(v)
                 .build());
         }
+
+        let insts_end = self.insts.len();
+
+        /**************************************
+         * END INSTRUCTION BUILDING
+         **************************************/
 
         let new_scope = self.stack.scopes.pop()
             .expect("TODO unwrap - cannot return from the top of a script");
@@ -112,14 +122,16 @@ impl Compiler {
             ret
         };
 
+
         let inst = InstBuilder::new()
             .opcode(Opc::PushFunction)
-            .child(insts)
+            .index(insts_start)
+            .index(insts_end)
             .indexes(&capture_indexes)
             .symbol(&mut *self.bd.symbols.lock()?, span.user_symbol())
             .build();
 
-        ob.push(inst);
+        self.insts.push(inst);
 
         return Ok(EvalResult {
             address: self.next_var(),
@@ -131,10 +143,9 @@ impl Compiler {
         &mut self,
         call_func: &Expression,
         args: &[Expression],
-        ob: &mut Vec<Inst>,
     ) -> Res<EvalResult>
     {
-        let f = self.eval(call_func, ob)?;
+        let f = self.eval(call_func)?;
         let func = match f.ty {
             Type::Function(f) => *f,
             other => panic!("cannot call {other:?}")
@@ -156,7 +167,7 @@ impl Compiler {
 
         let mut new_args = Vec::new();
         for (arg, func_arg) in args.iter().zip(&func.args) {
-            let eval = self.eval(arg, ob)?;
+            let eval = self.eval(arg)?;
             if eval.ty != *func_arg {
                 return Err(CE {
                     at: Box::new(arg.clone()),
@@ -178,7 +189,7 @@ impl Compiler {
             .symbol(&mut *self.bd.symbols.lock()?, call_func.user_symbol())
             .build();
 
-        ob.push(i);
+        self.insts.push(i);
 
         return Ok(EvalResult {
             address: self.next_var(),

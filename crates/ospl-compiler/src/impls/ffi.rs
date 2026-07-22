@@ -1,8 +1,8 @@
-use ospl_common::{ast::{Expression, LValue, Type}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{Expression, LValue, Type}, inst::optimized::{InstBuilder, Opc}};
 
 use crate::{Compiler, EvalResult, Res};
 
-impl Compiler {
+impl<'a> Compiler<'a> {
     // pub fn ffi_load(
     //     &mut self,
     //     lib_path: &String,
@@ -36,13 +36,12 @@ impl Compiler {
         func_name: &Expression,
         ret_type: usize,
         types: &[usize],
-        ob: &mut Vec<Inst>
     ) -> Res<EvalResult>
     {
-        let lib = self.get_lvalue(lib, ob)?;
-        let func_name = self.eval(func_name, ob)?;
+        let lib = self.get_lvalue(lib)?;
+        let func_name = self.eval(func_name)?;
 
-        ob.push(InstBuilder::new()
+        self.insts.push(InstBuilder::new()
             .opcode(Opc::FFILoadFn)
             .index(lib.address)
             .index(func_name.address)
@@ -64,19 +63,18 @@ impl Compiler {
         &mut self,
         func: &LValue,
         args: &[Expression],
-        ob: &mut Vec<Inst>
     ) -> Res<EvalResult>
     {
-        let func = self.get_lvalue(func, ob)?;
+        let func = self.get_lvalue(func)?;
         let Type::ForeignFunction(_, r) = &func.ty
             else { panic!("can't call a foreign function without foreign keyword") };
 
         let mut new_args = Vec::new();
         for arg in args {
-            new_args.push(self.eval(arg, ob)?.address);
+            new_args.push(self.eval(arg)?.address);
         }
 
-        ob.push(InstBuilder::new()
+        self.insts.push(InstBuilder::new()
             .opcode(Opc::FFICall)
             .index(func.address)
             .indexes(&new_args)

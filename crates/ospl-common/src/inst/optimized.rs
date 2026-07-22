@@ -40,8 +40,9 @@ pub enum Opc {
     /// recommended (and actually a violation of the spec) to
     /// use PushLiteral to create a function, dear compilers.
     /// 
-    /// - **Indexes:** the captures of the function
-    /// - **Child #0:** the code of the function
+    /// - **Index 0:** index of the function body's start (inclusive)
+    /// - **Index 1:** index of the function body's end (exclusive)
+    /// - **Remaining indexes:** the captures of the function
     PushFunction = 3,
 
     AssignRef = 4,
@@ -160,6 +161,7 @@ pub enum Opc {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 #[derive(serde::Serialize, serde::Deserialize)]
+// #[repr(align(64))]  // align to cache line, may or may not be faster.
 pub struct Inst {
     pub opcode: Opc,
 
@@ -170,19 +172,14 @@ pub struct Inst {
     pub indexes: Vec<usize>,
 
     /// Immediate value for this operation, if any
-    pub immediate: Option<RuntimeValue>,
-
-    /// Children (child instructions) for this, if any.
-    /// 
-    /// Mostly used for if statements and loops
-    pub children: Vec<Vec<Inst>>,
+    pub immediate: Option<Box<RuntimeValue>>,
 
     pub debug_symbol: Option<usize>,
 }
 
 impl Display for Inst {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        return write!(f, "{:?}\t{:?}\t{:?}\t[{:#?}]", self.opcode, self.immediate, self.indexes, self.children);
+        return write!(f, "{:?}\t{:?}\t{:?}", self.opcode, self.immediate, self.indexes);
     }
 }
 
@@ -209,7 +206,6 @@ impl InstBuilder {
                 opcode: Opc::NullOp,
                 indexes: Vec::new(),
                 immediate: None,
-                children: Vec::new(),
                 debug_symbol: None,
             }
         }
@@ -230,14 +226,8 @@ impl InstBuilder {
         return self
     }
 
-    pub fn child(mut self, child: Vec<Inst>) -> Self {
-        self.inner.children.push(child);
-
-        return self
-    }
-
     pub fn value(mut self, x: RuntimeValue) -> Self {
-        self.inner.immediate = Some(x);
+        self.inner.immediate = Some(Box::new(x));
 
         return self
     }

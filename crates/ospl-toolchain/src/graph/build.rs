@@ -1,8 +1,8 @@
 use std::{collections::{HashMap, VecDeque}, hash::Hash, path::PathBuf, sync::{Arc, Mutex, atomic::AtomicUsize}};
-use ospl_common::{ast::Statement, inst::{optimized::Inst, symbols::DebugSymbolTable}};
+use ospl_common::{ast::{Expression, LV, LValue, Position, Statement, decl::Declaration}, inst::{optimized::Inst, symbols::DebugSymbolTable}};
 use ospl_compiler::{BuildData, Compiler};
 
-use crate::{BUILD_FOLDER, Log, graph::resolv0::{PkgRef, VersionRuleRef}};
+use crate::{BUILD_FOLDER, Log, graph::{resolv0::{PkgRef, VersionRuleRef}, wrap_in_declaration}};
 
 #[derive(Clone)]
 pub struct CxxNode {
@@ -117,7 +117,10 @@ pub fn getmain<'a>(graph: &'a Graph, m: &'a HashMap<u32, GeneratedModule>) -> Op
     return m.get(&graph.main)
 }
 
-pub fn buildmain(graph: &Graph, mut m: HashMap<u32, GeneratedModule>) -> Result<Vec<Inst>, ospl_compiler::CE> {
+/// Returns the entrypoint and flat instructions
+/// - **First list:** compiled instructions
+/// - **Second number:** entrypoint instruction
+pub fn buildmain(graph: &Graph, mut m: HashMap<u32, GeneratedModule>) -> Result<(Vec<Inst>, usize), ospl_compiler::CE> {
     for (_, every_node) in &m {
         for cxx in &every_node.cxx_deps {
             Log!(Invoking, "C compiler on {:?}", cxx.c_file);
@@ -163,11 +166,72 @@ pub fn buildmain(graph: &Graph, mut m: HashMap<u32, GeneratedModule>) -> Result<
     });
 
     Log!(Compiling, "everything");
-    let mut comp = Compiler::new(build_data);
     let mut root = Vec::new();
-    comp.compile_all(&m.stmts, &mut root)?;
+    let mut comp = Compiler::new(build_data, &mut root);
+    
+    let file = Arc::new(m.file);
 
-    return Ok(root)
+    // declare a "main" module scope
+    let iife = wrap_in_declaration("main", m.stmts, Arc::clone(&file));
+    comp.compile_block(&[iife])?;
+    let entrypoint = comp.insts.len() - 1;  // -1 because the PushFunction starts one instruction before
+
+    comp.compile_stmt(&Statement {
+        at: Position::default(),
+        file: Arc::clone(&file),
+        notes: "".to_string(),
+        inner: Box::new(ospl_common::ast::Stmt::Define(Declaration {
+            name: "main".to_string(),
+            rhs: Expression {
+                at: Position::default(),
+                file: Arc::clone(&file),
+                inner: Box::new(ospl_common::ast::Expr::Call(
+                    Expression {
+                        at: Position::default(),
+                        file: Arc::clone(&file),
+                        inner: Box::new(ospl_common::ast::Expr::LValue(LValue {
+                            at: Position::default(),
+                            file: Arc::clone(&file),
+                            inner: Box::new(LV::Variable("main".to_string()))
+                        }))
+                    },
+                    Vec::new()
+                ))
+            }
+        }))
+    })?;
+
+    // call the main function in the main module scope
+    comp.compile_stmt(&Statement {
+        at: Position::default(),
+        file: Arc::clone(&file),
+        inner: Box::new(ospl_common::ast::Stmt::Expr(Expression {
+            at: Position::default(),
+            file: Arc::clone(&file),
+            inner: Box::new(ospl_common::ast::Expr::Call(
+                Expression {
+                    at: Position::default(),
+                    file: Arc::clone(&file),
+                    inner: Box::new(ospl_common::ast::Expr::LValue(LValue {
+                        at: Position::default(),
+                        file: Arc::clone(&file),
+                        inner: Box::new(LV::Property(
+                            LValue {
+                                at: Position::default(),
+                                file: Arc::clone(&file),
+                                inner: Box::new(LV::Variable("main".to_string()))
+                            },
+                            "main".to_string(),
+                        ))
+                    }))
+                },          // call main()
+                Vec::new()  // no args
+            )),
+        })),
+        notes: "".to_string()
+    })?;
+
+    return Ok((root, entrypoint))
 }
 
 /// Generic topological sort using Kahn's algorithm.

@@ -1,18 +1,17 @@
-use ospl_common::{ast::{Expression, Type, spanning::Spannable}, inst::optimized::{Inst, InstBuilder, Opc}};
+use ospl_common::{ast::{Expression, Type, spanning::Spannable}, inst::optimized::{InstBuilder, Opc}};
 
 use crate::{CE, CEData, Compiler, EvalResult, Res, TypeExpectation};
 
-impl Compiler {
+impl<'a> Compiler<'a> {
     pub fn c_index(
         &mut self,
         l: &Expression,
         r: &Expression,
         span: &dyn Spannable,
-        ob: &mut Vec<Inst>
     ) -> Res<EvalResult>
     {
-        let left = self.eval(l, ob)?;
-        let right = self.eval(r, ob)?;
+        let left = self.eval(l)?;
+        let right = self.eval(r)?;
         if !left.ty.is_indexable() {
             todo!("TODO unwrap - unindexable");
         }
@@ -23,7 +22,7 @@ impl Compiler {
             _ => unreachable!("you didn't handle all the indexable cases!")
         };
 
-        ob.push(InstBuilder::new()
+        self.insts.push(InstBuilder::new()
             .opcode(Opc::Index)
             .index(left.address)
             .index(right.address)
@@ -42,17 +41,16 @@ impl Compiler {
         r1: &Expression,
         r2: &Expression,
         span: &dyn Spannable,
-        ob: &mut Vec<Inst>
     ) -> Res<EvalResult>
     {
-        let left = self.eval(l, ob)?;
-        let right_start = self.eval(r1, ob)?;
-        let right_end = self.eval(r2, ob)?;
+        let left = self.eval(l)?;
+        let right_start = self.eval(r1)?;
+        let right_end = self.eval(r2)?;
         if !left.ty.is_sliceable() {
             todo!("TODO unwrap - unsliceable");
         }
 
-        ob.push(InstBuilder::new()
+        self.insts.push(InstBuilder::new()
             .opcode(Opc::Slice)
             .index(left.address)
             .index(right_start.address)
@@ -69,11 +67,10 @@ impl Compiler {
     pub fn array_pop_top(
         &mut self,
         l: &Expression,
-        ob: &mut Vec<Inst>
     ) -> Res<EvalResult>
     {
-        let left = self.array_op_start(l, ob)?;
-        ob.push(InstBuilder::new()
+        let left = self.array_op_start(l)?;
+        self.insts.push(InstBuilder::new()
             .opcode(Opc::Decrement)
             .index(left.address)
             .build());
@@ -84,10 +81,9 @@ impl Compiler {
     fn array_op_start(
         &mut self,
         l: &Expression,
-        ob: &mut Vec<Inst>
     ) -> Res<EvalResult>
     {
-        let left = self.eval(l, ob)?;
+        let left = self.eval(l)?;
         if !matches!(left.ty, Type::List(_)) {
             /* error */
             return Err(CE {

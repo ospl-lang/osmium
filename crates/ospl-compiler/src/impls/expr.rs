@@ -1,29 +1,28 @@
-use ospl_common::{ast::spanning::Spannable, inst::{make, optimized::{Inst, InstBuilder, Opc}}};
+use ospl_common::{ast::spanning::Spannable, inst::{make, optimized::{InstBuilder, Opc}}};
 use tracing::error;
 
 use crate::{CE, CEData, Compiler, EvalResult, Res, Type, TypeExpectation, ast::{Expr, LV, LValue, Literal}, impls::stmt::Control};
 
-impl Compiler {
+impl<'a> Compiler<'a> {
     pub fn eval(
         &mut self,
         expr: &crate::ast::Expression,
-        ob: &mut Vec<Inst>
     ) -> Res<EvalResult>
     {
         match &*expr.inner {
-            Expr::Literal(l) => self.literal(l, expr, ob),
-            Expr::Call(func, args) => self.do_fn_call(func, args, ob),
-            Expr::BinaryOp(b) => self.binary_op(b, ob),
-            Expr::UnaryOp(u) => self.unary_op(u, ob, expr),
+            Expr::Literal(l) => self.literal(l, expr),
+            Expr::Call(func, args) => self.do_fn_call(func, args),
+            Expr::BinaryOp(b) => self.binary_op(b),
+            Expr::UnaryOp(u) => self.unary_op(u, expr),
             Expr::LValue(lv) => {
-                let store = self.get_lvalue(lv, ob)?;
+                let store = self.get_lvalue(lv)?;
                 return Ok(EvalResult {
                     address: store.address,
                     ty: store.ty.clone()
                 })
             },
             Expr::FFILoad(f) => {
-                let fp = self.eval(f, ob)?;
+                let fp = self.eval(f)?;
                 if fp.ty != Type::Str {
                     /* error */
                 }
@@ -34,17 +33,17 @@ impl Compiler {
                     .symbol(&mut *self.bd.symbols.lock()?, expr.user_symbol())
                     .build();
 
-                ob.push(i);
+                self.insts.push(i);
 
                 return Ok(EvalResult {
                     address: self.next_var(),
                     ty: Type::ForeignLibrary
                 })
             },
-            Expr::FFICall(f, args) => self.ffi_call(f, args, ob),
-            Expr::FFIFunc(lib, func_name, rtype, types) => self.ffi_func(lib, func_name, *rtype, types, ob),
+            Expr::FFICall(f, args) => self.ffi_call(f, args),
+            Expr::FFIFunc(lib, func_name, rtype, types) => self.ffi_func(lib, func_name, *rtype, types),
             Expr::Apply(left, nominals_to_replacements) => {
-                let eval = self.eval(left, ob)?;
+                let eval = self.eval(left)?;
                 let ty = self.nominal_application(eval.ty, nominals_to_replacements, expr)?;
                 return Ok(EvalResult {
                     address: eval.address,
@@ -52,7 +51,7 @@ impl Compiler {
                 })
             }
             Expr::Cast(left, into) => {
-                let left = self.eval(left, ob)?;
+                let left = self.eval(left)?;
                 let new_into = self.rt(self.stack.top(), into, expr)?;
 
                 // for turning INTO a nominal
@@ -113,7 +112,7 @@ impl Compiler {
                 }
                 
                 else {
-                    ob.push(InstBuilder::new()
+                    self.insts.push(InstBuilder::new()
                         .opcode(Opc::Cast)
                         .index(left.address)
                         .index(new_into.to_primitive_type_id())
@@ -130,7 +129,7 @@ impl Compiler {
                 // This is a dummy evalresult that we know will be overwritten.
                 let mut eval = None;
                 for s in b {
-                    match self.compile_stmt(s, ob)? {
+                    match self.compile_stmt(s)? {
                         Control::Return(y) => {
                             eval = Some(y);
                         },
@@ -143,7 +142,7 @@ impl Compiler {
                 }
 
                 if eval.is_none() {
-                    ob.push(InstBuilder::new()
+                    self.insts.push(InstBuilder::new()
                         .opcode(Opc::PushLiteral)
                         .value(make::nul(()))
                         .build());
@@ -163,50 +162,49 @@ impl Compiler {
         &mut self,
         l: &Literal,
         span: &dyn Spannable,
-        ob: &mut Vec<Inst>
     ) -> Res<EvalResult>
     {
         match l {
-            Literal::Function(f) => self.fn_literal(f, span, ob),
+            Literal::Function(f) => self.fn_literal(f, span),
 
             // no idea how to write this without duplicating code.. if anyone knows a cleaner way LMK
             Literal::Int(i) => {
-                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::int(*i)).build());
+                self.insts.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::int(*i)).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Int })
             },
             Literal::Address(u) => {
-                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::addr(*u)).build());
+                self.insts.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::addr(*u)).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Address })
             },
             Literal::Float(f) => {
-                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::float(*f)).build());
+                self.insts.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::float(*f)).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Float })
             },
             Literal::Bool(b) => {
-                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::bool(*b)).build());
+                self.insts.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::bool(*b)).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Bool })
             },
             Literal::Str(s) => {
-                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::str(s.clone())).build());
+                self.insts.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::str(s.clone())).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Str })
             },
             Literal::Char(c) => {
-                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::char(*c)).build());
+                self.insts.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::char(*c)).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Char })
             },
             Literal::Nul => {
-                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::nul(())).build());
+                self.insts.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::nul(())).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Nul })
             },
             Literal::Undefined => {
-                ob.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::undefined(())).build());
+                self.insts.push(InstBuilder::new().opcode(Opc::PushLiteral).value(make::undefined(())).build());
                 return Ok(EvalResult { address: self.next_var(), ty: Type::Undefined })
             },
             Literal::List(lty, l) => {
                 let lty = self.rt(self.stack.top(), lty, span)?;
                 let mut indexes = Vec::new();
                 for expr in l.iter() {
-                    let eval = self.eval(expr, ob)?;
+                    let eval = self.eval(expr)?;
                     if eval.ty != lty {
                         /* error */
                         error!("a list literal's types must match the declared type, got {:?} expected {:?}", eval.ty, lty);
@@ -214,7 +212,7 @@ impl Compiler {
                     indexes.push(eval.address);
                 }
 
-                ob.push(InstBuilder::new()
+                self.insts.push(InstBuilder::new()
                     .opcode(Opc::PushArray)
                     .indexes(&indexes)
                     .build());
@@ -227,12 +225,11 @@ impl Compiler {
     pub fn get_lvalue(
         &mut self,
         lv: &LValue,
-        ob: &mut Vec<Inst>
     ) -> Res<EvalResult>
     {
         match &*lv.inner {
             LV::Property(lv2, var) => {
-                let eval = self.get_lvalue(lv2, ob)?;
+                let eval = self.get_lvalue(lv2)?;
                 let x = match eval.ty {
                     Type::Scope(s) => {
                         let v = s.get_runtime(var)
@@ -257,7 +254,7 @@ impl Compiler {
                     t @ (Type::List(_) | Type::Str) => {
                         match var.as_str() {
                             "len" => {
-                                ob.push(InstBuilder::new()
+                                self.insts.push(InstBuilder::new()
                                     .opcode(Opc::GetLength)
                                     .index(eval.address)
                                     .build());
@@ -294,7 +291,7 @@ impl Compiler {
                     .symbol(&mut *self.bd.symbols.lock()?, lv.user_symbol())
                     .build();
 
-                ob.push(i);
+                self.insts.push(i);
 
                 return Ok(EvalResult {
                     // yes this is correct just believe me.
@@ -303,8 +300,8 @@ impl Compiler {
                 })
             },
 
-            LV::Index(l, r) => self.c_index(l, r, lv, ob),
-            LV::Slice(l, r1, r2) => self.c_slice(l, r1, r2, lv, ob),
+            LV::Index(l, r) => self.c_index(l, r, lv),
+            LV::Slice(l, r1, r2) => self.c_slice(l, r1, r2, lv),
 
             // FIXME unwrap
             LV::Variable(var) => {

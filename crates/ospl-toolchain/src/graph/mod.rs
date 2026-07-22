@@ -46,6 +46,37 @@ pub fn wrap_in_iife_declaration(name: &str, mut v: Vec<Statement>, file_path: Ar
     }
 }
 
+pub fn wrap_in_declaration(name: &str, mut v: Vec<Statement>, file_path: Arc<String>) -> Statement {
+    v.push(Statement {
+        file: Arc::clone(&file_path),
+        at: Position::default(),
+        inner: Box::new(Stmt::ReturnScope),
+        notes: String::new(),
+    });
+
+    Statement {
+        file: Arc::clone(&file_path),
+        at: Position::default(),
+        inner: Box::new(Stmt::Define(Declaration {
+            name: name.to_string(),
+            rhs: Expression {
+                file: Arc::clone(&file_path),
+                at: Position::default(),
+                inner: Box::new(Expr::Literal(Literal::Function(FunctionValue {
+                    block: v,
+                    args: Vec::new(),
+                    captures: Vec::new(),
+                    ftype: FunctionType {
+                        args: Vec::new(),
+                        ret: UType::InferScope,
+                    },
+                }))),
+            },
+        })),
+        notes: String::new(),
+    }
+}
+
 pub fn create_ffi(name: &str, file: &Path) -> Statement {
     let f = Arc::new(file.to_string_lossy().to_string());
     return Statement {

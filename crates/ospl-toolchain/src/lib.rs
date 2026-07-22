@@ -1,3 +1,6 @@
+use ospl_common::inst::optimized::Inst;
+use serde::{Deserialize, Serialize};
+
 pub mod log;
 pub mod graph;
 pub mod util;
@@ -15,4 +18,10 @@ pub fn load_package_cfg<P: AsRef<std::path::Path>>(path: P) -> graph::decl::Pack
     let k = kdl::KdlDocument::parse(&src).expect("failed to parse package.kdl");
 
     return package::parse_kdl(k).expect("failed to parse the KDL");
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Program {
+    pub instructions: Vec<Inst>,
+    pub entry: usize,
 }

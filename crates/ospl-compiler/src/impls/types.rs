@@ -2,7 +2,7 @@ use ospl_common::ast::{FunctionType, Scope, Type, UType, spanning::Spannable};
 
 use crate::{CE, CEData, Compiler, Res};
 
-impl Compiler {
+impl<'a> Compiler<'a> {
     pub fn rt(&self, scope: &Scope<Type>, ty: &UType, span: &dyn Spannable) -> Res<Type> {
         match ty {
             UType::Typeof(name) => {
