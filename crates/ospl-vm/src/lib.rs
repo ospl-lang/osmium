@@ -36,7 +36,7 @@ pub enum Control {
 impl VM {
     pub fn new() -> Self {
         return Self {
-            arena: Arena::new(make::undefined(())),
+            arena: Arena::new(None),
             stack: Stack::default(),
             ffi: ffi::FfiRegistry::default(),
             gc: gc::GC::default()

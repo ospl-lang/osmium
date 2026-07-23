@@ -1,9 +1,9 @@
 use ospl_common::{
     ast::frame::RuntimeFrame,
-    inst::{RuntimeFunction, RuntimeValue, assume, assume_mut, list::List, make},
+    inst::{RT, RuntimeFunction, RuntimeValue, assume, assume_mut, list::List, make},
 };
 
-use crate::{VM, arena::MEMMAX, gc::GC_BYTES};
+use crate::{VM, arena::MEMMAX, gc::RUNS_PER_MEMMAX};
 
 fn allocate_until_full(vm: &mut VM, label: &str) {
     for i in 0..MEMMAX {
@@ -151,7 +151,7 @@ fn gc_traces_references_inside_lists_functions_and_scopes() {
     vm.stack.top_add_index(function);
     vm.stack.top_add_index(scope);
 
-    vm.gc_step(GC_BYTES);
+    vm.gc_step(RUNS_PER_MEMMAX);
 
     let Some(list) = assume::list(vm.get_value_top(0)) else {
         panic!("expected list root to survive GC");
@@ -198,7 +198,71 @@ fn gc_reclaims_unreachable_cycles_under_allocation_pressure() {
 
     vm.stack.end();
 
-    vm.gc_step(GC_BYTES);
+    vm.gc_step(RUNS_PER_MEMMAX);
 
     // allocate_until_full(&mut vm, "after-cycle");
+}
+
+#[test]
+fn gc_adds_new_segments_on_oom() {
+    let mut vm = VM::new();
+
+    for i in 0..4 {
+        allocate_until_full(&mut vm, &i.to_string());
+    }
+
+    assert!(
+        vm.arena.segment_count() > 1,
+        "there should be more than one segment now: segment_count={}, stack_length={}, vm={:?}",
+        vm.arena.segment_count(),
+        vm.stack.data.len(),
+        vm
+    )
+}
+
+#[test]
+fn gc_deletes_old_segments() {
+    let mut vm = VM::new();
+
+    vm.stack.push_isolated();
+
+    // Fill several segments.
+    for i in 0..4 {
+        allocate_until_full(&mut vm, &i.to_string());
+    }
+
+    let segment_count_before = vm.arena.segment_count();
+
+    assert!(
+        segment_count_before >= 4,
+        "expected multiple segments"
+    );
+
+    // Keep one object alive in the first segment.
+    let survivor = vm.stack.data[0];
+
+    // Drop all other roots.
+    vm.stack.end();
+
+    vm.stack.push_isolated();
+    vm.stack.top_add_index(survivor);
+
+    // Run enough GC work to finish several cycles.
+    for i in 0..4 {
+        vm.gc_step(RUNS_PER_MEMMAX);
+    }
+
+    assert!(
+        vm.arena.segment_count() < 3,
+        "unused trailing segments should be removed (there were {}, which is not less than 3)",
+        vm.arena.segment_count()
+    );
+
+    // Verify the survivor still works.
+    let value = vm.arena.get(survivor);
+
+    assert!(
+        matches!(value.tag, RT::Str),
+        "survivor was corrupted"
+    );
 }

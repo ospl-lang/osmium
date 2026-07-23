@@ -5,7 +5,7 @@ pub mod init;
 pub mod package;
 
 pub const BUILD_FOLDER: &str = "build/";
-pub const BUILD_FILE: &str = "dist.ospb";
+pub const BUILD_FILE: &str = "build/dist.ospb";
 
 pub fn load_package_cfg<P: AsRef<std::path::Path>>(path: P) -> graph::decl::PackageSetup {
     let src = std::fs::read_to_string(path)
