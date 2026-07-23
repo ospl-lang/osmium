@@ -1,121 +1,130 @@
-//! This module presents the heart of OSPL, a bump-allocated,
-//! garbage-collected, refcounted, continous arena allocator.
-
 use std::fmt::Debug;
-
-use ospl_common::inst::{RT, make};
-
-use crate::RuntimeValue;
 
 pub type ArenaIndex = usize;
 
-/// setting this to a power of two makes it very fast for segmented memory in
-/// the future! So do that.
 pub const MEMMAX: usize = 1024;
 
-// TODO: make this thread-safe!
-
 #[derive(Clone)]
-pub struct ArenaItem {
-    pub inner: RuntimeValue,
-    next_free: Option<usize>,
+pub struct ArenaItem<T> {
+    pub inner: Option<T>,
+    pub(crate) next_free: usize,
 }
 
-impl ArenaItem {
-    pub fn oom() -> Self {
-        return Self {
-            next_free: None,
-            inner: make::undefined(())
+impl<T> ArenaItem<T> {
+    pub fn oom() -> Self 
+    where
+        T: Default,
+    {
+        Self {
+            next_free: usize::MAX,
+            inner: Some(T::default()),
         }
     }
 }
 
-impl Debug for ArenaItem {
+impl<T: Debug> Debug for ArenaItem<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.inner.tag == RT::Undefined { 
-            return write!(f, "");
-        };
-
-        return write!(f, "{:?}", self.inner);
+        write!(f, "{:?}", self.inner)
     }
 }
 
 #[derive(Debug)]
-pub struct Arena {
-    segment: Box<[ArenaItem; MEMMAX]>,
+pub struct Arena<T> {
+    segment: Box<[ArenaItem<T>; MEMMAX]>,
 
-    /// If this is [`None`], we're out of memory
-    freelist_head: Option<usize>
+    /// If this is [`usize::MAX`], we're out of memory
+    freelist_head: usize,
 }
 
-impl Arena {
-    pub fn new() -> Self {
+impl<T: Debug> Arena<T> {
+    pub fn new(default: T) -> Self
+    where
+        T: Clone,
+    {
         let mut v = Vec::with_capacity(MEMMAX);
 
         for i in 0..MEMMAX {
             v.push(ArenaItem {
                 next_free: if i + 1 < MEMMAX {
-                    Some(i + 1)
+                    i + 1
                 } else {
-                    None
+                    usize::MAX
                 },
-                inner: make::undefined(()),
+                inner: Some(default.clone()),
             });
         }
 
-        let segment: Box<[ArenaItem; MEMMAX]> =
+        let segment: Box<[ArenaItem<T>; MEMMAX]> =
             v.into_boxed_slice().try_into().unwrap();
 
         Self {
             segment,
-            freelist_head: Some(0),
+            freelist_head: 0,
         }
     }
 
     #[inline(always)]
-    pub fn get_item_mut(&mut self, abs: ArenaIndex) -> &mut ArenaItem {
-        return &mut self.segment[abs]
+    pub fn get_item_mut(&mut self, abs: ArenaIndex) -> &mut ArenaItem<T> {
+        &mut self.segment[abs]
     }
 
     #[inline(always)]
-    pub fn get_item(&self, abs: ArenaIndex) -> &ArenaItem {
-        return &self.segment[abs]
+    pub fn get_item(&self, abs: ArenaIndex) -> &ArenaItem<T> {
+        &self.segment[abs]
     }
 
     #[inline(always)]
     pub fn reclaim(&mut self, i: ArenaIndex) {
         let item = &mut self.segment[i];
+
+        if item.inner.is_none() {
+            return;
+        }
+
         item.next_free = self.freelist_head;
-        self.freelist_head = Some(i);
+        item.inner = None;
+        self.freelist_head = i;
     }
 
     #[inline(always)]
-    pub fn push(&mut self, v: RuntimeValue) -> ArenaIndex {
-        let head = self.freelist_head.expect("OSPL: out of memory!");
+    pub fn push(&mut self, v: T) -> ArenaIndex {
+        let head = self.freelist_head;
+
+        if head == usize::MAX {
+            panic!("OSPL: OOM");
+        }
+
         let item = &mut self.segment[head];
-        item.inner = v;
+        item.inner = Some(v);
 
         self.freelist_head = item.next_free;
-        return head
+
+        head
     }
 
     #[inline(always)]
-    pub fn get(&self, index: ArenaIndex) -> &RuntimeValue {
-        return &self.segment[index].inner
-    }
-    
-    #[inline(always)]
-    pub fn get_mut(&mut self, index: ArenaIndex) -> &mut RuntimeValue {
-        return &mut self.segment[index].inner
+    pub fn get(&self, index: ArenaIndex) -> &T {
+        self.segment[index]
+            .inner
+            .as_ref()
+            .unwrap()
     }
 
     #[inline(always)]
-    pub unsafe fn raw_get(&self, index: ArenaIndex) -> *const RuntimeValue {
-        return &raw const self.segment[index].inner
+    pub fn get_mut(&mut self, index: ArenaIndex) -> &mut T {
+        self.segment[index]
+            .inner
+            .as_mut()
+            .unwrap()
     }
-    
+
     #[inline(always)]
-    pub unsafe fn raw_get_mut(&mut self, index: ArenaIndex) -> *mut RuntimeValue {
-        return &raw mut self.segment[index].inner
+    pub unsafe fn raw_get(&self, index: ArenaIndex) -> *const T {
+        &raw const *self.segment[index].inner.as_ref().unwrap()
+    }
+
+    #[inline(always)]
+    pub unsafe fn raw_get_mut(&mut self, index: ArenaIndex) -> *mut T {
+        &raw mut *self.segment[index].inner.as_mut().unwrap()
     }
 }

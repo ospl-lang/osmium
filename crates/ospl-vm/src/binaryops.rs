@@ -7,7 +7,7 @@ use crate::{VM, RuntimeValue};
 // comparison
 impl VM {
     fn get_two_regs(&self, a: usize, b: usize) -> (&RuntimeValue, &RuntimeValue) {
-        let va = self.get_value_top(a);
+        let va: &RuntimeValue = self.get_value_top(a);
         let vb = self.get_value_top(b);
         return (va, vb)
     }
@@ -25,40 +25,48 @@ impl VM {
     }
 
     #[inline(always)]
-    fn _gt_regs(&self, _a: usize, _b: usize) -> bool {
-        return false
+    fn _gt_regs(&self, a: usize, b: usize) -> bool {
+        let x = self.get_two_regs(a, b);
+        return x.0 > x.1
     }
 
+    #[inline(always)]
     pub fn eq_regs(&mut self, a: usize, b: usize) {
         let x = self._eq_regs(a, b);
         self.push_literal(make::bool(x));
     }
 
+    #[inline(always)]
     pub fn neq_regs(&mut self, a: usize, b: usize) {
         let x = self._neq_regs(a, b);
         self.push_literal(make::bool(x));
     }
 
+    #[inline(always)]
     pub fn gt_regs(&mut self, a: usize, b: usize) {
         let x = self._gt_regs(a, b);
         self.push_literal(make::bool(x));
     }
 
+    #[inline(always)]
     pub fn lt_regs(&mut self, a: usize, b: usize) {
         let x = !self._gt_regs(a, b);
         self.push_literal(make::bool(x));
     }
 
+    #[inline(always)]
     pub fn gte_regs(&mut self, a: usize, b: usize) {
         let x = self._gt_regs(a, b) | self._eq_regs(a, b);
         self.push_literal(make::bool(x));
     }
 
+    #[inline(always)]
     pub fn lte_regs(&mut self, a: usize, b: usize) {
         let x = (!self._gt_regs(a, b)) | self._eq_regs(a, b);
         self.push_literal(make::bool(x));
     }
 
+    #[inline(always)]
     pub fn neg_reg(&mut self, a: usize) {
         let t = self.get_truthiness(a);
         self.push_literal(make::bool(t));

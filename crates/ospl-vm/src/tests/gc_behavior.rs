@@ -3,7 +3,7 @@ use ospl_common::{
     inst::{RuntimeFunction, RuntimeValue, assume, assume_mut, list::List, make},
 };
 
-use crate::{arena::MEMMAX, VM};
+use crate::{VM, arena::MEMMAX, gc::GC_BYTES};
 
 fn allocate_until_full(vm: &mut VM, label: &str) {
     for i in 0..MEMMAX {
@@ -151,7 +151,7 @@ fn gc_traces_references_inside_lists_functions_and_scopes() {
     vm.stack.top_add_index(function);
     vm.stack.top_add_index(scope);
 
-    vm.gc();
+    vm.gc_step(GC_BYTES);
 
     let Some(list) = assume::list(vm.get_value_top(0)) else {
         panic!("expected list root to survive GC");
@@ -198,7 +198,7 @@ fn gc_reclaims_unreachable_cycles_under_allocation_pressure() {
 
     vm.stack.end();
 
-    vm.gc();
+    vm.gc_step(GC_BYTES);
 
     // allocate_until_full(&mut vm, "after-cycle");
 }

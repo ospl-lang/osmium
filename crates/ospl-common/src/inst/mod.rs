@@ -145,7 +145,7 @@ pub fn make_value(of_type: RT, data: RV) -> RuntimeValue {
     return RuntimeValue { tag: of_type, data }
 }
 
-#[repr(C)]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum RT {
@@ -176,6 +176,33 @@ impl PartialEq for RuntimeValue {
 
             (a, b) => panic!("Illegal comparison {a:?} == {b:?}"),
         } }
+    }
+}
+
+impl PartialOrd for RuntimeValue {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        let is_greater = unsafe { match (self.tag, other.tag) {
+            (RT::Int, RT::Int) => self.data.int > other.data.int,
+            (RT::Addr, RT::Addr) => self.data.address > other.data.address,
+            (RT::Float, RT::Float) => self.data.float > other.data.float,
+            (RT::Str, RT::Str) => self.data.str > other.data.str,
+            (RT::Char, RT::Char) => self.data.char > other.data.char,
+            (RT::Bool, RT::Bool) => self.data.bool > other.data.bool,
+
+            (RT::Undefined, RT::Undefined) => true,
+            (RT::Undefined, _) => false,
+            (_, RT::Undefined) => false,
+
+            (a, b) => panic!("Illegal comparison {a:?} > {b:?}"),
+        } };
+
+        if is_greater {
+            return Some(std::cmp::Ordering::Greater)
+        } else if self.eq(other) {
+            return Some(std::cmp::Ordering::Equal)
+        } else {
+            return Some(std::cmp::Ordering::Less)
+        }
     }
 }
 

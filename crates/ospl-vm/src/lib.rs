@@ -18,9 +18,10 @@ pub mod tests;
 
 #[derive(Debug)]
 pub struct VM {
-    pub arena: Arena,
+    pub arena: Arena<RuntimeValue>,
     pub stack: stack::Stack,
-    pub ffi: ffi::FfiRegistry
+    pub ffi: ffi::FfiRegistry,
+    pub gc: gc::GC,
 }
 
 #[derive(Debug)]
@@ -35,20 +36,21 @@ pub enum Control {
 impl VM {
     pub fn new() -> Self {
         return Self {
-            arena: Arena::new(),
+            arena: Arena::new(make::undefined(())),
             stack: Stack::default(),
             ffi: ffi::FfiRegistry::default(),
+            gc: gc::GC::default()
         }
     }
 
     #[inline(always)]
-    pub fn get_item_top_mut(&mut self, rel: ArenaIndex) -> &mut ArenaItem {
+    pub fn get_item_top_mut(&mut self, rel: ArenaIndex) -> &mut ArenaItem<RuntimeValue> {
         // return self.arena.get_item_mut(self.top().indexes[rel]);
         return self.arena.get_item_mut(self.stack.top_indexes()[rel])
     }
 
     #[inline(always)]
-    pub fn get_item_top(&self, rel: ArenaIndex) -> &ArenaItem {
+    pub fn get_item_top(&self, rel: ArenaIndex) -> &ArenaItem<RuntimeValue> {
         // return self.arena.get_item(self.top().indexes[abs]);
         return self.arena.get_item(self.stack.top_indexes()[rel])
     }
@@ -57,7 +59,7 @@ impl VM {
     /// index array
     #[inline(always)]
     fn get_value_top(&self, rel: ArenaIndex) -> &RuntimeValue {
-        return &self.arena.get_item(self.stack.top_indexes()[rel]).inner
+        return &self.arena.get_item(self.stack.top_indexes()[rel]).inner.as_ref().unwrap()
     }
 
     #[inline(always)]
@@ -75,15 +77,22 @@ impl VM {
     /// Is about equivalent to literal assignemnt.
     #[inline(always)]
     pub fn push_literal(&mut self, v: RuntimeValue) -> ArenaIndex {
-        const MEM_THRES: usize = (0.95 * arena::MEMMAX as f32) as usize;
+        // const MEM_THRES: usize = ((0.6 * arena::MEMMAX as f32) as usize).next_power_of_two();
+        // const MEM_THRES: usize = 0b0000001100000000;
 
         let i = self.arena.push(v);
         self.stack.top_add_index(i);
 
-        if i >= MEM_THRES {
-            self.gc();
+        let mut gc_retry = 1;
+        while (i >> 8 & 0x3) == 0x3 {  // 768
+            if self.gc_step(1) {
+                break;
+            }
+
+            if gc_retry == 6 { break; }
+            gc_retry += 1;
         }
-    
+
         return i
     }
 
