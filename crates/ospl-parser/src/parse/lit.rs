@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use ospl_common::ast::{ArgNaming, FunctionType, FunctionValue, Type, UType};
 use crate::{lexer::token::{exp_ident, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
 
@@ -25,30 +27,33 @@ impl<'a> Parser<'a> {
 
         // get the args using two paralel lists: very fucking stupid
         let mut arg_types = Vec::new();
+        let mut named_args = BTreeMap::new();
         let mut arg_values = Vec::new();
         self.expect(tExp!(LParen))?;
         loop {
             let (_, token) = self.expect(exp_named_arg_member())?.destructure();
             match token {
-                Token::Ident(i) => arg_values.push(ArgNaming {
-                    name: i,
-                }),
-                Token::Def => {
-                    let span = self.expect(exp_ident())?;
-                    let (_, Token::Ident(t)) = span.destructure()
-                        else { unreachable!() };
-                    
+                Token::Ident(i) => {
                     arg_values.push(ArgNaming {
-                        name: t,
+                        name: i,
                     });
+
+                    self.expect(tExp!(Colon))?;
+
+                    arg_types.push(self.parse_type()?);
+                }
+                Token::Def => {
+                    let id = self.parse_ident()?;
+
+                    self.expect(tExp!(Colon))?;
+
+                    let ty = self.parse_type()?;
+
+                    named_args.insert(id, ty);
                 }
                 Token::RParen => break,
                 _ => unreachable!()
             }
-
-            self.expect(tExp!(Colon))?;
-
-            arg_types.push(self.parse_type()?);
         }  // NOTE: we consumed RParen in the loop
 
         let ret = self.parse_function_return_type()?;
@@ -57,6 +62,7 @@ impl<'a> Parser<'a> {
         return Ok(FunctionValue {
             ftype: FunctionType {
                 args: arg_types,
+                named_args,
                 ret
             },
             block: b,
@@ -96,15 +102,31 @@ impl<'a> Parser<'a> {
         // arg types
         self.expect(tExp!(LParen))?;
         let mut args = Vec::new();
+        let mut named_args = BTreeMap::new();
         loop {
-            let s = self.expect_peek(exp_arg_member())?;
-            if *s.token() == Token::RParen {
-                break;
+            let span = self.expect(tComb!(
+                "Begining of type | Def | RParen",
+                exp_type_starter(),
+                tExp!(Def, RParen)
+            ))?;
+
+            match span.token() {
+                Token::Def => {
+                    let id = self.parse_ident()?;
+                    self.expect(tExp!(Colon))?;
+                    let ty = self.parse_type()?;
+
+                    named_args.insert(id, ty);
+                },
+                Token::RParen => {
+                    break;
+                },
+                _ => {
+                    // if it's not the end of the list
+                    let t = self.parse_type()?;
+                    args.push(t);
+                }
             }
-            
-            // if it's not the end of the list
-            let t = self.parse_type()?;
-            args.push(t);
         }
         self.expect(tExp!(RParen))?;
 
@@ -112,6 +134,7 @@ impl<'a> Parser<'a> {
 
         return Ok(FunctionType {
             args,
+            named_args,
             ret,
         });
     }
@@ -204,14 +227,6 @@ impl<'a> Parser<'a> {
 
         return Ok(working_type)
     }
-}
-
-pub fn exp_arg_member() -> TokenExpectation {
-    tComb!(
-        "EXP_TYPE_STARTER | RParen",
-        exp_type_starter(),
-        tExp!(RParen)
-    )
 }
 
 pub fn exp_named_arg_member() -> TokenExpectation {

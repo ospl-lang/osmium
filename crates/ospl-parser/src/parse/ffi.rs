@@ -93,7 +93,10 @@ impl<'a> Parser<'a> {
 
     fn parse_foreign_call(&mut self) -> Res<Expression> {
         let left = self.parse_lvalue()?;
-        let args = self.parse_fn_call_args()?;
+
+        // TODO - throw error if there are named args
+        let (args, _) = self.parse_fn_call_args()?;
+
         return Ok(Expression {
             at: left.at,
             inner: Box::new(Expr::FFICall(left, args)),

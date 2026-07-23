@@ -69,10 +69,11 @@ impl Spannable for Expression {
     fn symbol(&self) -> Option<String> {
         return Some(match &*self.inner {
             Expr::LValue(lv) => lv.symbol()?,
-            Expr::Call(l, e) => format!(
-                "{}({})",
-                l.symbol()?,
-                e.iter().filter_map(|e| e.symbol()).collect::<String>()
+            Expr::Call { left, args, named_args } => format!(
+                "{}({}){{ {:?} }}",
+                left.symbol()?,
+                args.iter().filter_map(|e| e.symbol()).collect::<String>(),
+                named_args,
             ),
             Expr::Literal(l) => match l {
                 Literal::Address(a) => a.to_string(),

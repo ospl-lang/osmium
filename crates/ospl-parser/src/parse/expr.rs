@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 use ospl_common::ast::{Expr, Expression, LV, LValue, Literal, UType, ops::{BinaryOp, BinaryOpType, UnaryOp, UnaryOpType}};
 
@@ -224,20 +224,32 @@ impl<'a> Parser<'a> {
     }
 
     /// Returns the args to the call
-    pub fn parse_fn_call_args(&mut self) -> Res<Vec<Expression>> {
+    pub fn parse_fn_call_args(&mut self) -> Res<(Vec<Expression>, BTreeMap<String, Expression>)> {
         self.expect(tExp!(LParen))?;
         let mut args = Vec::new();
+        let mut named_args = BTreeMap::new();
         loop {
             if *self.peek()?.token() == Token::RParen {
                 self.next()?;
                 break;
             }
 
-            let e = self.parse_expr()?;
-            args.push(e);
+            else if *self.peek()?.token() == Token::Def {
+                self.next()?;
+                let id = self.parse_ident()?;
+                self.expect(tExp!(Equals))?;
+                let expr = self.parse_expr()?;
+
+                named_args.insert(id, expr);
+            }
+
+            else {
+                let e = self.parse_expr()?;
+                args.push(e);
+            }
         }
 
-        return Ok(args)
+        return Ok((args, named_args))
     }
 
     /// Returns the args to the call
@@ -346,10 +358,14 @@ impl<'a> Parser<'a> {
 
             if *span.token() == Token::LParen {
                 // this is a fn call
-                let args = self.parse_fn_call_args()?;
+                let (positional_args, named_args) = self.parse_fn_call_args()?;
                 a1 = Expression {
                     at: a1.at,
-                    inner: Box::new(Expr::Call(a1, args)),
+                    inner: Box::new(Expr::Call {
+                        left: a1,
+                        args: positional_args,
+                        named_args
+                    }),
                     file: Arc::clone(&self.filename),
                 };
             }

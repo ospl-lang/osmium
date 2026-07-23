@@ -1,4 +1,4 @@
-use std::{path::Path, sync::Arc};
+use std::{collections::BTreeMap, path::Path, sync::Arc};
 
 use ospl_common::ast::{Expr, Expression, FunctionType, FunctionValue, Literal, Position, Statement, Stmt, UType, decl::Declaration};
 
@@ -24,8 +24,8 @@ pub fn wrap_in_iife_declaration(name: &str, mut v: Vec<Statement>, file_path: Ar
             rhs: Expression {
                 file: Arc::clone(&file_path),
                 at: Position::default(),
-                inner: Box::new(Expr::Call(
-                    Expression {
+                inner: Box::new(Expr::Call {
+                    left: Expression {
                         file: Arc::clone(&file_path),
                         at: Position::default(),
                         inner: Box::new(Expr::Literal(Literal::Function(FunctionValue {
@@ -34,12 +34,14 @@ pub fn wrap_in_iife_declaration(name: &str, mut v: Vec<Statement>, file_path: Ar
                             captures: Vec::new(),
                             ftype: FunctionType {
                                 args: Vec::new(),
+                                named_args: BTreeMap::new(),
                                 ret: UType::InferScope
                             },
                         }))),
                     },
-                    Vec::new(),
-                ))
+                    args: Vec::new(),
+                    named_args: BTreeMap::new()
+                })
             },
         })),
         notes: String::new(),

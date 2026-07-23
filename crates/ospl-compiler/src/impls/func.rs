@@ -1,8 +1,17 @@
+use std::collections::BTreeMap;
+
 use ospl_common::{ast::{Entry, Expression, FunctionType, RStore, Scope, spanning::Spannable}, inst::{make, optimized::{Inst, InstBuilder, Opc}}};
 
 use crate::{CE, CEData, Compiler, EvalResult, Res, Type, ast::FunctionValue, impls::stmt::Control};
 
 impl Compiler {
+    /// Compiles the given function literal into `ob`,
+    /// using `span` for errors
+    /// 
+    ///  ## Calling convention
+    /// The calling convention here is the same as the normal OSPL calling
+    /// convention, but the named args of functions go before the args in
+    /// the same index list.
     pub fn fn_literal(
         &mut self,
         func: &FunctionValue,
@@ -52,6 +61,20 @@ impl Compiler {
                     }
                 }),
             }
+        }
+
+        // add the named args
+        let mut named_arg_types = BTreeMap::new();
+        for (arg, ty) in func.ftype.named_args.iter() {
+            let variable = new_scope.next_post();
+
+            let rty = self.rt(&new_scope, ty, span)?;
+            named_arg_types.insert(arg.clone(), rty.clone());
+            
+            new_scope.direct_declare(arg.clone(), Entry::Runtime(RStore {
+                address: variable,
+                typ: rty
+            }));
         }
 
         // add the args
@@ -109,6 +132,7 @@ impl Compiler {
 
         let new_type = FunctionType {
             args: arg_types,
+            named_args: named_arg_types,
             ret
         };
 
@@ -127,10 +151,14 @@ impl Compiler {
         })
     }
 
+    /// Preforms a call to a function `call_func` with `args` and `named_args`
+    /// 
+    /// See [`Compiler::fn_literal`] in the section "calling convention"
     pub fn do_fn_call(
         &mut self,
         call_func: &Expression,
         args: &[Expression],
+        named_args: &BTreeMap<String, Expression>,
         ob: &mut Vec<Inst>,
     ) -> Res<EvalResult>
     {
@@ -154,6 +182,39 @@ impl Compiler {
             });
         }
 
+        // named args
+        let mut new_named_args = BTreeMap::new();
+        for (argname, argexpr) in named_args.iter() {
+            let e = self.eval(argexpr, ob)?;
+            new_named_args.insert(argname.clone(), e);
+        }
+
+        // TYPECHECKING
+        let named_args_types: BTreeMap<_, _> = new_named_args
+            .iter()
+            .map(|(a, b)| (a.clone(), b.ty.clone()))
+            .collect();
+
+        if named_args_types != func.named_args {
+            // wrong number of args
+            return Err(CE {
+                at: Box::new(call_func.clone()),
+                msg: None,
+                during: "function call instance",
+                error: CEData::WrongNamedArgs {
+                    expected: func.named_args.clone(),
+                    got: named_args_types,
+                }
+            });
+        }
+
+        // named args
+        let new_named_args_indexes: Vec<usize> = new_named_args
+            .iter()
+            .map(|(_, b)| b.address)
+            .collect();
+
+        // args
         let mut new_args = Vec::new();
         for (arg, func_arg) in args.iter().zip(&func.args) {
             let eval = self.eval(arg, ob)?;
@@ -175,6 +236,7 @@ impl Compiler {
             .opcode(Opc::Call)
             .index(f.address)  // right here
             .indexes(&new_args)
+            .indexes(&new_named_args_indexes)
             .symbol(&mut *self.bd.symbols.lock()?, call_func.user_symbol())
             .build();
 

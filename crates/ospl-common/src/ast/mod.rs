@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::{Debug, Display}, hash::{Hash, Hasher}, sync::Arc};
+use std::{collections::{BTreeMap, HashMap}, fmt::{Debug, Display}, hash::{Hash, Hasher}, sync::Arc};
 use crate::ast::{decl::{AliasDeclaration, Declaration}, ops::AssignOp};
 
 pub use types::*;
@@ -90,7 +90,11 @@ impl Expression {
 #[derive(Debug, Clone)]
 pub enum Expr {
     Literal(Literal),
-    Call(Expression, Vec<Expression>),
+    Call {
+        left: Expression,
+        args: Vec<Expression>,
+        named_args: BTreeMap<String, Expression>
+    },
     BinaryOp(ops::BinaryOp),
     UnaryOp(ops::UnaryOp),
     Cast(Expression, UType),
@@ -148,15 +152,40 @@ pub enum Literal {
     Function(FunctionValue)
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub struct FunctionType<T> {
     pub args: Vec<T>,
+    pub named_args: BTreeMap<String, T>,
     pub ret: T,
+}
+
+// this manual implementation is here incase we need it.
+// and also I wanted to make the requirements more explicit.
+impl<T: PartialEq> PartialEq for FunctionType<T> {
+    fn eq(&self, other: &Self) -> bool {
+        let arity_good =
+            self.args.len() == other.args.len() &&
+            self.named_args.len() == other.named_args.len();
+
+        let args_good = self.args.iter().zip(other.args.iter())
+            .all(|(a, b)| *a == *b);
+
+        let named_args_good = self.named_args.iter().zip(other.named_args.iter())
+            .all(|(a, b)| a == b);
+
+        let ret_good = self.ret == other.ret;
+
+        return arity_good && args_good && named_args_good && ret_good;
+    }
 }
 
 impl<T: Hash> Hash for FunctionType<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.args.hash(state);
+        for thing in &self.named_args {
+            thing.hash(state);
+        }
+
         self.ret.hash(state);
     }
 }
@@ -370,5 +399,4 @@ pub mod frame;
 pub mod ops;
 pub mod spanning;
 pub mod decl;
-mod types;
-pub mod macros;
+pub mod types;

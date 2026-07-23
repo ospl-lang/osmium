@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex, PoisonError, atomic::AtomicUsize};
+use std::{collections::BTreeMap, sync::{Arc, Mutex, PoisonError, atomic::AtomicUsize}};
 
 use ospl_common::{ast::{Scope, Type, ops::{BinaryOpType, UnaryOpType}, spanning::UnknownLocation}, inst::symbols::DebugSymbolTable};
 
@@ -52,6 +52,10 @@ pub enum CEData {
     WrongArgCount {
         expected: usize,
         got: usize,
+    },
+    WrongNamedArgs {
+        expected: BTreeMap<String, Type>,
+        got: BTreeMap<String, Type>,
     },
     NotFoundInScope {
         needed: String,

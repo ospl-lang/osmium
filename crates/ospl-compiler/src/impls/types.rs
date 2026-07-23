@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use ospl_common::ast::{FunctionType, Scope, Type, UType, spanning::Spannable};
 
 use crate::{CE, CEData, Compiler, Res};
@@ -85,8 +87,17 @@ impl Compiler {
                     args.push(self.rt(scope, arg, span)?);
                 }
 
+                let mut named_args = BTreeMap::new();
+                for (name, arg) in &f.named_args {
+                    named_args.insert(
+                        name.clone(),
+                        self.rt(scope, &arg, span)?
+                    );
+                }
+
                 return Ok(Type::Function(Box::new(FunctionType {
                     ret,
+                    named_args,
                     args
                 })))
             },
@@ -140,8 +151,14 @@ impl Compiler {
                     new_args.push(self.nominal_application(arg, replacements, span)?);
                 }
 
+                let mut new_named_args = BTreeMap::new();
+                for (name, arg) in f.named_args {
+                    new_named_args.insert(name, self.nominal_application(arg, replacements, span)?);
+                }
+
                 return Ok(Type::Function(Box::new(FunctionType {
                     args: new_args,
+                    named_args: new_named_args,
                     ret: self.nominal_application(f.ret, replacements, span)?
                 })))
             },
