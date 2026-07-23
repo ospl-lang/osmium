@@ -186,12 +186,20 @@ impl LanguageServer for Backend {
 
                 for thing in ast {
                     if !thing.notes.is_empty() {
+                        let Some((hp, hs)) = hover::gen_hover(&thing)
+                        else { continue; };
+
                         eprintln!("{}@{} {}", thing.at.line, thing.at.column, thing.notes);
-                        the_docs.insert(HoverKey {
-                            document: Arc::clone(&thing.file),
-                            line: thing.at.line,
-                            column: thing.at.column,
-                        }, thing.notes);
+
+                        for r in thing.at.line..=hp.line {
+                            for c in thing.at.column..=hp.column {
+                                the_docs.insert(HoverKey {
+                                    document: Arc::clone(&thing.file),
+                                    line: r - 1,
+                                    column: c - 1,
+                                }, hs.clone());
+                            }
+                        }
                     }
                 }
             }

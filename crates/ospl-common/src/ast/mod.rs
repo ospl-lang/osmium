@@ -11,6 +11,12 @@ pub struct Position {
     pub ch: usize,
 }
 
+impl PartialOrd for Position {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        return self.ch.partial_cmp(&other.ch)
+    }
+}
+
 impl Display for Position {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         return write!(f, "{}:{} (char #{})", self.line, self.column, self.ch)

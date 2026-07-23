@@ -1,5 +1,6 @@
 pub mod ast;
 pub mod inst;
+pub mod nicities;
 
 pub mod types {
     /// An absolute address with no indirection
