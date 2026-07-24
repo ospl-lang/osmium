@@ -104,7 +104,7 @@ impl<'a> Parser<'a> {
         let mut args = Vec::new();
         let mut named_args = BTreeMap::new();
         loop {
-            let span = self.expect(tComb!(
+            let span = self.expect_peek(tComb!(
                 "Begining of type | Def | RParen",
                 exp_type_starter(),
                 tExp!(Def, RParen)
@@ -112,6 +112,7 @@ impl<'a> Parser<'a> {
 
             match span.token() {
                 Token::Def => {
+                    self.next()?;
                     let id = self.parse_ident()?;
                     self.expect(tExp!(Colon))?;
                     let ty = self.parse_type()?;
@@ -119,6 +120,7 @@ impl<'a> Parser<'a> {
                     named_args.insert(id, ty);
                 },
                 Token::RParen => {
+                    self.next()?;
                     break;
                 },
                 _ => {
@@ -128,7 +130,6 @@ impl<'a> Parser<'a> {
                 }
             }
         }
-        self.expect(tExp!(RParen))?;
 
         let ret = self.parse_function_return_type()?;
 
