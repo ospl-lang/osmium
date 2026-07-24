@@ -128,7 +128,6 @@ impl<'a> Parser<'a> {
                 }
             }
         }
-        self.expect(tExp!(RParen))?;
 
         let ret = self.parse_function_return_type()?;
 
