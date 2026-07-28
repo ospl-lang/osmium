@@ -75,6 +75,7 @@ pub enum VersionSelector {
     Int(u64),
     Float(f64),
     Flag(bool),
+    Str(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]

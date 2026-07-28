@@ -9,6 +9,9 @@ pub fn gen_fn_hover(f: &FunctionValue) -> String {
         let name = &name.name;
         let _ = writeln!(&mut out, "\t{name}: {}", arg);
     }
+    for (name, arg) in f.ftype.named_args.iter() {
+        let _ = writeln!(&mut out, "\tdef {name}: {}", arg);
+    }
     let _ = writeln!(&mut out, ") -> {}", f.ftype.ret);
 
     return out

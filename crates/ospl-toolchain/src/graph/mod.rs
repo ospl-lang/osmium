@@ -8,7 +8,7 @@ pub mod resolv1;
 pub mod resolv2;
 pub mod build;
 
-pub fn wrap_in_iife_declaration(name: &str, mut v: Vec<Statement>, file_path: Arc<String>) -> Statement {
+pub fn wrap_in_iife_declaration(name: &str, captures: &[String], mut v: Vec<Statement>, file_path: Arc<String>) -> Statement {
     v.push(Statement {
         file: Arc::clone(&file_path),
         at: Position::default(),
@@ -31,7 +31,7 @@ pub fn wrap_in_iife_declaration(name: &str, mut v: Vec<Statement>, file_path: Ar
                         inner: Box::new(Expr::Literal(Literal::Function(FunctionValue {
                             block: v,
                             args: Vec::new(),
-                            captures: Vec::new(),
+                            captures: captures.to_vec(),
                             ftype: FunctionType {
                                 args: Vec::new(),
                                 named_args: BTreeMap::new(),
@@ -42,6 +42,40 @@ pub fn wrap_in_iife_declaration(name: &str, mut v: Vec<Statement>, file_path: Ar
                     args: Vec::new(),
                     named_args: BTreeMap::new()
                 })
+            },
+        })),
+        notes: String::new(),
+    }
+}
+
+pub fn wrap_in_declaration(name: &str, captures: &[String], mut v: Vec<Statement>, file_path: Arc<String>) -> Statement {
+    v.push(Statement {
+        file: Arc::clone(&file_path),
+        at: Position::default(),
+        inner: Box::new(Stmt::ReturnScope),
+        notes: String::new(),
+    });
+
+    return Statement {
+        file: Arc::clone(&file_path),
+        at: Position::default(),
+        inner: Box::new(Stmt::Define(Declaration {
+            name: name.to_string(),
+            rhs: Expression {
+                file: Arc::clone(&file_path),
+                at: Position::default(),
+                inner: Box::new(Expr::Literal(Literal::Function(
+                    FunctionValue {
+                        block: v,
+                        args: Vec::new(),
+                        captures: captures.to_vec(),
+                        ftype: FunctionType {
+                            args: Vec::new(),
+                            named_args: BTreeMap::new(),
+                            ret: UType::InferScope
+                        },
+                    }, 
+                )))
             },
         })),
         notes: String::new(),

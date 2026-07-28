@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
+use ospl_compiler::util;
 
-pub mod simplify_error;
 pub mod hover;
 
 use ospl_compiler::CE;
@@ -83,13 +83,17 @@ impl LanguageServer for Backend {
         &self,
         params: InitializeParams,
     ) -> Result<InitializeResult> {
+        // otherwise we'll fall back to the root URI
         if let Some(root_uri) = params.root_uri {
             self.client
                 .log_message(MessageType::INFO, format!("Root: {root_uri}"))
                 .await;
 
             *self.rootdir.write().await = root_uri;
-        } else {
+        }
+
+        // we'll error
+        else {
             return Err(jsonrpc::Error::new(jsonrpc::ErrorCode::InvalidParams))
         }
 
@@ -224,7 +228,7 @@ impl LanguageServer for Backend {
                             Position::new(span.line as u32, span.column as u32),
                             Position::new((span.line + 1) as u32, 0)
                         ),
-                        message: format!("{}", simplify_error::simplify(ce)),
+                        message: format!("{}", util::simplify(ce)),
                         ..Default::default()
                     };
 
@@ -243,8 +247,8 @@ impl LanguageServer for Backend {
                                     let d = Diagnostic {
                                         severity: Some(DiagnosticSeverity::ERROR),
                                         range: Range::new(
-                                            Position::new(span.line as u32, span.column as u32),
-                                            Position::new((span.line + 1) as u32, 0)
+                                            Position::new((span.line - 1) as u32, span.column as u32),
+                                            Position::new(span.line as u32, 0)
                                         ),
                                         message: format!("\n\
                                             expected: {}\n\

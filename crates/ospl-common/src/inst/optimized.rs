@@ -155,6 +155,7 @@ pub enum Opc {
     /// [`crate::ast::Type::to_primitive_type_id`])
     Cast = 44,
 
+    /// Copies the left argument
     Copy = 45,
 }
 

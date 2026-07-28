@@ -4,6 +4,7 @@ use ospl_common::{ast::{Scope, Type, ops::{BinaryOpType, UnaryOpType}, spanning:
 
 pub type RelativeVarID = usize;
 
+pub mod util;
 pub mod package;
 
 /// All nested scopes during compilation.

@@ -27,5 +27,6 @@ pub fn print_diag(c: CE) {
     println!("at: {:?}", c.at.spanned().get_pos());
     println!("in: {}", c.during);
     println!("> {:?}", c.msg.unwrap_or("no message"));
-    println!("{:#?}", c.error);
+    let e = ospl_compiler::util::simplify(&c);
+    println!("{e}");
 }

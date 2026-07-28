@@ -97,7 +97,7 @@ pub fn parse_kdl(k: KdlDocument) -> Option<PackageSetup> {
             let requirement_ref_child = children.get("from").expect("`requirement` child block needs a `from`");
             let requirement_ref = match requirement_ref_child.get(0)?.as_string()? {
                 "local" => {
-                    let repo = requirement_ref_child.get(0)?.as_string()?.to_string();
+                    let repo = requirement_ref_child.get(1)?.as_string()?.to_string();
                     PkgRef::Local(repo)
                 }
                 "git" => {
@@ -121,6 +121,7 @@ pub fn parse_kdl(k: KdlDocument) -> Option<PackageSetup> {
                         KdlValue::Integer(i) => VersionSelector::Int(*i as u64),
                         KdlValue::Float(f) => VersionSelector::Float(*f),
                         KdlValue::Bool(b) => VersionSelector::Flag(*b),
+                        KdlValue::String(s) => VersionSelector::Str(s.clone()),
                         _ => return None
                     }
                 }
@@ -158,6 +159,7 @@ pub fn parse_kdl(k: KdlDocument) -> Option<PackageSetup> {
                         "int" => VersionSelector::Int(selector_data.as_integer()? as u64),
                         "float" => VersionSelector::Float(selector_data.as_float()? as f64),
                         "flag" => VersionSelector::Flag(selector_data.as_bool()?),
+                        "str" => VersionSelector::Str(selector_data.as_string()?.to_string()),
                         other => panic!("unknown version selector type {other}")
                     },
                     rules: tags

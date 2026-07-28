@@ -95,7 +95,7 @@ impl Compiler {
                     })
                 }
 
-                // for unwrapping a thingy
+                // for unwrapping a union
                 else if let Type::Union(_, _) = &left.ty {
                     if new_into != left.ty {
                         return Err(CE {
