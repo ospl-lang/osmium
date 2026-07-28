@@ -223,6 +223,8 @@ impl VM {
             Opc::Lte => self.lte_regs(inst.get_index(0), inst.get_index(1)),
             Opc::Neg => self.neg_reg(inst.get_index(0)),
 
+            Opc::Copy => self.copyof(inst.get_index(0)),
+
             Opc::Decrement => self.dec_value(inst.get_index(0)),
 
             Opc::Addl => self.add_assign(inst.get_index(0), inst.get_index(1)),

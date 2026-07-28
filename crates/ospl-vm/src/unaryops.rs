@@ -29,6 +29,12 @@ impl VM {
         } };
     }
 
+    /// Shallow-ish copies a value.
+    /// - **List:** references contents, data is not copied, just the pointers to the data
+    /// - **Scope:** same behaviour as lists
+    /// - **int, addr, float, str, char:** data is fully copied
+    /// - **fn:** code and data is copied, but you have no reason to do this
+    /// - **FFI libs:** behaviour is not defined
     pub fn copyof(&mut self, i: usize) {
         let t = self.get_value_top(i);
         let t = t.clone();
