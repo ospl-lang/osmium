@@ -98,8 +98,11 @@ pub fn genmods(graph: &Graph) -> GennedMods {
     let mut root = Vec::new();
 
     for node_id in order {
+        // have we already compiled this module?
+        if finished.contains_key(&node_id) { continue; }
+
         let node = &graph.modules[&node_id];
-        let node_global_id = format!("#{}/{}#", node.meta.pkg, node.meta.name);
+        let node_global_id = format!("#{}/{}/{}#", node.meta.pkg, node.meta.name, node_id);
         let filepath = Arc::new(node_global_id.clone());
 
         // generate the list of captures and new input code
@@ -176,8 +179,9 @@ pub fn genmods(graph: &Graph) -> GennedMods {
             stmts: new_input_code,
             global_ident: node_global_id,
         });
-        root.push(wrapped_ast);
     }
+
+    // println!("{root:#?}");
 
     return GennedMods {
         mapping: finished,
@@ -239,6 +243,7 @@ pub fn buildmain(graph: &Graph, m: GennedMods) -> Result<Vec<Inst>, ospl_compile
     Log!(Compiling, "everything");
     let mut comp = Compiler::new(build_data);
     let mut root = Vec::new();
+    println!("{:#?}", m.root);
     comp.compile_all(&m.root, &mut root)?;
 
     return Ok(root)
