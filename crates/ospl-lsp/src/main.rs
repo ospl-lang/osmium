@@ -58,7 +58,7 @@ impl Backend {
 
             // compile
             let out = ospl_toolchain::graph::build::genmods(&low);
-            let out = ospl_toolchain::graph::build::buildmain(&low, out);
+            let out = ospl_toolchain::graph::build::buildmain(out);
             out.map_err(|e| BackendError::CE(e))
         });
 

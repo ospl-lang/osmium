@@ -198,7 +198,7 @@ pub struct GeneratedModule {
     pub global_ident: String
 }
 
-pub fn buildmain(graph: &Graph, m: GennedMods) -> Result<Vec<Inst>, ospl_compiler::CE> {
+pub fn buildmain(m: GennedMods) -> Result<Vec<Inst>, ospl_compiler::CE> {
     for (_, every_node) in &m.mapping {
         for cxx in &every_node.cxx_deps {
             Log!(Invoking, "C compiler on {:?}", cxx.c_file);
@@ -243,7 +243,6 @@ pub fn buildmain(graph: &Graph, m: GennedMods) -> Result<Vec<Inst>, ospl_compile
     Log!(Compiling, "everything");
     let mut comp = Compiler::new(build_data);
     let mut root = Vec::new();
-    println!("{:#?}", m.root);
     comp.compile_all(&m.root, &mut root)?;
 
     return Ok(root)

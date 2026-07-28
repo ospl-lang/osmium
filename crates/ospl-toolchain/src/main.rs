@@ -142,7 +142,7 @@ fn cmd_build(out_path: PathBuf) {
 
     // compile
     let out = ospl_toolchain::graph::build::genmods(&low);
-    let out = ospl_toolchain::graph::build::buildmain(&low, out);
+    let out = ospl_toolchain::graph::build::buildmain(out);
     let out = match out {
         Ok(x) => x,
         Err(e) => {
