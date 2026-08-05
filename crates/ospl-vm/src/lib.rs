@@ -225,6 +225,32 @@ impl VM {
 
             Opc::Copy => self.copyof(inst.get_index(0)),
 
+            Opc::UWrap => {
+                let value = inst.get_index(0);
+                let tag = inst.get_index(1);
+
+                self.push_literal(make::union(tag as u64, value));
+            },
+
+            Opc::UIf => {
+                let value = inst.get_index(0);
+                let tag = inst.get_index(1);
+
+                let yes = inst.children.get_unchecked(0);
+                let no = inst.children.get_unchecked(1);
+
+                let truth = if let Some(x) = ospl_common::inst::assume::union(self.get_mut_value_top(value)) {
+                    let got_tag = x.0;
+                    tag as u64 == got_tag
+                } else { panic!("UIf() ran on a non-union") };
+
+                return if truth {
+                    self.run_in_parental(yes)
+                } else {
+                    self.run_in_parental(no)
+                }
+            }
+
             Opc::Decrement => self.dec_value(inst.get_index(0)),
 
             Opc::Addl => self.add_assign(inst.get_index(0), inst.get_index(1)),

@@ -58,26 +58,40 @@ impl VM {
         return control
     }
 
+    pub fn run_in_parental(
+        &mut self,
+        code: &[Inst]
+    ) -> Control {
+        self.stack.push_parental();
+        match self.run_all(code) {
+            Control::Break => {
+                self.stack.end();
+                return Control::Default
+            }
+            Control::Continue => {
+                self.stack.end();
+                return Control::Continue
+            },
+            Control::Default => {},
+            other => return other
+        }
+        self.stack.end();
+
+        return Control::Default;
+    }
+
     /// Runs the given code forever until a [`Control::Break`] is issued.
     pub fn run_loop(
         &mut self,
         code: &[Inst]
     ) -> Control {
         loop {
-            self.stack.push_parental();
-            match self.run_all(code) {
-                Control::Break => {
-                    self.stack.end();
-                    return Control::Default
-                }
+            match self.run_in_parental(code) {
                 Control::Continue => {
-                    self.stack.end();
                     continue;
                 },
-                Control::Default => {},
-                other => return other
+                _ => {}
             }
-            self.stack.end();
         }
     }
 }

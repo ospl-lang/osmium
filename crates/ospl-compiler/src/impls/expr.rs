@@ -96,7 +96,7 @@ impl Compiler {
                 }
 
                 // for unwrapping a union
-                else if let Type::Union(_, _) = &left.ty {
+                else if let Type::UnsafeUnion(_, _) = &left.ty {
                     if new_into != left.ty {
                         return Err(CE {
                             at: expr.spanned(),
@@ -108,6 +108,40 @@ impl Compiler {
 
                     return Ok(EvalResult {
                         address: left.address,
+                        ty: new_into
+                    })
+                }
+
+                // for wrapping into a safe union
+                else if let Type::SafeUnion(alt) = &left.ty {
+                    let Some(x) = alt.iter().find(|x| **x == new_into)
+                    else {
+                        return Err(CE {
+                            at: expr.spanned(),
+                            during: "Safe union wrap cast - type check (1)",
+                            error: CEData::UnionDoesntHaveType { union: left.ty, doesnt_have: new_into },
+                            msg: None
+                        }); 
+                    };
+
+                    let Type::Nominal(tag, _) = x
+                    else {
+                        return Err(CE {
+                            at: expr.spanned(),
+                            during: "Safe union wrap cast - type check (2)",
+                            error: CEData::SafeUnionUsingNonNominal { union: left.ty.clone(), non_nominal: x.clone() },
+                            msg: None
+                        }); 
+                    };
+
+                    ob.push(InstBuilder::new()
+                        .opcode(Opc::UWrap)
+                        .index(*tag)
+                        .index(left.address)
+                        .build());
+
+                    return Ok(EvalResult {
+                        address: self.next_var(),
                         ty: new_into
                     })
                 }

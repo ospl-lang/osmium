@@ -68,6 +68,9 @@ impl Compiler {
             Stmt::If(left, yes, no) => 
                 self.compile_if_stmt(left, yes, no, ob)?,
 
+            Stmt::TypeIf { lhs, typ, id, yes, no } =>
+                self.compile_type_if_stmt(lhs, typ, id, yes, no, ob)?,
+
             Stmt::Break => {
                 ob.push(InstBuilder::new().opcode(Opc::Break).build());
                 return Ok(Control::Break)

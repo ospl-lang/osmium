@@ -54,8 +54,8 @@ pub mod make {
         return RuntimeValue { tag: super::RT::Scope, data: RV { scope: ManuallyDrop::new(s) } }
     }
 
-    pub fn union(t: u32, v: RuntimeValue) -> RuntimeValue {
-        return RuntimeValue { tag: super::RT::Undefined, data: RV { union_: (t, ManuallyDrop::new(Box::new(v))) } }
+    pub fn union(t: u64, idx: usize) -> RuntimeValue {
+        return RuntimeValue { tag: super::RT::Undefined, data: RV { union_: (t, idx) } }
     }
 }
 
@@ -119,7 +119,7 @@ pub mod assume {
     _assume_fn!(ref, foreignfun, u32, ForeignFn, foreign);
     _assume_fn!(ref, nul, (), Nul, nothing);
     _assume_fn!(ref, undefined, (), Undefined, nothing);
-    _assume_fn!(mut, union, (u32, std::mem::ManuallyDrop<Box<super::RuntimeValue>>), Union, union_);
+    _assume_fn!(mut, union, (u64, usize), Union, union_);
 
 }
 
@@ -138,7 +138,7 @@ pub mod assume_mut {
     _assume_fn!(mut, foreignfun, u32, ForeignFn, foreign);
     _assume_fn!(mut, nul, (), Nul, nothing);
     _assume_fn!(mut, undefined, (), Undefined, nothing);
-    _assume_fn!(mut, union, (u32, std::mem::ManuallyDrop<Box<super::RuntimeValue>>), Union, union_);
+    _assume_fn!(mut, union, (u64, usize), Union, union_);
 }
 
 pub fn make_value(of_type: RT, data: RV) -> RuntimeValue {
@@ -263,7 +263,7 @@ pub union RV {
     pub list: std::mem::ManuallyDrop<list::List>,
     pub func: std::mem::ManuallyDrop<RuntimeFunction>,
     pub scope: std::mem::ManuallyDrop<RuntimeFrame>,
-    pub union_: (u32, std::mem::ManuallyDrop<Box<RuntimeValue>>),
+    pub union_: (u64, usize),
     pub foreign: u32,
     pub nothing: (),
 }
@@ -288,6 +288,8 @@ impl RuntimeValue {
             RT::Int => Some(unsafe { if self.data.int != 0 {true} else {false} }),
             RT::Addr => Some(unsafe { if self.data.address != 0 {true} else {false} }),
             RT::Float => Some(unsafe { if self.data.float != 0.0 {true} else {false} }),
+            RT::Str => Some(unsafe { self.data.str.is_empty() }),
+            RT::Char => Some(unsafe { self.data.char == '\0' }),
             _ => None
         }
     }

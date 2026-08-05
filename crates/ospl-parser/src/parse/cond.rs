@@ -5,8 +5,76 @@ use ospl_common::ast::{Expr, Expression, LV, LValue, Statement, Stmt, decl::Decl
 use crate::{lexer::token::{exp_ident, Token}, parse::{Parser, Res}, tExp};
 
 impl<'a> Parser<'a> {
+    pub fn parse_type_if(&mut self) -> Res<Statement> {
+        let start = self.expect(tExp!(Def))?;
+
+        let id = self.parse_ident()?;
+
+        // atsign notation
+        let used_atsign = if *self.peek()?.token() == Token::Atsign {
+            self.next()?;
+            true
+        } else { false };
+
+        self.expect(tExp!(Colon))?;
+
+        let ty = self.parse_type()?;
+        self.expect(tExp!(Equals))?;
+        let right = self.parse_expr()?;
+
+        let mut yes = self.parse_block()?;
+
+        // apply atsign notation
+        if used_atsign {
+            yes.push(Statement {
+                at: *start.position(),
+                inner: Box::new(Stmt::Define(Declaration {
+                    name: id.clone(),
+                    rhs: Expression {
+                        at: *start.position(),
+                        file: Arc::clone(&self.filename),
+                        inner: Box::new(Expr::UnaryOp(UnaryOp {
+                            kind: UnaryOpType::Atsign,
+                            expr: Expression {
+                                at: *start.position(),
+                                file: Arc::clone(&self.filename),
+                                inner: Box::new(Expr::LValue(LValue {
+                                    at: *start.position(),
+                                    file: Arc::clone(&self.filename),
+                                    inner: Box::new(LV::Variable(id.clone()))
+                                }))
+                            }
+                        }))
+                    }
+                })),
+                file: Arc::clone(&self.filename),
+                notes: String::new(),
+            });
+        }
+        
+        let no = if let Token::Else = self.peek()?.token() {
+            self.next()?;
+            self.parse_block()?
+        } else { Vec::new() };
+
+        return Ok(Statement {
+            at: *start.position(),
+            inner: Box::new(Stmt::TypeIf {
+                id, no, yes,
+                lhs: right,
+                typ: ty
+            }),
+            file: Arc::clone(&self.filename),
+            notes: String::new(),
+        })
+    }
+    
     pub fn parse_if(&mut self) -> Res<Statement> {
         let start = self.expect(tExp!(If))?;
+
+        if let Token::Def = self.peek()?.token() {
+            return self.parse_type_if();
+        }
 
         let left = self.parse_expr()?;
         let yes = self.parse_block()?;

@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use ospl_common::ast::{ArgNaming, FunctionType, FunctionValue, Type, UType};
-use crate::{lexer::token::{exp_ident, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
+use crate::{lexer::token::{Token, TokenExpectation, exp_ident}, parse::{Parser, Res}, tComb, tExp};
 
 impl<'a> Parser<'a> {
     pub fn parse_function_literal(&mut self) -> Res<FunctionValue> {
@@ -142,7 +142,7 @@ impl<'a> Parser<'a> {
 
     pub fn parse_function_return_type(&mut self) -> Res<UType> {
         // get return type (defaults to nul)
-        let ret = if let Token::Arrow = self.peek()?.token() {
+        let ret = if let Token::Colon = self.peek()?.token() {
             self.next()?;  // take arrow
             self.parse_type()?
         } else {
@@ -198,35 +198,67 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_type(&mut self) -> Res<UType> {
+        let mut ty = self.parse_type_postfix()?;
+    
+        loop {
+            match self.peek()?.token() {
+                Token::BitwiseOr => {
+                    self.next()?;
+                    let rhs = self.parse_type_postfix()?;
+                    ty = UType::Union(Box::new(ty), Box::new(rhs));
+                }
+    
+                Token::LogicOr => {
+                    self.next()?;
+                    let rhs = self.parse_type_postfix()?;
+    
+                    match ty {
+                        UType::SafeUnion(mut types) => {
+                            types.push(rhs);
+                            ty = UType::SafeUnion(types);
+                        }
+    
+                        other => {
+                            ty = UType::SafeUnion(vec![other, rhs]);
+                        }
+                    }
+                }
+    
+                _ => break,
+            }
+        }
+    
+        Ok(ty)
+    }
+    
+    fn parse_type_postfix(&mut self) -> Res<UType> {
         let span = self.expect_peek(exp_type_starter())?;
         let (_, t) = span.destructure();
-
-        let mut working_type = self.parse_type_atom(t)?;
-
+    
+        let mut ty = self.parse_type_atom(t)?;
+    
         loop {
-            if let Token::Dot = self.peek()?.token() {
-                self.next()?;
-
-                let initial_span = self.expect(exp_ident())?;
-                let (_, Token::Ident(id)) = initial_span.destructure()
-                    else { unreachable!() };
-
-                working_type = UType::Property(Box::new(working_type), id);
+            match self.peek()?.token() {
+                Token::Dot => {
+                    self.next()?;
+    
+                    let initial_span = self.expect(exp_ident())?;
+                    let (_, Token::Ident(id)) = initial_span.destructure()
+                        else { unreachable!() };
+    
+                    ty = UType::Property(Box::new(ty), id);
+                }
+    
+                Token::LBracket => {
+                    let x = self.parse_nominal_application()?;
+                    ty = UType::Apply(Box::new(ty), x);
+                }
+    
+                _ => break,
             }
-            else if let Token::LogicOr = self.peek()?.token() {
-                self.next()?;
-                let x = self.parse_type()?;
-                working_type = UType::Union(Box::new(working_type), Box::new(x));
-            }
-            else if let Token::LBracket = self.peek()?.token() {
-                let x = self.parse_nominal_application()?;
-
-                working_type = UType::Apply(Box::new(working_type), x);
-            }
-            else { break; }
         }
-
-        return Ok(working_type)
+    
+        Ok(ty)
     }
 }
 

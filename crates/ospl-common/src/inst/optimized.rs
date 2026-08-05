@@ -157,15 +157,26 @@ pub enum Opc {
 
     /// Copies the left argument
     Copy = 45,
+
+    /// Wraps the left argument in a safe union
+    /// 
+    /// - **Index #0:** 64-bit tag to use
+    /// - **Index #1:** value to wrap
+    UWrap = 46,
+
+    /// Runs the child code if the union is of the given tag
+    /// 
+    /// - **Index #0:** the union to check
+    /// - **Index #1:** the 64-bit tag to check
+    /// - **Child #0:** the code to run if the union is using that tag
+    /// - **Child #1:** the code to run otherwise
+    UIf = 47,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Inst {
     pub opcode: Opc,
-
-    // can contain various types of opcodes.
-    // although most will contain operand lists
 
     /// Indexes for this operation
     pub indexes: Vec<usize>,

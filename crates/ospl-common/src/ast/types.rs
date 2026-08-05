@@ -18,7 +18,10 @@ pub enum Type {
     Any,
 
     /// A list of types
-    Union(Box<Self>, Box<Self>),
+    UnsafeUnion(Box<Self>, Box<Self>),
+
+    /// A safe tagged union of types
+    SafeUnion(Vec<Self>),
 
     /// A type whose ID matters in checking.
     Nominal(usize, Box<Self>),
@@ -37,9 +40,13 @@ impl PartialEq for Type {
             // special rule: Unknown and Any match everything
             (Type::Unknown, _) | (_, Type::Unknown) => true,
             (Type::Any,     _) | (_, Type::Any) => true,
-            (has, Type::Union(a, b)) => *has == **a || *has == **b,
-            (Type::Union(a, b), has) => *has == **a || *has == **b,
 
+            // scary
+            (has, Type::UnsafeUnion(a, b)) => *has == **a || *has == **b,
+            (Type::UnsafeUnion(a, b), has) => *has == **a || *has == **b,
+
+            // not scary
+            (Type::SafeUnion(alt1), Type::SafeUnion(alt2)) => alt1 == alt2,
             (Type::Nominal(id1, _), Type::Nominal(id2, _)) => id1 == id2,
 
             // special rule: Undefined only matches itself
@@ -123,5 +130,6 @@ pub enum UType {
     List(Box<Self>),
     Scope(super::Scope<Self>),
     Union(Box<Self>, Box<Self>),
+    SafeUnion(Vec<Self>),
     InferScope,
 }
