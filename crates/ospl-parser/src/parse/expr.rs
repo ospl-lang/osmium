@@ -32,8 +32,9 @@ pub fn exp_literal_starter() -> TokenExpectation {
 
 pub fn exp_binary_operation() -> TokenExpectation {
     tExp!(
-        Plus, Dash, Star, Slash, Percent, IsEqual, IsNotEqual, GreaterThanEqual, LessThanEqual, RAngle, LAngle,
-        Question
+        Plus, Dash, Star, Slash, DoubleSlash,
+        IsEqual, IsNotEqual, GreaterThanEqual, LessThanEqual,
+        RAngle, LAngle,
     )
 }
 
@@ -411,7 +412,7 @@ impl<'a> Parser<'a> {
 
                     let a = self.parse_atom()?;
                     
-                    if let Token::Comma = self.peek()?.token() {  // slicing
+                    if let Token::Ellipsis = self.peek()?.token() {  // slicing
                         self.next()?;
                         let b = self.parse_atom()?;
                         node = LValue {
@@ -464,14 +465,13 @@ pub fn token_to_binaryop(token: &Token) -> BinaryOpType {
         Token::Dash => BinaryOpType::Subtract,
         Token::Star => BinaryOpType::Multiply,
         Token::Slash => BinaryOpType::Divide,
-        Token::Percent => BinaryOpType::Modulo,
+        Token::DoubleSlash => BinaryOpType::Modulo,
         Token::IsEqual => BinaryOpType::Equals,
         Token::IsNotEqual => BinaryOpType::NotEquals,
         Token::LAngle => BinaryOpType::Lt,
         Token::RAngle => BinaryOpType::Gt,
         Token::LessThanEqual => BinaryOpType::Le,
         Token::GreaterThanEqual => BinaryOpType::Ge,
-        Token::Question => BinaryOpType::Question,
         _ => unreachable!(),
     }
 }

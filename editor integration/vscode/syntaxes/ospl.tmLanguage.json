@@ -6,9 +6,26 @@
 		{ "include": "#strings" },
 		{ "include": "#func" },
 		{ "include": "#types" },
-		{ "include": "#comments" }
+		{ "include": "#comments" },
+		{ "include": "#identifiers" }
 	],
 	"repository": {
+	  "identifiers": {
+			"patterns": [
+  			{
+  	      "name": "variable.private",
+  				"match": "(?<![_%&$#a-z0-9])\\$[_%&$#a-z0-9]*(?![_%&$#a-z0-9])"
+  			},
+  			{
+  	      "name": "variable.name",
+  				"match": "(?<![_%&$#a-z0-9])[_%&$#a-z][_%&$#a-z0-9]*(?![_%&$#a-z0-9])"
+  			},
+			  {
+					"name": "entity.name.type",
+					"match": "(?<![_%&$#A-Za-z0-9])[_%&$#A-Za-z][_%&$#A-Za-z0-9]*(?![_%&$#A-Za-z0-9])"
+				}
+			]
+		},
 		"keywords": {
 			"patterns": [
 				{
@@ -17,7 +34,7 @@
 				},
 				{
 					"name": "keyword.declaration",
-					"match": "\\b(def|let)\\b"
+					"match": "\\b(def|distinct)\\b"
 				},
 				{
 					"name": "keyword.other",
@@ -71,8 +88,8 @@
 		"comments": {
 			"patterns": [
 				{
-					"name": "comment.line.number-sign",
-					"match": "#.*$"
+					"name": "comment.line.ospl",
+					"match": ";.*$"
 				},
 				{
 				"name": "comment.block.ospl",

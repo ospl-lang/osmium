@@ -154,12 +154,10 @@ impl<'a> Lexer<'a> {
                     Token::Star
                 }
             },
-            '/' => Token::Slash,
-            '%' => Token::Percent,
+            '/' => self.do_dup(c, Token::Slash, Token::DoubleSlash),
 
             '^' => if self.peek()? == '^' { Token::BitwiseXor } else { Token::LogicalXor },
 
-            ',' => Token::Comma,
             '.' => if self.peek()? == '.' {
                 self.bump()?;
                 Token::Ellipsis
@@ -168,7 +166,7 @@ impl<'a> Lexer<'a> {
             '@' => Token::Atsign,
             ':' => Token::Colon,
 
-            '#' => {
+            ';' => {
                 // ignore all the text until a newline
                 loop {
                     self.peek()?;
@@ -179,9 +177,7 @@ impl<'a> Lexer<'a> {
                 }
             },
 
-            '?' => Token::Question,
-
-            '&' => self.do_dup(c, Token::LogicAnd, Token::BitwiseAnd),
+            ',' => self.do_dup(c, Token::LogicAnd, Token::BitwiseAnd),
             '|' => self.do_dup(c, Token::LogicOr, Token::BitwiseOr),
             '!' => {
                 match self.peek()? {
@@ -201,11 +197,11 @@ impl<'a> Lexer<'a> {
 
             c if c.is_ascii_digit() => self.do_number(c),
 
-            c if c.is_alphabetic() || c == '_' => {
+            c if c.is_alphabetic() || ['_', '&', '%', '$', '#', '?'].contains(&c) => {
                 let mut s = String::new();
                 s.push(c);
 
-                while matches!(self.peek(), Some(p) if p.is_alphanumeric() || p == '_') {
+                while matches!(self.peek(), Some(p) if p.is_alphanumeric() || ['_', '&', '%', '$', '#', '?'].contains(&p)) {
                     s.push(self.bump().unwrap());
                 }
 
@@ -215,7 +211,7 @@ impl<'a> Lexer<'a> {
                     "do" => Token::Do,
                     "scope" => Token::Scope,
                     "def" => Token::Def,
-                    "let" => Token::Let,
+                    "distinct" => Token::Distinct,
                     "return" => Token::Return,
                     "break" => Token::Break,
                     "continue" => Token::Continue,

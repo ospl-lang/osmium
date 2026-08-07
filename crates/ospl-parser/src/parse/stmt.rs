@@ -57,7 +57,7 @@ impl<'a> Parser<'a> {
                     _ => unreachable!()
                 }
             },
-            Token::Let => {
+            Token::Distinct => {
                 self.next()?;  // consume `t`
                 // ugly way of this...
                 let _id = self.expect(exp_ident())?;

@@ -65,13 +65,17 @@
         {
             "scope": "punctuation.separator",
             "settings": {
-                "foreground": "#702D7B",
+                "foreground": "#702D7B"
             }
         },
 
         // variables
         {
-            "scope": "variable",
+            "scope": "variable.private",
+            "settings": { "foreground": "#162456" }
+        },
+        {
+            "scope": "variable.name",
             "settings": { "foreground": "#AB47BB" }
         },
 

@@ -71,31 +71,6 @@ impl<'a> Parser<'a> {
         })
     }
 
-    pub fn parse_function_generics(&mut self) -> Res<Vec<(String, UType)>> {
-        let mut types = Vec::new();
-        loop {
-            let span = self.expect_peek(tComb!(
-                "RAngle | start of ID",
-                tExp!(RAngle),
-                exp_ident(),
-            ))?;
-
-            if let Token::RAngle = span.token() {
-                self.next()?;  // consume `>`
-                break;
-            }
-
-            if let (_, Token::Ident(i)) = span.destructure() {
-                self.next()?;
-                self.expect(tExp!(Colon))?;
-                let ty = self.parse_type()?;
-                types.push((i, ty));
-            }
-        };
-
-        return Ok(types)
-    }
-
     pub fn parse_function_type(&mut self) -> Res<FunctionType<UType>> {
         self.expect(tExp!(Fn))?;
 
@@ -179,6 +154,7 @@ impl<'a> Parser<'a> {
             Token::BoolT => {self.next()?; UType::Resolved(Type::Bool)},
             Token::AddrT => {self.next()?; UType::Resolved(Type::Address)},
             Token::Undefined => {self.next()?; UType::Resolved(Type::Undefined)},
+            Token::Nul => {self.next()?; UType::Resolved(Type::Nul)},
             Token::ListT => {
                 self.next()?;
                 let list_typ = self.parse_type()?;
@@ -272,8 +248,8 @@ pub fn exp_named_arg_member() -> TokenExpectation {
 
 pub fn exp_type_starter() -> TokenExpectation {
     tComb!(
-        "Fn | Atsign | IntT | FloatT | StrT | CharT | BoolT | ListT | AddrT | UnknownT | AnyT | Undefined | Ident | Scope",
-        tExp!(Fn, Atsign, IntT, FloatT, StrT, CharT, BoolT, ListT, AddrT, UnknownT, Undefined, AnyT, LParen, Scope),
+        "Fn | Atsign | IntT | FloatT | StrT | CharT | BoolT | ListT | AddrT | UnknownT | AnyT | Undefined | Ident | Nul | Scope",
+        tExp!(Fn, Atsign, IntT, FloatT, StrT, CharT, BoolT, ListT, AddrT, UnknownT, Undefined, AnyT, LParen, Nul, Scope),
         exp_ident(),
     )
 }
