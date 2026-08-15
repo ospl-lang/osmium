@@ -145,8 +145,6 @@ impl VM {
                 inst.get_index(2),
             ),
 
-            Opc::QuestionMark => self.question_mark(inst.get_index(0), inst.get_index(1)),
-
             Opc::PushFunction => {
                 let new_indexes = inst.indexes.iter().map(|x| {
                     let idx = self.stack.top_indexes()[*x];
@@ -214,6 +212,13 @@ impl VM {
             Opc::Div => self.div_regs(inst.get_index(0), inst.get_index(1)),
             Opc::Mod => self.mod_regs(inst.get_index(0), inst.get_index(1)),
 
+            // bitwise
+            Opc::And => self.and_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::Or  => self.or_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::Xor => self.xor_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::LShift => self.lshift_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::RShift => self.rshift_regs(inst.get_index(0), inst.get_index(1)),
+
             // comparison
             Opc::Eq  => self.eq_regs(inst.get_index(0), inst.get_index(1)),
             Opc::Neq => self.neq_regs(inst.get_index(0), inst.get_index(1)),
@@ -252,6 +257,7 @@ impl VM {
             }
 
             Opc::Decrement => self.dec_value(inst.get_index(0)),
+            Opc::Increment => self.inc_value(inst.get_index(0)),
 
             Opc::Addl => self.add_assign(inst.get_index(0), inst.get_index(1)),
             Opc::Subl => self.sub_assign(inst.get_index(0), inst.get_index(1)),

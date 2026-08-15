@@ -14,22 +14,25 @@ impl Compiler {
 
         // don't do the type checking for the question mark operator
         match (&left.ty, &right.ty, &b.kind) {
-            // question operator bypasses type equality rules
-            (_, _, BinaryOpType::Question) => {}
-            (Type::Function(_), Type::Function(f2), BinaryOpType::Add) => {
-                if f2.args.len() != 0 || f2.ret != Type::Nul {
-                    todo!("ERROR")
-                }
-            }
-
             // numeric ops: only same-type allowed
-            (Type::Int, Type::Int, op) if op.supports_numerical() => {}
-            (Type::Address, Type::Address, op) if op.supports_numerical() => {}
-            (Type::Float, Type::Float, op) if op.supports_numerical() => {}
+            (Type::Int, Type::Int, op) if op.is_integral() => {}
+            (Type::Address, Type::Address, op) if op.is_integral() => {}
+            (Type::Float, Type::Float, op) if op.is_floating_point() => {}
+
+            (Type::List(_), _, BinaryOpType::Gt) => {},
+            (Type::List(_), _, BinaryOpType::Lt) => {},
+            (Type::List(_), _, BinaryOpType::LShift) => {},
+            (Type::List(_), _, BinaryOpType::RShift) => {},
+            (Type::List(_), _, BinaryOpType::Subtract) => {},
+            (Type::List(_), _, BinaryOpType::Equals) => {},
+            (Type::List(_), _, BinaryOpType::NotEquals) => {},
 
             // simple exact matches for non-numeric ops
             (Type::Bool, Type::Bool, BinaryOpType::Equals) => {}
             (Type::Bool, Type::Bool, BinaryOpType::NotEquals) => {}
+            (Type::Bool, Type::Bool, BinaryOpType::And) => {},
+            (Type::Bool, Type::Bool, BinaryOpType::Or) => {},
+            (Type::Bool, Type::Bool, BinaryOpType::Xor) => {},
 
             (Type::Str, Type::Str, BinaryOpType::Add) => {}
             (Type::Str, Type::Str, BinaryOpType::Equals) => {}
@@ -63,7 +66,11 @@ impl Compiler {
             BinaryOpType::Lt        => Opc::Lt,
             BinaryOpType::Ge        => Opc::Gte,
             BinaryOpType::Le        => Opc::Lte,
-            BinaryOpType::Question  => Opc::QuestionMark,
+            BinaryOpType::And       => Opc::And,
+            BinaryOpType::Or        => Opc::Or,
+            BinaryOpType::Xor       => Opc::Xor,
+            BinaryOpType::LShift    => Opc::LShift,
+            BinaryOpType::RShift    => Opc::RShift,
         };
 
         let inst = InstBuilder::new()

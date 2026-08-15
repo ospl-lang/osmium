@@ -75,15 +75,10 @@ pub enum Opc {
 
     Neg = 24,
 
-    Lnot = 25,
-    Lor = 26,
-    Land = 27,
-
-    /// The `?` (find in) operator.
-    /// 
-    /// - **Index #0:** the index of the thing to find in
-    /// - **Index #1:** the index of the thing to find in
-    QuestionMark = 28,
+    /* logical operators */
+    Xor = 25,
+    Or = 26,
+    And = 27,
 
     Call = 29,
     Ret = 30,
@@ -171,6 +166,9 @@ pub enum Opc {
     /// - **Child #0:** the code to run if the union is using that tag
     /// - **Child #1:** the code to run otherwise
     UIf = 47,
+
+    LShift = 48,
+    RShift = 49
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]

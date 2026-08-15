@@ -34,12 +34,12 @@ pub fn exp_binary_operation() -> TokenExpectation {
     tExp!(
         Plus, Dash, Star, Slash, DoubleSlash,
         IsEqual, IsNotEqual, GreaterThanEqual, LessThanEqual,
-        RAngle, LAngle,
+        RAngle, LAngle, LShift, RShift
     )
 }
 
 pub fn exp_unary_operation() -> TokenExpectation {
-    tExp!(Increment, Decrement, Atsign, LogicNot, Copy)
+    tExp!(Increment, Decrement, Atsign, Not, Copy)
 }
 
 impl<'a> Parser<'a> {
@@ -299,6 +299,7 @@ impl<'a> Parser<'a> {
                 let optype = token_to_binaryop(&span.token());
 
                 let a2 = self.parse_primary()?;
+                // let a2 = self.parse_expr()?;
                 a1 = Expression {
                     at: a1.at,
                     inner: Box::new(Expr::BinaryOp(BinaryOp {
@@ -317,7 +318,7 @@ impl<'a> Parser<'a> {
                     Token::Increment => UnaryOpType::Increment,
                     Token::Decrement => UnaryOpType::Decrement,
                     Token::Atsign => UnaryOpType::Atsign,
-                    Token::LogicNot => UnaryOpType::LogicNot,
+                    Token::Not => UnaryOpType::LogicNot,
                     Token::Copy => UnaryOpType::Copy,
                     _ => unreachable!()
                 };
@@ -472,6 +473,8 @@ pub fn token_to_binaryop(token: &Token) -> BinaryOpType {
         Token::RAngle => BinaryOpType::Gt,
         Token::LessThanEqual => BinaryOpType::Le,
         Token::GreaterThanEqual => BinaryOpType::Ge,
+        Token::RShift => BinaryOpType::RShift,
+        Token::LShift => BinaryOpType::LShift,
         _ => unreachable!(),
     }
 }

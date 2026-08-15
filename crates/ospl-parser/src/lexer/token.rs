@@ -49,28 +49,28 @@ pub enum Token {
     Plus, Dash, Star, Slash, DoubleSlash,
 
     /// `&` symbol
-    LogicAnd,
+    And,
     
-    /// `&&` symbol
-    BitwiseAnd,
+    /// `&&` symbol (reserved for later)
+    DoubleAnd,
 
     /// `|` symbol
-    LogicOr,
+    Or,
 
     /// `||` symbol
-    BitwiseOr,
+    DoubleOr,
 
     /// `!` symbol
-    LogicNot,
+    Not,
 
-    /// `!!` symbol
-    BitwiseNot,
+    /// `!!` symbol (reserved for later)
+    DoubleNot,
 
     /// `^` symbol
-    LogicalXor,
+    Xor,
 
-    /// `^^` symbol
-    BitwiseXor,
+    /// `^^` symbol (reserved for later)
+    DoubleXor,
 
     /// `--`
     Decrement,
@@ -85,6 +85,8 @@ pub enum Token {
     /** `]` symbol */ RBracket,
     /** `<` symbol */ LAngle,
     /** `>` symbol */ RAngle,
+
+    RShift, LShift,
 
     /** `=` symbol */  Equals,
     /** `==` symbol */ IsEqual,

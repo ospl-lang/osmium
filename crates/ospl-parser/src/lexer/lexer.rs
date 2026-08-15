@@ -61,13 +61,6 @@ impl<'a> Lexer<'a> {
         } else { return one }
     }
 
-    fn do_0dup(&mut self, c: char, zero: Token, one: Token) -> Token {
-        if self.peek() == Some(c) {
-            self.bump();
-            return one
-        } else { return zero }
-    }
-
     fn do_block_comment(&mut self) -> Option<Token> {
         // We have already consumed the first '*'.
         // Consume the remaining four stars of the opening delimiter.
@@ -122,8 +115,32 @@ impl<'a> Lexer<'a> {
             ']' => Token::RBracket,
             '{' => Token::LSquirly,
             '}' => Token::RSquirly,
-            '<' => self.do_0dup('=', Token::LAngle, Token::LessThanEqual),
-            '>' => self.do_0dup('=', Token::RAngle, Token::GreaterThanEqual),
+            '<' => {
+                match self.peek() {
+                    Some('<') => {
+                        self.bump()?;
+                        Token::LShift
+                    }
+                    Some('=') => {
+                        self.bump()?;
+                        Token::LessThanEqual
+                    }
+                    _ => Token::LAngle
+                }
+            }
+            '>' => {
+                match self.peek() {
+                    Some('>') => {
+                        self.bump()?;
+                        Token::RShift
+                    }
+                    Some('=') => {
+                        self.bump()?;
+                        Token::GreaterThanEqual
+                    }
+                    _ => Token::RAngle
+                }
+            }
 
             '+' => self.do_dup(c, Token::Plus, Token::Increment),
             '-' => {
@@ -156,7 +173,7 @@ impl<'a> Lexer<'a> {
             },
             '/' => self.do_dup(c, Token::Slash, Token::DoubleSlash),
 
-            '^' => if self.peek()? == '^' { Token::BitwiseXor } else { Token::LogicalXor },
+            '^' => if self.peek()? == '^' { Token::DoubleXor } else { Token::Xor },
 
             '.' => if self.peek()? == '.' {
                 self.bump()?;
@@ -177,8 +194,8 @@ impl<'a> Lexer<'a> {
                 }
             },
 
-            ',' => self.do_dup(c, Token::LogicAnd, Token::BitwiseAnd),
-            '|' => self.do_dup(c, Token::LogicOr, Token::BitwiseOr),
+            ',' => self.do_dup(c, Token::And, Token::DoubleAnd),
+            '|' => self.do_dup(c, Token::Or, Token::DoubleOr),
             '!' => {
                 match self.peek()? {
                     '=' => {
@@ -187,9 +204,9 @@ impl<'a> Lexer<'a> {
                     },
                     '!' => {
                         self.bump()?;
-                        Token::BitwiseNot
+                        Token::DoubleNot
                     },
-                    _ => Token::LogicNot
+                    _ => Token::Not
                 }
             },
                                                                         
@@ -263,7 +280,6 @@ impl<'a> Lexer<'a> {
                 }
             },
 
-            '$' => Token::DollarSign,
             '\\' => Token::Backslash,
 
             _ => panic!("Unexpected character: {c}"),

@@ -1,5 +1,4 @@
-use std::hint::unreachable_unchecked;
-
+// use std::hint::unreachable_unchecked;
 use ospl_common::inst::{RT, list::List, make};
 
 use crate::VM;
@@ -10,7 +9,7 @@ impl VM {
         unsafe { match t.tag {
             RT::List => {
                 let x: &mut List = &mut t.data.list;
-                let Some(i) = x.items.pop()
+                let Some(i) = x.items.pop_back()
                 else {
                     self.push_literal(make::undefined(()));
                     return;
@@ -25,7 +24,24 @@ impl VM {
 
                 self.push_literal(l);
             }
-            _ => unreachable_unchecked()
+            _ => unreachable!()  // TODO @lambdap -- test perf with unreachable_unchecked()
+        } };
+    }
+
+    pub fn inc_value(&mut self, i: usize) {
+        let t = self.get_mut_value_top(i);
+        unsafe { match t.tag {
+            RT::List => {
+                let x: &mut List = &mut t.data.list;
+                let Some(i) = x.items.pop_front()
+                else {
+                    self.push_literal(make::undefined(()));
+                    return;
+                };
+
+                self.stack.top_add_index(i);
+            },
+            _ => unreachable!()
         } };
     }
 

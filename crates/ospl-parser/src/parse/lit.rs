@@ -178,13 +178,13 @@ impl<'a> Parser<'a> {
     
         loop {
             match self.peek()?.token() {
-                Token::BitwiseOr => {
+                Token::DoubleOr => {
                     self.next()?;
                     let rhs = self.parse_type_postfix()?;
                     ty = UType::Union(Box::new(ty), Box::new(rhs));
                 }
     
-                Token::LogicOr => {
+                Token::Or => {
                     self.next()?;
                     let rhs = self.parse_type_postfix()?;
     
