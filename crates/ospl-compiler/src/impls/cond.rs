@@ -81,8 +81,6 @@ impl Compiler {
 
         self.compile_block(yes, &mut ob_yes)?;
 
-        tracing::error!("yes = {ob_yes:?} source = {yes:?}");
-
         self.stack.pop();
 
         // NO BLOCK
@@ -100,8 +98,6 @@ impl Compiler {
             .child(ob_no)
             .build();
 
-        tracing::error!("inst = {i:?}");
-    
         ob.push(i);
         return Ok(())
     }

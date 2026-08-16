@@ -134,12 +134,10 @@ impl Compiler {
                         }); 
                     };
 
-                    println!("YES I CASTED HELO YES");
-
                     ob.push(InstBuilder::new()
                         .opcode(Opc::UWrap)
-                        .index(*tag)
                         .index(left.address)
+                        .index(*tag)
                         .build());
 
                     return Ok(EvalResult {

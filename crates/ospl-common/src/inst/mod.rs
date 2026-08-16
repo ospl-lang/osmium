@@ -55,7 +55,7 @@ pub mod make {
     }
 
     pub fn union(t: u64, idx: usize) -> RuntimeValue {
-        return RuntimeValue { tag: super::RT::Undefined, data: RV { union_: (t, idx) } }
+        return RuntimeValue { tag: super::RT::Union, data: RV { union_: (t, idx) } }
     }
 }
 
