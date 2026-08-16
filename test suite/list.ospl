@@ -1,4 +1,0 @@
-{
-    def x = list int{1 2 3}
-    def y = x--
-}

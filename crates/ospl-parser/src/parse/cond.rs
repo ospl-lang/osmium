@@ -56,10 +56,13 @@ impl<'a> Parser<'a> {
             });
         }
         
-        let no = if let Token::Else = self.peek()?.token() {
-            self.next()?;
-            self.parse_block()?
-        } else { Vec::new() };
+        let no = match self.peek() {
+            Ok(sp) if matches!(sp.token(), Token::Else) => {
+                self.next()?;
+                self.parse_block()?
+            }
+            _ => Vec::new()
+        };
 
         if unless {
             // normal if
@@ -102,10 +105,13 @@ impl<'a> Parser<'a> {
         let left = self.parse_expr()?;
         let yes = self.parse_block()?;
 
-        let no = if let Token::Else = self.peek()?.token() {
-            self.next()?;
-            self.parse_block()?
-        } else { Vec::new() };
+        let no = match self.peek() {
+            Ok(sp) if matches!(sp.token(), Token::Else) => {
+                self.next()?;
+                self.parse_block()?
+            }
+            _ => Vec::new()
+        };
 
         if unless {
             return Ok(Statement {

@@ -1,0 +1,23 @@
+;; Step 1. Declare a safe union that you'll be unwrapping
+distinct A: int
+distinct B: int
+def U: A | B
+
+;; Step 2. Create some values of that type
+def x = ((42 as A) as U)
+def y = ((47 as B) as U)
+
+;; Step 3. `if#` or `unless#` on those values
+if# z@: A = x {
+    ;; in OSPL this is just a no-op.
+    do z
+}
+
+if# z@: B = y {
+    do z
+}
+
+;; Step 4. See that nothing is working correctly.
+;; Notes: OSPL doesn't have a builtin print statement or function, don't go looking!
+;; don't modify this test case directly, use the compiler's logging system.
+;; WHATEVER YOU DO. DO NOT SET RUST_LOG=TRACE!

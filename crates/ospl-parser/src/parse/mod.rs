@@ -38,7 +38,7 @@ impl<'a> Parser<'a> {
     fn expect(&mut self, exp: TokenExpectation) -> Res<Span> {
         let got = self.next()?;
         if (exp.matches)(got.token()) {
-            tracing::trace!("Unexpected token in expect()");
+            // tracing::trace!("Unexpected token in expect()");
             return Ok(got)
         }
 
@@ -52,7 +52,7 @@ impl<'a> Parser<'a> {
     fn expect_peek(&mut self, exp: TokenExpectation) -> Res<Span> {
         let got = self.peek()?;
         if (exp.matches)(got.token()) {
-            tracing::trace!("Unexpected token in expect_peek()");
+            // tracing::trace!("Unexpected token in expect_peek()");
             return Ok(got)
         }
 
@@ -67,7 +67,7 @@ impl<'a> Parser<'a> {
         let ct = self.current_token;
         let Some(t) = self.tokens.get(ct)
         else {
-            tracing::trace!("Unexpected EOF in next()");
+            // tracing::trace!("Unexpected EOF in next()");
             return Err(PE::EOF)
         };
 
@@ -80,7 +80,7 @@ impl<'a> Parser<'a> {
     fn peek(&self) -> Res<Span> {
         let Some(t) = self.tokens.get(self.current_token)  
         else {
-            tracing::trace!("Unexpected EOF in peek()");
+            // tracing::trace!("Unexpected EOF in peek()");
             return Err(PE::EOF)
         };
 

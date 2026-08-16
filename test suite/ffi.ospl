@@ -1,5 +1,0 @@
-{
-    def libc = foreign use "libc.so.6"
-    def puts = foreign fn libc "puts" i32 { ptr }
-    do foreign puts("hellorld")
-}
