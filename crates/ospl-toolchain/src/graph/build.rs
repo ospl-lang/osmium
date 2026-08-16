@@ -243,7 +243,7 @@ pub fn buildmain(m: GennedMods) -> Result<Vec<Inst>, ospl_compiler::CE> {
     Log!(Compiling, "everything");
     let mut comp = Compiler::new(build_data);
     let mut root = Vec::new();
-    comp.compile_all(&m.root, &mut root)?;
+    comp.compile_block(&m.root, &mut root)?;
 
     return Ok(root)
 }

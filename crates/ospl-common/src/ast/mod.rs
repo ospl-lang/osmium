@@ -1,5 +1,13 @@
-use std::{collections::{BTreeMap, HashMap}, fmt::{Debug, Display}, hash::{Hash, Hasher}, sync::Arc};
-use crate::ast::{decl::{AliasDeclaration, Declaration}, ops::AssignOp};
+use crate::ast::{
+    decl::{AliasDeclaration, Declaration},
+    ops::AssignOp,
+};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt::{Debug, Display},
+    hash::{Hash, Hasher},
+    sync::Arc,
+};
 
 pub use types::*;
 
@@ -13,13 +21,13 @@ pub struct Position {
 
 impl PartialOrd for Position {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        return self.ch.partial_cmp(&other.ch)
+        return self.ch.partial_cmp(&other.ch);
     }
 }
 
 impl Display for Position {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        return write!(f, "{}:{} (char #{})", self.line, self.column, self.ch)
+        return write!(f, "{}:{} (char #{})", self.line, self.column, self.ch);
     }
 }
 
@@ -48,8 +56,8 @@ impl Statement {
             inner: Box::new(s),
             at: Position::default(),
             notes: String::new(),
-            file: Arc::new(String::new())
-        }
+            file: Arc::new(String::new()),
+        };
     }
 }
 
@@ -64,7 +72,16 @@ pub enum Stmt {
     Return(Expression),
     Break,
     Continue,
+
     If(Expression, Vec<Statement>, Vec<Statement>),
+    TypeIf {
+        lhs: Expression,
+        typ: UType,
+        id: String,
+        yes: Vec<Statement>,
+        no: Vec<Statement>,
+    },
+
     Loop(Vec<Statement>),
     ReturnScope,
     AssignOp(AssignOp),
@@ -74,7 +91,7 @@ pub enum Stmt {
 pub struct Expression {
     pub inner: Box<Expr>,
     pub at: Position,
-    pub file: Arc<String>
+    pub file: Arc<String>,
 }
 
 impl Expression {
@@ -82,8 +99,8 @@ impl Expression {
         return Self {
             inner: Box::new(s),
             at: Position::default(),
-            file: Arc::new(String::from("test"))
-        }
+            file: Arc::new(String::from("test")),
+        };
     }
 }
 
@@ -93,7 +110,7 @@ pub enum Expr {
     Call {
         left: Expression,
         args: Vec<Expression>,
-        named_args: BTreeMap<String, Expression>
+        named_args: BTreeMap<String, Expression>,
     },
     BinaryOp(ops::BinaryOp),
     UnaryOp(ops::UnaryOp),
@@ -122,7 +139,7 @@ impl LValue {
             inner: Box::new(s),
             at: Position::default(),
             file: Arc::new(String::new()),
-        }
+        };
     }
 }
 
@@ -149,7 +166,7 @@ pub enum Literal {
     Str(String),
     Char(char),
     List(UType, Vec<Expression>),
-    Function(FunctionValue)
+    Function(FunctionValue),
 }
 
 #[derive(Debug, Clone, Eq)]
@@ -164,13 +181,18 @@ pub struct FunctionType<T> {
 impl<T: PartialEq> PartialEq for FunctionType<T> {
     fn eq(&self, other: &Self) -> bool {
         let arity_good =
-            self.args.len() == other.args.len() &&
-            self.named_args.len() == other.named_args.len();
+            self.args.len() == other.args.len() && self.named_args.len() == other.named_args.len();
 
-        let args_good = self.args.iter().zip(other.args.iter())
+        let args_good = self
+            .args
+            .iter()
+            .zip(other.args.iter())
             .all(|(a, b)| *a == *b);
 
-        let named_args_good = self.named_args.iter().zip(other.named_args.iter())
+        let named_args_good = self
+            .named_args
+            .iter()
+            .zip(other.named_args.iter())
             .all(|(a, b)| a == b);
 
         let ret_good = self.ret == other.ret;
@@ -199,7 +221,7 @@ impl<T: Debug> Display for FunctionType<T> {
 
         write!(f, ") -> {:?}", self.ret)?;
 
-        return Ok(())
+        return Ok(());
     }
 }
 
@@ -230,26 +252,25 @@ impl<T> Entry<T> {
 
     pub fn map_type_into<I>(self, f: impl Fn(T) -> I) -> Entry<I> {
         return match self {
-            Self::Alias(a) => Entry::Alias(AStore {
-                typ: f(a.typ)
-            }),
+            Self::Alias(a) => Entry::Alias(AStore { typ: f(a.typ) }),
             Self::Runtime(r) => Entry::Runtime(RStore {
                 address: r.address,
-                typ: f(r.typ)
-            })
-        }
+                typ: f(r.typ),
+            }),
+        };
     }
 
-    pub fn map_type_into_resultant<I, E>(self, f: impl Fn(T) -> Result<I, E>) -> Result<Entry<I>, E> {
+    pub fn map_type_into_resultant<I, E>(
+        self,
+        f: impl Fn(T) -> Result<I, E>,
+    ) -> Result<Entry<I>, E> {
         return Ok(match self {
-            Self::Alias(a) => Entry::Alias(AStore {
-                typ: f(a.typ)?
-            }),
+            Self::Alias(a) => Entry::Alias(AStore { typ: f(a.typ)? }),
             Self::Runtime(r) => Entry::Runtime(RStore {
                 address: r.address,
-                typ: f(r.typ)?
-            })
-        })
+                typ: f(r.typ)?,
+            }),
+        });
     }
 }
 
@@ -282,8 +303,8 @@ impl<T> Default for Scope<T> {
     fn default() -> Self {
         return Self {
             map: HashMap::new(),
-            next_id: 0
-        }
+            next_id: 0,
+        };
     }
 }
 
@@ -300,15 +321,15 @@ pub struct AStore<T> {
 
 impl<T> RStore<T> {
     pub fn get_address(&self) -> usize {
-        return self.address
+        return self.address;
     }
 
     pub fn get_type(&self) -> &T {
-        return &self.typ
+        return &self.typ;
     }
 
     pub fn into_type(self) -> T {
-        return self.typ
+        return self.typ;
     }
 }
 
@@ -326,36 +347,35 @@ impl<T: Clone> Scope<T> {
     }
 
     pub fn delete(&mut self, k: &str) {
-        let Some(_) = self.map.remove(k)
-        else {
+        let Some(_) = self.map.remove(k) else {
             panic!("TODO unwrap - tried to delete key {k} that doesn't exist from a scope type")
         };
     }
 
     pub fn has(&self, key: &str) -> bool {
-        return self.map.contains_key(key)
+        return self.map.contains_key(key);
     }
 
     /// This function may be removed in the future! DO NOT USE unless you
     /// REALLY NEED IT
     pub fn get_inner(&self) -> &HashMap<String, Entry<T>> {
-        return &self.map
+        return &self.map;
     }
 
     /// Gets a runtime value
     pub fn get_runtime(&self, t: &str) -> Option<&RStore<T>> {
         return match self.get_inner().get(t)? {
             Entry::Runtime(r) => Some(r),
-            _ => None
-        }
+            _ => None,
+        };
     }
 
     /// Gets an alias
     pub fn get_alias(&self, t: &str) -> Option<&AStore<T>> {
         return match self.get_inner().get(t)? {
             Entry::Alias(a) => Some(a),
-            _ => None
-        }
+            _ => None,
+        };
     }
 
     pub fn get_entry(&self, t: &str) -> Option<&Entry<T>> {
@@ -367,13 +387,13 @@ impl<T: Clone> Scope<T> {
     }
 
     pub fn into_inner(self) -> HashMap<String, Entry<T>> {
-        return self.map
+        return self.map;
     }
 
     pub fn next_post(&mut self) -> usize {
         let i = self.next_id;
         self.next_id += 1;
-        return i
+        return i;
     }
 }
 
@@ -395,8 +415,8 @@ pub struct ArgNaming {
     pub name: String,
 }
 
+pub mod decl;
 pub mod frame;
 pub mod ops;
 pub mod spanning;
-pub mod decl;
 pub mod types;

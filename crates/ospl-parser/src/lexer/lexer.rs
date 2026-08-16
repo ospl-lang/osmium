@@ -61,13 +61,6 @@ impl<'a> Lexer<'a> {
         } else { return one }
     }
 
-    fn do_0dup(&mut self, c: char, zero: Token, one: Token) -> Token {
-        if self.peek() == Some(c) {
-            self.bump();
-            return one
-        } else { return zero }
-    }
-
     fn do_block_comment(&mut self) -> Option<Token> {
         // We have already consumed the first '*'.
         // Consume the remaining four stars of the opening delimiter.
@@ -122,8 +115,32 @@ impl<'a> Lexer<'a> {
             ']' => Token::RBracket,
             '{' => Token::LSquirly,
             '}' => Token::RSquirly,
-            '<' => self.do_0dup('=', Token::LAngle, Token::LessThanEqual),
-            '>' => self.do_0dup('=', Token::RAngle, Token::GreaterThanEqual),
+            '<' => {
+                match self.peek() {
+                    Some('<') => {
+                        self.bump()?;
+                        Token::LShift
+                    }
+                    Some('=') => {
+                        self.bump()?;
+                        Token::LessThanEqual
+                    }
+                    _ => Token::LAngle
+                }
+            }
+            '>' => {
+                match self.peek() {
+                    Some('>') => {
+                        self.bump()?;
+                        Token::RShift
+                    }
+                    Some('=') => {
+                        self.bump()?;
+                        Token::GreaterThanEqual
+                    }
+                    _ => Token::RAngle
+                }
+            }
 
             '+' => self.do_dup(c, Token::Plus, Token::Increment),
             '-' => {
@@ -154,12 +171,10 @@ impl<'a> Lexer<'a> {
                     Token::Star
                 }
             },
-            '/' => Token::Slash,
-            '%' => Token::Percent,
+            '/' => self.do_dup(c, Token::Slash, Token::DoubleSlash),
 
-            '^' => if self.peek()? == '^' { Token::BitwiseXor } else { Token::LogicalXor },
+            '^' => if self.peek()? == '^' { Token::DoubleXor } else { Token::Xor },
 
-            ',' => Token::Comma,
             '.' => if self.peek()? == '.' {
                 self.bump()?;
                 Token::Ellipsis
@@ -168,7 +183,7 @@ impl<'a> Lexer<'a> {
             '@' => Token::Atsign,
             ':' => Token::Colon,
 
-            '#' => {
+            ';' => {
                 // ignore all the text until a newline
                 loop {
                     self.peek()?;
@@ -179,10 +194,8 @@ impl<'a> Lexer<'a> {
                 }
             },
 
-            '?' => Token::Question,
-
-            '&' => self.do_dup(c, Token::LogicAnd, Token::BitwiseAnd),
-            '|' => self.do_dup(c, Token::LogicOr, Token::BitwiseOr),
+            ',' => self.do_dup(c, Token::And, Token::DoubleAnd),
+            '|' => self.do_dup(c, Token::Or, Token::DoubleOr),
             '!' => {
                 match self.peek()? {
                     '=' => {
@@ -191,9 +204,9 @@ impl<'a> Lexer<'a> {
                     },
                     '!' => {
                         self.bump()?;
-                        Token::BitwiseNot
+                        Token::DoubleNot
                     },
-                    _ => Token::LogicNot
+                    _ => Token::Not
                 }
             },
                                                                         
@@ -201,11 +214,11 @@ impl<'a> Lexer<'a> {
 
             c if c.is_ascii_digit() => self.do_number(c),
 
-            c if c.is_alphabetic() || c == '_' => {
+            c if c.is_alphabetic() || ['_', '&', '%', '$', '#', '?'].contains(&c) => {
                 let mut s = String::new();
                 s.push(c);
 
-                while matches!(self.peek(), Some(p) if p.is_alphanumeric() || p == '_') {
+                while matches!(self.peek(), Some(p) if p.is_alphanumeric() || ['_', '&', '%', '$', '#', '?'].contains(&p)) {
                     s.push(self.bump().unwrap());
                 }
 
@@ -215,11 +228,16 @@ impl<'a> Lexer<'a> {
                     "do" => Token::Do,
                     "scope" => Token::Scope,
                     "def" => Token::Def,
-                    "let" => Token::Let,
+                    "distinct" => Token::Distinct,
                     "return" => Token::Return,
                     "break" => Token::Break,
                     "continue" => Token::Continue,
+
                     "if" => Token::If,
+                    "if#" => Token::IfHash,
+                    "unless" => Token::Unless,
+                    "unless#" => Token::UnlessHash,
+
                     "else" => Token::Else,
                     "loop" => Token::Loop,
                     "use" => Token::Use,
@@ -267,7 +285,6 @@ impl<'a> Lexer<'a> {
                 }
             },
 
-            '$' => Token::DollarSign,
             '\\' => Token::Backslash,
 
             _ => panic!("Unexpected character: {c}"),

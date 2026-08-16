@@ -1,3 +1,3 @@
 cargo build
 # cargo build
-cp target/debug/osplt ~/.cargo/bin/ospt
+cp target/debug/ospt ~/.cargo/bin/ospt

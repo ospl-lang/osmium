@@ -29,6 +29,39 @@ Type mismatch
 {got}
             ")
         },
+        crate::CEData::UnionDoesntHaveType { union, doesnt_have } => {
+            let u = fmt_type(union.clone());
+            let got = fmt_type(doesnt_have.clone());
+            return format!("\
+Union mismatch
+### expected one of
+{u}
+
+### got
+{got}
+                ")
+        },
+        crate::CEData::SafeUnionUsingNonNominal { union, non_nominal } => {
+            let u = fmt_type(union.clone());
+            let got = fmt_type(non_nominal.clone());
+            return format!("\
+Safe unions must use nominal types
+### union
+{u}
+
+### attempted non-nominal cast
+{got}
+                ")
+        },
+        crate::CEData::NotFoundInScope { needed, scope } => {
+            let got = fmt_type(ospl_common::ast::Type::Scope(scope.clone()));
+            return format!("
+needed: {needed}
+
+### attempted access on this scope
+{got}
+            ")
+        },
         oth => format!("{oth:?}")  // temp
     }
 }

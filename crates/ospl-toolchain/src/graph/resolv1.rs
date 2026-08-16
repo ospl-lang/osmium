@@ -269,6 +269,9 @@ pub fn parse_file<P: AsRef<Path> + Debug>(f: P) -> Result<Vec<Statement>, Resolv
     let fpath: String = f.as_ref().to_string_lossy().to_string();
     let mut p = ospl_parser::parse::Parser::new(&tokens, fpath.clone());
     return p.parse_tlc().map_err(|e| {  
+        #[cfg(debug_assertions)]
+        ospl_parser::parse::diag::print_diag(&p, &e);
+
         ResolvErr::PE {
             file: fpath.clone(),
             err: e

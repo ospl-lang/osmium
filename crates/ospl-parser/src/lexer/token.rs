@@ -6,17 +6,22 @@ use ospl_common::ast::Position;
 pub enum Token {
     /* keywords */
     Def,
-    Let,
-    Do,
+    Distinct,
     Fn,
     Scope,
+
     Return,
     Break,
     Continue,
     Select,
     If,
+    IfHash,
+    Unless,
+    UnlessHash,
+    Do,
     Else,
     Loop,
+
     Use,
     Foreign,
     For,
@@ -41,36 +46,36 @@ pub enum Token {
     IntT, FloatT, StrT, BoolT, ListT, AddrT, UnknownT, AnyT,
 
     /* punctuation */
-    Atsign, Comma, Dot, Ellipsis, Colon, Question,
+    Atsign, Dot, Ellipsis, Colon,
 
     /// `->` symbol
     Arrow,
 
-    Plus, Dash, Star, Slash, Percent,
+    Plus, Dash, Star, Slash, DoubleSlash,
 
     /// `&` symbol
-    LogicAnd,
+    And,
     
-    /// `&&` symbol
-    BitwiseAnd,
+    /// `&&` symbol (reserved for later)
+    DoubleAnd,
 
     /// `|` symbol
-    LogicOr,
+    Or,
 
     /// `||` symbol
-    BitwiseOr,
+    DoubleOr,
 
     /// `!` symbol
-    LogicNot,
+    Not,
 
-    /// `!!` symbol
-    BitwiseNot,
+    /// `!!` symbol (reserved for later)
+    DoubleNot,
 
     /// `^` symbol
-    LogicalXor,
+    Xor,
 
-    /// `^^` symbol
-    BitwiseXor,
+    /// `^^` symbol (reserved for later)
+    DoubleXor,
 
     /// `--`
     Decrement,
@@ -85,6 +90,8 @@ pub enum Token {
     /** `]` symbol */ RBracket,
     /** `<` symbol */ LAngle,
     /** `>` symbol */ RAngle,
+
+    RShift, LShift,
 
     /** `=` symbol */  Equals,
     /** `==` symbol */ IsEqual,
@@ -143,7 +150,7 @@ impl Debug for TokenExpectation {
 }
 
 pub fn exp_keyword() -> TokenExpectation {
-    return tExp!(Fn, Do, Def, Let, Scope, Return, Break, Continue, For, While, If, Else, Loop, Use)
+    return tExp!(Fn, Do, Def, Distinct, Scope, Return, Break, Continue, For, While, If, IfHash, Unless, UnlessHash, Else, Loop, Use)
 }
 
 pub fn exp_ident() -> TokenExpectation {

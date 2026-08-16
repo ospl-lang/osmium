@@ -1,0 +1,6 @@
+name "testing package"
+entry "main"
+
+module "main" {
+    file "test file.ospl"
+}

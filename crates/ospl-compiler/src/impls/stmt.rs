@@ -68,6 +68,9 @@ impl Compiler {
             Stmt::If(left, yes, no) => 
                 self.compile_if_stmt(left, yes, no, ob)?,
 
+            Stmt::TypeIf { lhs, typ, id, yes, no } =>
+                self.compile_type_if_stmt(lhs, typ, id, yes, no, ob)?,
+
             Stmt::Break => {
                 ob.push(InstBuilder::new().opcode(Opc::Break).build());
                 return Ok(Control::Break)
@@ -126,19 +129,5 @@ impl Compiler {
         }
 
         return Ok(())
-    }
-
-    /// [`Self::compile_block`] with better guarantees:
-    /// - it guarantees a new scope is not created
-    /// - it guarantees the current scope is not modified
-    /// - it guarantees it behaves like a for loop emiting
-    ///     instructions in a list would
-    pub fn compile_all(
-        &mut self,
-        s: &[Statement],
-        ob: &mut Vec<Inst>
-    ) -> Res<()>
-    {
-        return self.compile_block(s, ob);
     }
 }

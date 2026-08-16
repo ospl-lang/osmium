@@ -30,14 +30,43 @@ pub enum BinaryOpType {
     Lt,
     Ge,
     Le,
-    Question,
 
     /* logical */
+    And,
+    Or,
+    Xor,
+
+    /* bit-shifts */
+    LShift,
+    RShift
 }
 
 impl BinaryOpType {
-    pub fn supports_numerical(&self) -> bool {
-        *self != Self::Question
+    pub fn is_integral(&self) -> bool {
+        return self.is_arithmatic()
+            || self.is_comparison()
+            || self.is_shift()
+    }
+
+    pub fn is_floating_point(&self) -> bool {
+        return self.is_arithmatic() || self.is_comparison()
+    }
+
+    pub fn is_shift(&self) -> bool {
+        return matches!(self, Self::LShift | Self::RShift)
+    }
+
+    pub fn is_arithmatic(&self) -> bool {
+        return matches!(self,
+            Self::Add | Self::Subtract | Self::Multiply | Self::Divide |
+            Self::Modulo
+        )
+    }
+
+    pub fn is_comparison(&self) -> bool {
+        return matches!(self,
+            Self::Equals | Self::NotEquals | Self::Ge | Self::Gt | Self::Lt | Self::Le
+        )
     }
 }
 

@@ -62,6 +62,10 @@ pub enum CEData {
         needed: String,
         scope: Scope<Type>,
     },
+    SafeUnionUsingNonNominal {
+        union: Type,
+        non_nominal: Type
+    },
     NoScopeToCapture,
     TypeDoesntHaveAReturn {
         t: Type

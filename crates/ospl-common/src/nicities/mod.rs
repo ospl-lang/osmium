@@ -26,6 +26,14 @@ fn fmt_utype(t: &UType, f: &mut Formatter<'_>, indent: usize) -> fmt::Result {
             }
 
             write!(f, "]")?;
+        },
+
+        UType::SafeUnion(s) => {
+            write!(f, "union(")?;
+            for thing in s {
+                fmt_utype(thing, f, indent + 1)?;
+            }
+            write!(f, ")")?;
         }
 
         UType::Function(fun) => {
@@ -48,7 +56,7 @@ fn fmt_utype(t: &UType, f: &mut Formatter<'_>, indent: usize) -> fmt::Result {
             fmt_utype(l, f, indent)?;
         }
         UType::Nominal(base) => {
-            write!(f, "let ")?;
+            write!(f, "distinct ")?;
             fmt_utype(base, f, indent)?;
         }
         UType::Property(a, b) => write!(f, "{a}.{b}")?,
@@ -131,10 +139,21 @@ fn fmt_type_inner(t: &Type, out: &mut String, indent_level: usize) {
             out.push(')');
         }
 
-        Type::Union(a, b) => {
+        Type::UnsafeUnion(a, b) => {
             fmt_type_inner(a, out, indent_level);
             out.push_str(" | ");
             fmt_type_inner(b, out, indent_level);
+        }
+
+        Type::SafeUnion(alt) => {
+            let mut iter = alt.iter().step_by(2);
+            while let Some(a) = iter.next() {
+                fmt_type_inner(a, out, indent_level);
+                if let Some(b) = iter.next() {
+                    out.push_str(" || ");
+                    fmt_type_inner(b, out, indent_level);
+                }
+            }
         }
 
         Type::Nominal(_id, inner) => {

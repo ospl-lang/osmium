@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf};
 use ospl_common::inst::optimized::Inst;
-use ospl_toolchain::load_package_cfg;
+use ospl_toolchain::{graph::resolv1::ResolvErr, load_package_cfg};
 use ospl_vm::VM;
 use std::io::Read;
 use clap::{Parser, Subcommand, ValueEnum};
@@ -131,7 +131,14 @@ fn cmd_build(out_path: PathBuf) {
     let pi = RecursionInfo::default();
 
     if let Err(e) = ospl_toolchain::graph::resolv1::resolve_pkg(root_pkg, &mut gg, pi.clone()) {
-        panic!("Resolver error: {e:?}")
+        match e {
+            ResolvErr::PE { file, err } => {
+                println!("in: {file}");
+                println!("{err:?}");
+                // ospl_parser::parse::diag::print_diag(, e);
+                std::process::exit(1);
+            }
+        }
     }
 
     gg.main = ospl_toolchain::graph::resolv2::get_package_module_with_name(&pi.pkg, &entry_name, &gg.module_index);

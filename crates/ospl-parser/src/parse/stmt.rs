@@ -57,7 +57,7 @@ impl<'a> Parser<'a> {
                     _ => unreachable!()
                 }
             },
-            Token::Let => {
+            Token::Distinct => {
                 self.next()?;  // consume `t`
                 // ugly way of this...
                 let _id = self.expect(exp_ident())?;
@@ -129,7 +129,10 @@ impl<'a> Parser<'a> {
             },
             Token::While => return self.parse_while(),
             Token::Loop => return self.parse_loop(),
-            Token::If => return self.parse_if(),
+            Token::If => return self.parse_if(false),
+            Token::IfHash => return self.parse_type_if(false),
+            Token::Unless => return self.parse_if(true),
+            Token::UnlessHash => return self.parse_type_if(true),
             Token::Do => {
                 self.next()?;  // consume `t`
 

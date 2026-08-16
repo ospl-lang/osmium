@@ -40,6 +40,14 @@ impl Compiler {
                 }
             },
 
+            UType::SafeUnion(a) => {
+                let mut alts = Vec::new();
+                for thing in a {
+                    alts.push(self.rt(self.stack.top(), thing, span)?);
+                }
+                return Ok(Type::SafeUnion(alts));
+            }
+
             UType::Nominal(n) => {
                 let typ = self.rt(scope, &**n, span)?;
                 let nom = self.bd.next_resource_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -125,7 +133,7 @@ impl Compiler {
             UType::Union(u, t) => {
                 let utt = self.rt(scope, &*u, span)?;
                 let rtt = self.rt(scope,&*t, span)?;
-                return Ok(Type::Union(Box::new(utt), Box::new(rtt)));
+                return Ok(Type::UnsafeUnion(Box::new(utt), Box::new(rtt)));
             }
         }
     }

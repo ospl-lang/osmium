@@ -1,6 +1,6 @@
 use std::hint::unreachable_unchecked;
 
-use ospl_common::inst::{RT, RuntimeFunction, list::List, make};
+use ospl_common::inst::{RT, list::List, make};
 
 use crate::{VM, RuntimeValue};
 
@@ -13,57 +13,59 @@ impl VM {
     }
 
     #[inline(always)]
-    fn _eq_regs(&self, a: usize, b: usize) -> bool {
-        let x = self.get_two_regs(a, b);
-        return x.0 == x.1
-    }
-
-    #[inline(always)]
-    fn _neq_regs(&self, a: usize, b: usize) -> bool {
-        let x = self.get_two_regs(a, b);
-        return x.0 != x.1
-    }
-
-    #[inline(always)]
-    fn _gt_regs(&self, a: usize, b: usize) -> bool {
-        let x = self.get_two_regs(a, b);
-        return x.0 > x.1
-    }
-
-    #[inline(always)]
-    pub fn eq_regs(&mut self, a: usize, b: usize) {
-        let x = self._eq_regs(a, b);
-        self.push_literal(make::bool(x));
-    }
-
-    #[inline(always)]
-    pub fn neq_regs(&mut self, a: usize, b: usize) {
-        let x = self._neq_regs(a, b);
-        self.push_literal(make::bool(x));
-    }
-
-    #[inline(always)]
     pub fn gt_regs(&mut self, a: usize, b: usize) {
-        let x = self._gt_regs(a, b);
-        self.push_literal(make::bool(x));
+        let (aa,bb) = self.get_two_regs(a, b);
+        match (aa.tag, bb.tag) {
+            (RT::List, _) => { self.push_literal(make::list({
+                let mut x = unsafe { aa.data.list.items.clone() };
+                x.push_back(b);
+
+                List {
+                    items: x
+                }
+            })); }
+            _ => { self.push_literal(make::bool(aa > bb)); }
+        }
     }
 
     #[inline(always)]
     pub fn lt_regs(&mut self, a: usize, b: usize) {
-        let x = !self._gt_regs(a, b);
-        self.push_literal(make::bool(x));
+        let (aa,bb) = self.get_two_regs(a, b);
+        match (aa.tag, bb.tag) {
+            (RT::List, _) => { self.push_literal(make::list({
+                let mut x = unsafe { aa.data.list.items.clone() };
+                x.push_front(b);
+
+                List {
+                    items: x
+                }
+            })); }
+            _ => { self.push_literal(make::bool(aa < bb)); }
+        }
+    }
+    
+    #[inline(always)]
+    pub fn eq_regs(&mut self, a: usize, b: usize) {
+        let (aa,bb) = self.get_two_regs(a, b);
+        self.push_literal(make::bool(aa == bb));
+    }
+
+    #[inline(always)]
+    pub fn neq_regs(&mut self, a: usize, b: usize) {
+        let (aa,bb) = self.get_two_regs(a, b);
+        self.push_literal(make::bool(aa != bb));
     }
 
     #[inline(always)]
     pub fn gte_regs(&mut self, a: usize, b: usize) {
-        let x = self._gt_regs(a, b) | self._eq_regs(a, b);
-        self.push_literal(make::bool(x));
+        let (aa,bb) = self.get_two_regs(a, b);
+        self.push_literal(make::bool(aa > bb || aa == bb));
     }
 
     #[inline(always)]
     pub fn lte_regs(&mut self, a: usize, b: usize) {
-        let x = (!self._gt_regs(a, b)) | self._eq_regs(a, b);
-        self.push_literal(make::bool(x));
+        let (aa,bb) = self.get_two_regs(a, b);
+        self.push_literal(make::bool(aa < bb || aa == bb));
     }
 
     #[inline(always)]
@@ -71,13 +73,55 @@ impl VM {
         let t = self.get_truthiness(a);
         self.push_literal(make::bool(t));
     }
+
+    #[inline(always)]
+    pub fn and_regs(&mut self, a: usize, b: usize) {
+        let (aa,bb) = self.get_two_regs(a, b);
+        let t = unsafe {
+            match (aa.tag, bb.tag) {
+                (RT::Bool, RT::Bool) => make::bool(aa.data.bool && bb.data.bool),
+                (RT::Int, RT::Int) => make::int(aa.data.int & bb.data.int),
+                (RT::Addr, RT::Addr) => make::addr(aa.data.address & bb.data.address),
+                _ => unimplemented!()
+            }
+        };
+        self.push_literal(t);
+    }
+
+    #[inline(always)]
+    pub fn or_regs(&mut self, a: usize, b: usize) {
+        let (aa,bb) = self.get_two_regs(a, b);
+        let t = unsafe {
+            match (aa.tag, bb.tag) {
+                (RT::Bool, RT::Bool) => make::bool(aa.data.bool || bb.data.bool),
+                (RT::Int, RT::Int) => make::int(aa.data.int | bb.data.int),
+                (RT::Addr, RT::Addr) => make::addr(aa.data.address | bb.data.address),
+                _ => unimplemented!()
+            }
+        };
+        self.push_literal(t);
+    }
+
+    #[inline(always)]
+    pub fn xor_regs(&mut self, a: usize, b: usize) {
+        let (aa,bb) = self.get_two_regs(a, b);
+        let t = unsafe {
+            match (aa.tag, bb.tag) {
+                (RT::Bool, RT::Bool) => make::bool(aa.data.bool ^ bb.data.bool),
+                (RT::Int, RT::Int) => make::int(aa.data.int ^ bb.data.int),
+                (RT::Addr, RT::Addr) => make::addr(aa.data.address ^ bb.data.address),
+                _ => unimplemented!()
+            }
+        };
+        self.push_literal(t);
+    }
 }
 
 impl VM {
     #[inline(always)]
-    fn _add_regs(&mut self, a: usize, b: usize) -> RuntimeValue {
+    pub fn add_regs(&mut self, a: usize, b: usize) {
         let (aa, bb) = self.get_two_regs(a, b);
-        match (aa.tag, bb.tag) {
+        let x = match (aa.tag, bb.tag) {
             (RT::Int, RT::Int) => make::int(unsafe { aa.data.int + bb.data.int }),
             (RT::Addr, RT::Addr) => make::addr(unsafe { aa.data.address + bb.data.address }),
             (RT::Float, RT::Float) => make::float(unsafe { aa.data.float + bb.data.float }),
@@ -86,125 +130,121 @@ impl VM {
                 s.push_str(&bb.data.str);
                 s.to_string()
             }),
-            (RT::Func, RT::Func) => make::func({
-                let mut code1 = unsafe{&aa.data.func}.code.clone();
-                let code2 = unsafe{&bb.data.func}.code.clone();
-
-                code1.extend(code2);
-
-                RuntimeFunction {
-                    captures: unsafe{&aa.data.func}.captures.clone(),
-                    code: code1
-                }
-            }),
             other => unimplemented!("{other:?}")
+        };
+
+        self.push_literal(x);
+    }
+
+    #[inline(always)]
+    pub fn sub_regs(&mut self, a: usize, b: usize) {
+        unsafe {
+            let va_ptr = self.raw_get_value_top_mut(a);
+            let vb_ptr = self.raw_get_value_top(b);
+            let aa = &mut *va_ptr;
+            let bb = &*vb_ptr;
+
+            // it's fine don't worry about it
+            //   -- Amber
+
+            match (aa.tag, bb.tag) {
+                (RT::Int, RT::Int) => {self.push_literal(make::int(aa.data.int - bb.data.int)); },
+                (RT::Addr, RT::Addr) => {self.push_literal(make::addr(aa.data.address - bb.data.address)); },
+                (RT::Float, RT::Float) => {self.push_literal(make::float(aa.data.float - bb.data.float)); },
+                (RT::List, RT::Addr) => {
+                    let x = bb.data.address;
+                    if (*aa.data.list).items.len() == 0 {
+                        self.push_literal(make::undefined(()));
+                    }
+                    self.stack.top_add_index((*aa.data.list).items.remove(x as usize).unwrap())
+                },
+                (RT::List, RT::Int) => {
+                    let x = bb.data.int;
+                    if (*aa.data.list).items.len() == 0 {
+                        self.push_literal(make::undefined(()));
+                    }
+                    self.stack.top_add_index((*aa.data.list).items.remove(x as usize).unwrap())
+                },
+                _ => unimplemented!()
+            };
         }
     }
 
     #[inline(always)]
-    fn _sub_regs(&mut self, a: usize, b: usize) -> RuntimeValue {
+    pub fn div_regs(&mut self, a: usize, b: usize) {
         let (aa, bb) = self.get_two_regs(a, b);
-        match (aa.tag, bb.tag) {
-            (RT::Int, RT::Int) => make::int(unsafe { aa.data.int - bb.data.int }),
-            (RT::Addr, RT::Addr) => make::addr(unsafe { aa.data.address - bb.data.address }),
-            (RT::Float, RT::Float) => make::float(unsafe { aa.data.float - bb.data.float }),
-            _ => unimplemented!()
-        }
-    }
-
-    #[inline(always)]
-    fn _div_regs(&mut self, a: usize, b: usize) -> RuntimeValue {
-        let (aa, bb) = self.get_two_regs(a, b);
-        match (aa.tag, bb.tag) {
+        let x = match (aa.tag, bb.tag) {
             (RT::Int, RT::Int) => make::int(unsafe { aa.data.int / bb.data.int }),
             (RT::Addr, RT::Addr) => make::addr(unsafe { aa.data.address / bb.data.address }),
             (RT::Float, RT::Float) => make::float(unsafe { aa.data.float / bb.data.float }),
             _ => unimplemented!()
-        }
+        };
+
+        self.push_literal(x);
     }
 
     #[inline(always)]
-    fn _mul_regs(&mut self, a: usize, b: usize) -> RuntimeValue {
-        let (aa, bb) = self.get_two_regs(a, b);
-        match (aa.tag, bb.tag) {
-            (RT::Int, RT::Int) => make::int(unsafe { aa.data.int * bb.data.int }),
-            (RT::Addr, RT::Addr) => make::addr(unsafe { aa.data.address * bb.data.address }),
-            (RT::Float, RT::Float) => make::float(unsafe { aa.data.float * bb.data.float }),
-            _ => unimplemented!()
-        }
-    }
-
-    #[inline(always)]
-    fn _mod_regs(&mut self, a: usize, b: usize) -> RuntimeValue {
-        let (aa, bb) = self.get_two_regs(a, b);
-        match (aa.tag, bb.tag) {
-            (RT::Int, RT::Int) => make::int(unsafe { aa.data.int * bb.data.int }),
-            (RT::Addr, RT::Addr) => make::addr(unsafe { aa.data.address * bb.data.address }),
-            (RT::Float, RT::Float) => make::float(unsafe { aa.data.float * bb.data.float }),
-            _ => unimplemented!()
-        }
-    }
-
-    /// Find `b` in `a`
-    pub fn question_mark(&mut self, a: usize, b: usize) {
-        let (aa, bb) = self.get_two_regs(a, b);
-        match (aa.tag, bb.tag) {
-            (RT::List, _) => {
-                let found = self.find_in_list(unsafe { &aa.data.list }, bb);
-                if let Some(found) = found {
-                    self.stack.top_add_index(found);
-                } else {
-                    self.push_literal(make::undefined(()));
-                }
-            },
-            (u1, u2) => unimplemented!("unknown a?b op: {u1:?} and {u2:?}")
-        }
-    }
-
-    pub fn find_in_list(&self, l: &List, v: &RuntimeValue) -> Option<usize> {
-        let mut found = None;
-        for item in &l.items {
-            let i = self.get_value_top(*item);
-            if i == v {
-                // we found it
-                found = Some(*item)
-            }
-        }
-
-        return found
-    }
-
-    pub fn add_regs(&mut self, a: usize, b: usize) {
-        let r = self._add_regs(a, b);
-        self.push_literal(r);
-    }
-
-    pub fn sub_regs(&mut self, a: usize, b: usize) {
-        let r = self._sub_regs(a, b);
-        self.push_literal(r);
-    }
-
     pub fn mul_regs(&mut self, a: usize, b: usize) {
-        let r = self._mul_regs(a, b);
-        self.push_literal(r);
+        let (aa, bb) = self.get_two_regs(a, b);
+        let x = match (aa.tag, bb.tag) {
+            (RT::Int, RT::Int) => make::int(unsafe { aa.data.int * bb.data.int }),
+            (RT::Addr, RT::Addr) => make::addr(unsafe { aa.data.address * bb.data.address }),
+            (RT::Float, RT::Float) => make::float(unsafe { aa.data.float * bb.data.float }),
+            _ => unimplemented!()
+        };
+
+        self.push_literal(x);
     }
 
-    pub fn div_regs(&mut self, a: usize, b: usize) {
-        let r = self._div_regs(a, b);
-        self.push_literal(r);
-    }
-
+    #[inline(always)]
     pub fn mod_regs(&mut self, a: usize, b: usize) {
-        let r = self._mod_regs(a, b);
-        self.push_literal(r);
+        let (aa, bb) = self.get_two_regs(a, b);
+        let x = match (aa.tag, bb.tag) {
+            (RT::Int, RT::Int) => make::int(unsafe { aa.data.int % bb.data.int }),
+            (RT::Addr, RT::Addr) => make::addr(unsafe { aa.data.address % bb.data.address }),
+            (RT::Float, RT::Float) => make::float(unsafe { aa.data.float % bb.data.float }),
+            _ => unimplemented!()
+        };
+
+        self.push_literal(x);
+    }
+
+    #[inline(always)]
+    pub fn lshift_regs(&mut self, a: usize, b: usize) {
+        // SAFETY: I WILL NOT MUTATE aa AND bb FROM ANOTHER THREAD
+        // (I think that's the only safety, and we'll never see that)
+
+        let (aa, bb) = self.get_two_regs(a, b);
+        let x = match (aa.tag, bb.tag) {
+            (RT::Int, RT::Int) => make::int(unsafe { aa.data.int << bb.data.int }),
+            (RT::Addr, RT::Addr) => make::addr(unsafe { aa.data.address << bb.data.address }),
+            (RT::List, _) => make::addr(self.append_array_front(a, b) as u64),
+            _ => unimplemented!()
+        };
+
+        self.push_literal(x);
+    }
+
+    #[inline(always)]
+    pub fn rshift_regs(&mut self, a: usize, b: usize) {
+        // SAFETY: I WILL NOT MUTATE aa AND bb FROM ANOTHER THREAD
+        // (I think that's the only safety, and we'll never see that)
+
+        let (aa, bb) = self.get_two_regs(a, b);
+        let x = match (aa.tag, bb.tag) {
+            (RT::Int, RT::Int) => make::int(unsafe { aa.data.int >> bb.data.int }),
+            (RT::Addr, RT::Addr) => make::addr(unsafe { aa.data.address >> bb.data.address }),
+            (RT::List, _) => make::addr(self.append_array_back(a, b) as u64),
+            _ => unimplemented!()
+        };
+
+        self.push_literal(x);
     }
 }
 
 // assign ops
 impl VM {
     pub fn add_assign(&mut self, a: usize, b: usize) {
-        debug_assert!(a != b);
-
         // SAFETY: I guarantee that `a` and `b` are not the same value
         unsafe {
             let va_ptr = self.raw_get_value_top_mut(a);
@@ -221,9 +261,6 @@ impl VM {
                 },
                 (RT::Addr, RT::Addr) => {
                     aa.data.address += bb.data.address;
-                },
-                (RT::List, _) => {
-                    self.append_array(a, b);
                 },
                 (RT::Str, RT::Str) => {
                     let a: &mut String = &mut aa.data.str;
@@ -248,8 +285,6 @@ impl VM {
     }
 
     pub fn sub_assign(&mut self, a: usize, b: usize) {
-        debug_assert!(a != b);
-
         // SAFETY: I guarantee that `a` and `b` are not the same value
         unsafe {
             let va_ptr = self.raw_get_value_top_mut(a);

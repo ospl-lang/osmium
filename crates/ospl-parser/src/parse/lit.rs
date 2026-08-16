@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use ospl_common::ast::{ArgNaming, FunctionType, FunctionValue, Type, UType};
-use crate::{lexer::token::{exp_ident, Token, TokenExpectation}, parse::{Parser, Res}, tComb, tExp};
+use crate::{lexer::token::{Token, TokenExpectation, exp_ident}, parse::{Parser, Res}, tComb, tExp};
 
 impl<'a> Parser<'a> {
     pub fn parse_function_literal(&mut self) -> Res<FunctionValue> {
@@ -71,31 +71,6 @@ impl<'a> Parser<'a> {
         })
     }
 
-    pub fn parse_function_generics(&mut self) -> Res<Vec<(String, UType)>> {
-        let mut types = Vec::new();
-        loop {
-            let span = self.expect_peek(tComb!(
-                "RAngle | start of ID",
-                tExp!(RAngle),
-                exp_ident(),
-            ))?;
-
-            if let Token::RAngle = span.token() {
-                self.next()?;  // consume `>`
-                break;
-            }
-
-            if let (_, Token::Ident(i)) = span.destructure() {
-                self.next()?;
-                self.expect(tExp!(Colon))?;
-                let ty = self.parse_type()?;
-                types.push((i, ty));
-            }
-        };
-
-        return Ok(types)
-    }
-
     pub fn parse_function_type(&mut self) -> Res<FunctionType<UType>> {
         self.expect(tExp!(Fn))?;
 
@@ -142,7 +117,7 @@ impl<'a> Parser<'a> {
 
     pub fn parse_function_return_type(&mut self) -> Res<UType> {
         // get return type (defaults to nul)
-        let ret = if let Token::Arrow = self.peek()?.token() {
+        let ret = if let Token::Colon = self.peek()?.token() {
             self.next()?;  // take arrow
             self.parse_type()?
         } else {
@@ -179,6 +154,7 @@ impl<'a> Parser<'a> {
             Token::BoolT => {self.next()?; UType::Resolved(Type::Bool)},
             Token::AddrT => {self.next()?; UType::Resolved(Type::Address)},
             Token::Undefined => {self.next()?; UType::Resolved(Type::Undefined)},
+            Token::Nul => {self.next()?; UType::Resolved(Type::Nul)},
             Token::ListT => {
                 self.next()?;
                 let list_typ = self.parse_type()?;
@@ -198,35 +174,67 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_type(&mut self) -> Res<UType> {
+        let mut ty = self.parse_type_postfix()?;
+    
+        loop {
+            match self.peek()?.token() {
+                Token::DoubleOr => {
+                    self.next()?;
+                    let rhs = self.parse_type_postfix()?;
+                    ty = UType::Union(Box::new(ty), Box::new(rhs));
+                }
+    
+                Token::Or => {
+                    self.next()?;
+                    let rhs = self.parse_type_postfix()?;
+    
+                    match ty {
+                        UType::SafeUnion(mut types) => {
+                            types.push(rhs);
+                            ty = UType::SafeUnion(types);
+                        }
+    
+                        other => {
+                            ty = UType::SafeUnion(vec![other, rhs]);
+                        }
+                    }
+                }
+    
+                _ => break,
+            }
+        }
+    
+        Ok(ty)
+    }
+    
+    fn parse_type_postfix(&mut self) -> Res<UType> {
         let span = self.expect_peek(exp_type_starter())?;
         let (_, t) = span.destructure();
-
-        let mut working_type = self.parse_type_atom(t)?;
-
+    
+        let mut ty = self.parse_type_atom(t)?;
+    
         loop {
-            if let Token::Dot = self.peek()?.token() {
-                self.next()?;
-
-                let initial_span = self.expect(exp_ident())?;
-                let (_, Token::Ident(id)) = initial_span.destructure()
-                    else { unreachable!() };
-
-                working_type = UType::Property(Box::new(working_type), id);
+            match self.peek()?.token() {
+                Token::Dot => {
+                    self.next()?;
+    
+                    let initial_span = self.expect(exp_ident())?;
+                    let (_, Token::Ident(id)) = initial_span.destructure()
+                        else { unreachable!() };
+    
+                    ty = UType::Property(Box::new(ty), id);
+                }
+    
+                Token::LBracket => {
+                    let x = self.parse_nominal_application()?;
+                    ty = UType::Apply(Box::new(ty), x);
+                }
+    
+                _ => break,
             }
-            else if let Token::LogicOr = self.peek()?.token() {
-                self.next()?;
-                let x = self.parse_type()?;
-                working_type = UType::Union(Box::new(working_type), Box::new(x));
-            }
-            else if let Token::LBracket = self.peek()?.token() {
-                let x = self.parse_nominal_application()?;
-
-                working_type = UType::Apply(Box::new(working_type), x);
-            }
-            else { break; }
         }
-
-        return Ok(working_type)
+    
+        Ok(ty)
     }
 }
 
@@ -240,8 +248,8 @@ pub fn exp_named_arg_member() -> TokenExpectation {
 
 pub fn exp_type_starter() -> TokenExpectation {
     tComb!(
-        "Fn | Atsign | IntT | FloatT | StrT | CharT | BoolT | ListT | AddrT | UnknownT | AnyT | Undefined | Ident | Scope",
-        tExp!(Fn, Atsign, IntT, FloatT, StrT, CharT, BoolT, ListT, AddrT, UnknownT, Undefined, AnyT, LParen, Scope),
+        "Fn | Atsign | IntT | FloatT | StrT | CharT | BoolT | ListT | AddrT | UnknownT | AnyT | Undefined | Ident | Nul | Scope",
+        tExp!(Fn, Atsign, IntT, FloatT, StrT, CharT, BoolT, ListT, AddrT, UnknownT, Undefined, AnyT, LParen, Nul, Scope),
         exp_ident(),
     )
 }

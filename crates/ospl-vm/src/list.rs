@@ -8,7 +8,7 @@ impl VM {
         for rel in indexes {
             let abs = self.stack.top_indexes()[*rel];
             
-            list.items.push(abs);
+            list.items.push_back(abs);
         }
 
         self.push_literal(make::list(list));
@@ -86,11 +86,15 @@ impl VM {
         }
     }
 
-    pub fn append_array(&mut self, array: usize, index: usize) {
-        self.extend_array(array, &[index]);
+    pub fn append_array_back(&mut self, array: usize, index: usize) -> usize {
+        return self.extend_array(array, &[index], false);
     }
 
-    pub fn extend_array(&mut self, array: usize, indexes: &[usize]) {
+    pub fn append_array_front(&mut self, array: usize, index: usize) -> usize {
+        return self.extend_array(array, &[index], true);
+    }
+
+    pub fn extend_array(&mut self, array: usize, indexes: &[usize], front: bool) -> usize {
         // FIXME: improve performance
         let indexes: Vec<usize> = indexes.iter().map(|f| self.stack.top_indexes()[*f]).collect();
         unsafe {
@@ -98,8 +102,14 @@ impl VM {
             match assume_mut::list(&mut *list) {
                 Some(l) => {
                     for abs in indexes {
-                        l.items.push(abs);
+                        if front {
+                            l.items.push_front(abs);
+                        } else {
+                            l.items.push_back(abs);
+                        }
                     }
+
+                    return l.items.len() - 1
                 },
                 _ => std::hint::unreachable_unchecked(),
             };

@@ -145,8 +145,6 @@ impl VM {
                 inst.get_index(2),
             ),
 
-            Opc::QuestionMark => self.question_mark(inst.get_index(0), inst.get_index(1)),
-
             Opc::PushFunction => {
                 let new_indexes = inst.indexes.iter().map(|x| {
                     let idx = self.stack.top_indexes()[*x];
@@ -214,6 +212,13 @@ impl VM {
             Opc::Div => self.div_regs(inst.get_index(0), inst.get_index(1)),
             Opc::Mod => self.mod_regs(inst.get_index(0), inst.get_index(1)),
 
+            // bitwise
+            Opc::And => self.and_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::Or  => self.or_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::Xor => self.xor_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::LShift => self.lshift_regs(inst.get_index(0), inst.get_index(1)),
+            Opc::RShift => self.rshift_regs(inst.get_index(0), inst.get_index(1)),
+
             // comparison
             Opc::Eq  => self.eq_regs(inst.get_index(0), inst.get_index(1)),
             Opc::Neq => self.neq_regs(inst.get_index(0), inst.get_index(1)),
@@ -225,7 +230,35 @@ impl VM {
 
             Opc::Copy => self.copyof(inst.get_index(0)),
 
+            Opc::UWrap => {
+                let value = inst.get_index(0);
+                let tag = inst.get_index(1);
+
+                self.push_literal(make::union(tag as u64, value));
+            },
+
+            Opc::UIf => {
+                let value = inst.get_index(0);
+                let tag = inst.get_index(1);
+
+                let yes = inst.children.get_unchecked(0);
+                let no = inst.children.get_unchecked(1);
+
+                let v = self.get_mut_value_top(value);
+                let truth = if let Some(x) = ospl_common::inst::assume::union(v) {
+                    let got_tag = x.0;
+                    tag as u64 == got_tag
+                } else { panic!("UIf() ran on a non-union. stackidx={value:?}, expectedtag={tag:?}, value={v:?}") };
+
+                return if truth {
+                    self.run_in_parental(yes)
+                } else {
+                    self.run_in_parental(no)
+                }
+            }
+
             Opc::Decrement => self.dec_value(inst.get_index(0)),
+            Opc::Increment => self.inc_value(inst.get_index(0)),
 
             Opc::Addl => self.add_assign(inst.get_index(0), inst.get_index(1)),
             Opc::Subl => self.sub_assign(inst.get_index(0), inst.get_index(1)),

@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use ospl_common::{
     ast::frame::RuntimeFrame,
     inst::{RT, RuntimeFunction, RuntimeValue, assume, assume_mut, list::List, make},
@@ -35,8 +37,11 @@ fn gc_baseline_keeps_nested_heap_references_readable_without_pressure() {
     let function_child = vm.push_literal(make::str("function child".to_string()));
     let scope_child = vm.push_literal(make::str("scope child".to_string()));
 
+    let mut list_items = VecDeque::new();
+    list_items.push_back(list_child);
+
     let list = vm.push_literal(make::list(List {
-        items: vec![list_child],
+        items: list_items
     }));
     let function = vm.push_literal(make::func(RuntimeFunction {
         captures: vec![function_child],
@@ -85,12 +90,12 @@ fn gc_baseline_keeps_reachable_cycles_readable_without_pressure() {
     let Some(list) = assume_mut::list(vm.arena.get_mut(a)) else {
         panic!("expected first cycle node to be a list");
     };
-    list.items.push(b);
+    list.items.push_back(b);
 
     let Some(list) = assume_mut::list(vm.arena.get_mut(b)) else {
         panic!("expected second cycle node to be a list");
     };
-    list.items.push(a);
+    list.items.push_back(a);
 
     vm.stack.end();
     vm.stack.push_isolated();
@@ -136,8 +141,11 @@ fn gc_traces_references_inside_lists_functions_and_scopes() {
     let function_child = vm.push_literal(make::str("function child".to_string()));
     let scope_child = vm.push_literal(make::str("scope child".to_string()));
 
+    let mut list_items = VecDeque::new();
+    list_items.push_back(list_child);
+
     let list = vm.push_literal(make::list(List {
-        items: vec![list_child],
+        items: list_items
     }));
     let function = vm.push_literal(make::func(RuntimeFunction {
         captures: vec![function_child],
@@ -189,12 +197,12 @@ fn gc_reclaims_unreachable_cycles_under_allocation_pressure() {
     let Some(list) = assume_mut::list(vm.arena.get_mut(a)) else {
         panic!("expected first cycle node to be a list");
     };
-    list.items.push(b);
+    list.items.push_back(b);
 
     let Some(list) = assume_mut::list(vm.arena.get_mut(b)) else {
         panic!("expected second cycle node to be a list");
     };
-    list.items.push(a);
+    list.items.push_back(a);
 
     vm.stack.end();
 

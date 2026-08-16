@@ -5,27 +5,137 @@ use ospl_common::ast::{Expr, Expression, LV, LValue, Statement, Stmt, decl::Decl
 use crate::{lexer::token::{exp_ident, Token}, parse::{Parser, Res}, tExp};
 
 impl<'a> Parser<'a> {
-    pub fn parse_if(&mut self) -> Res<Statement> {
-        let start = self.expect(tExp!(If))?;
+    pub fn parse_type_if(&mut self, unless: bool) -> Res<Statement> {
+        let start = if unless {
+            self.expect(tExp!(UnlessHash))?
+        } else {
+            self.expect(tExp!(IfHash))?
+        };
+
+        let id = self.parse_ident()?;
+
+        // atsign notation
+        let used_atsign = if *self.peek()?.token() == Token::Atsign {
+            self.next()?;
+            true
+        } else { false };
+
+        self.expect(tExp!(Colon))?;
+
+        let ty = self.parse_type()?;
+        self.expect(tExp!(Equals))?;
+        let right = self.parse_expr()?;
+
+        let mut yes = self.parse_block()?;
+
+        // apply atsign notation
+        if used_atsign {
+            yes.push(Statement {
+                at: *start.position(),
+                inner: Box::new(Stmt::Define(Declaration {
+                    name: id.clone(),
+                    rhs: Expression {
+                        at: *start.position(),
+                        file: Arc::clone(&self.filename),
+                        inner: Box::new(Expr::UnaryOp(UnaryOp {
+                            kind: UnaryOpType::Atsign,
+                            expr: Expression {
+                                at: *start.position(),
+                                file: Arc::clone(&self.filename),
+                                inner: Box::new(Expr::LValue(LValue {
+                                    at: *start.position(),
+                                    file: Arc::clone(&self.filename),
+                                    inner: Box::new(LV::Variable(id.clone()))
+                                }))
+                            }
+                        }))
+                    }
+                })),
+                file: Arc::clone(&self.filename),
+                notes: String::new(),
+            });
+        }
+        
+        let no = match self.peek() {
+            Ok(sp) if matches!(sp.token(), Token::Else) => {
+                self.next()?;
+                self.parse_block()?
+            }
+            _ => Vec::new()
+        };
+
+        if unless {
+            // normal if
+            return Ok(Statement {
+                at: *start.position(),
+                inner: Box::new(Stmt::TypeIf {
+                    id,
+
+                    no: yes,
+                    yes: no,
+                    
+                    lhs: right,
+                    typ: ty
+                }),
+                file: Arc::clone(&self.filename),
+                notes: String::new(),
+            })
+        } else {
+            // normal if
+            return Ok(Statement {
+                at: *start.position(),
+                inner: Box::new(Stmt::TypeIf {
+                    id, no, yes,
+                    lhs: right,
+                    typ: ty
+                }),
+                file: Arc::clone(&self.filename),
+                notes: String::new(),
+            })
+        }
+    }
+
+    pub fn parse_if(&mut self, unless: bool) -> Res<Statement> {
+        let start = if unless {
+            self.expect(tExp!(Unless))?
+        } else {
+            self.expect(tExp!(If))?
+        };
 
         let left = self.parse_expr()?;
         let yes = self.parse_block()?;
 
-        let no = if let Token::Else = self.peek()?.token() {
-            self.next()?;
-            self.parse_block()?
-        } else { Vec::new() };
+        let no = match self.peek() {
+            Ok(sp) if matches!(sp.token(), Token::Else) => {
+                self.next()?;
+                self.parse_block()?
+            }
+            _ => Vec::new()
+        };
 
-        return Ok(Statement {
-            at: *start.position(),
-            inner: Box::new(Stmt::If(
-                left,
-                yes,
-                no
-            )),
-            file: Arc::clone(&self.filename),
-            notes: String::new(),
-        })
+        if unless {
+            return Ok(Statement {
+                at: *start.position(),
+                inner: Box::new(Stmt::If(
+                    left,
+                    no,  // swap no and yes locations
+                    yes,
+                )),
+                file: Arc::clone(&self.filename),
+                notes: String::new(),
+            })
+        } else {
+            return Ok(Statement {
+                at: *start.position(),
+                inner: Box::new(Stmt::If(
+                    left,
+                    yes,  // do not swap
+                    no
+                )),
+                file: Arc::clone(&self.filename),
+                notes: String::new(),
+            })
+        }
     }
 
     pub fn parse_loop(&mut self) -> Res<Statement> {
