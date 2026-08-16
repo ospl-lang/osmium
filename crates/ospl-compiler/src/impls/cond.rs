@@ -44,6 +44,9 @@ impl Compiler {
         ob: &mut Vec<Inst>
     ) -> Res<()>
     {
+        let _span = tracing::debug_span!("typeif");
+        let _enter = _span.enter();
+
         let unwrap_type = self.rt(self.stack.top(), &union_, left)?;
         let l = self.eval(left, ob)?;
 
@@ -51,34 +54,35 @@ impl Compiler {
         let Type::SafeUnion(lty_alternatives) = &lty
             else { todo!("unwrap - error"); };
 
-        if !lty_alternatives.contains(&unwrap_type) {
+        let Some(Type::Nominal(lty_alt_id, _lty_alt_base)) = lty_alternatives.iter().find(|x| **x == unwrap_type)
+        else {
             return Err(CE {
                 at: left.spanned(),
                 during: "type if - type check",
                 error: crate::CEData::UnionDoesntHaveType { union: lty.clone(), doesnt_have: unwrap_type },
                 msg: None
             })
-        }
+        };
 
         // YES BLOCK
+        // 
+        // This one is special, we need to re-declare the variable under a
+        // different ID and type in this new scope.
         let mut ob_yes = Vec::new();
         self.stack.push_parental();
 
-        // UIf will push a new variable referencing what the union references.
-        // But only on the "yes" block, otherwise we don't get anything.
-        let address = self.next_var();
-
-        let rstore = RStore {
-            address,
-            typ: unwrap_type
-        };
-
         self.stack.top_mut().direct_declare(
             ident.clone(),
-            ospl_common::ast::Entry::Runtime(rstore)
+            ospl_common::ast::Entry::Runtime(RStore {
+                address: l.address,
+                typ: unwrap_type
+            })
         );
 
         self.compile_block(yes, &mut ob_yes)?;
+
+        tracing::error!("yes = {ob_yes:?} source = {yes:?}");
+
         self.stack.pop();
 
         // NO BLOCK
@@ -91,9 +95,12 @@ impl Compiler {
         let i = InstBuilder::new()
             .opcode(Opc::UIf)
             .index(l.address)
+            .index(*lty_alt_id)
             .child(ob_yes)
             .child(ob_no)
             .build();
+
+        tracing::error!("inst = {i:?}");
     
         ob.push(i);
         return Ok(())

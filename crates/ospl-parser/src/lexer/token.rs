@@ -7,16 +7,21 @@ pub enum Token {
     /* keywords */
     Def,
     Distinct,
-    Do,
     Fn,
     Scope,
+
     Return,
     Break,
     Continue,
     Select,
     If,
+    IfHash,
+    Unless,
+    UnlessHash,
+    Do,
     Else,
     Loop,
+
     Use,
     Foreign,
     For,
@@ -145,7 +150,7 @@ impl Debug for TokenExpectation {
 }
 
 pub fn exp_keyword() -> TokenExpectation {
-    return tExp!(Fn, Do, Def, Distinct, Scope, Return, Break, Continue, For, While, If, Else, Loop, Use)
+    return tExp!(Fn, Do, Def, Distinct, Scope, Return, Break, Continue, For, While, If, IfHash, Unless, UnlessHash, Else, Loop, Use)
 }
 
 pub fn exp_ident() -> TokenExpectation {

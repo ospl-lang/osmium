@@ -130,18 +130,4 @@ impl Compiler {
 
         return Ok(())
     }
-
-    /// [`Self::compile_block`] with better guarantees:
-    /// - it guarantees a new scope is not created
-    /// - it guarantees the current scope is not modified
-    /// - it guarantees it behaves like a for loop emiting
-    ///     instructions in a list would
-    pub fn compile_all(
-        &mut self,
-        s: &[Statement],
-        ob: &mut Vec<Inst>
-    ) -> Res<()>
-    {
-        return self.compile_block(s, ob);
-    }
 }

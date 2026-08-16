@@ -232,7 +232,12 @@ impl<'a> Lexer<'a> {
                     "return" => Token::Return,
                     "break" => Token::Break,
                     "continue" => Token::Continue,
+
                     "if" => Token::If,
+                    "if#" => Token::IfHash,
+                    "unless" => Token::Unless,
+                    "unless#" => Token::UnlessHash,
+
                     "else" => Token::Else,
                     "loop" => Token::Loop,
                     "use" => Token::Use,

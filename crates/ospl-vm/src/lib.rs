@@ -244,10 +244,11 @@ impl VM {
                 let yes = inst.children.get_unchecked(0);
                 let no = inst.children.get_unchecked(1);
 
-                let truth = if let Some(x) = ospl_common::inst::assume::union(self.get_mut_value_top(value)) {
+                let v = self.get_mut_value_top(value);
+                let truth = if let Some(x) = ospl_common::inst::assume::union(v) {
                     let got_tag = x.0;
                     tag as u64 == got_tag
-                } else { panic!("UIf() ran on a non-union") };
+                } else { panic!("UIf() ran on a non-union. stackidx={value:?}, expectedtag={tag:?}, value={v:?}") };
 
                 return if truth {
                     self.run_in_parental(yes)

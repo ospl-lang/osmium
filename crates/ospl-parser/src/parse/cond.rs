@@ -5,8 +5,12 @@ use ospl_common::ast::{Expr, Expression, LV, LValue, Statement, Stmt, decl::Decl
 use crate::{lexer::token::{exp_ident, Token}, parse::{Parser, Res}, tExp};
 
 impl<'a> Parser<'a> {
-    pub fn parse_type_if(&mut self) -> Res<Statement> {
-        let start = self.expect(tExp!(Def))?;
+    pub fn parse_type_if(&mut self, unless: bool) -> Res<Statement> {
+        let start = if unless {
+            self.expect(tExp!(UnlessHash))?
+        } else {
+            self.expect(tExp!(IfHash))?
+        };
 
         let id = self.parse_ident()?;
 
@@ -57,24 +61,43 @@ impl<'a> Parser<'a> {
             self.parse_block()?
         } else { Vec::new() };
 
-        return Ok(Statement {
-            at: *start.position(),
-            inner: Box::new(Stmt::TypeIf {
-                id, no, yes,
-                lhs: right,
-                typ: ty
-            }),
-            file: Arc::clone(&self.filename),
-            notes: String::new(),
-        })
-    }
-    
-    pub fn parse_if(&mut self) -> Res<Statement> {
-        let start = self.expect(tExp!(If))?;
+        if unless {
+            // normal if
+            return Ok(Statement {
+                at: *start.position(),
+                inner: Box::new(Stmt::TypeIf {
+                    id,
 
-        if let Token::Def = self.peek()?.token() {
-            return self.parse_type_if();
+                    no: yes,
+                    yes: no,
+                    
+                    lhs: right,
+                    typ: ty
+                }),
+                file: Arc::clone(&self.filename),
+                notes: String::new(),
+            })
+        } else {
+            // normal if
+            return Ok(Statement {
+                at: *start.position(),
+                inner: Box::new(Stmt::TypeIf {
+                    id, no, yes,
+                    lhs: right,
+                    typ: ty
+                }),
+                file: Arc::clone(&self.filename),
+                notes: String::new(),
+            })
         }
+    }
+
+    pub fn parse_if(&mut self, unless: bool) -> Res<Statement> {
+        let start = if unless {
+            self.expect(tExp!(Unless))?
+        } else {
+            self.expect(tExp!(If))?
+        };
 
         let left = self.parse_expr()?;
         let yes = self.parse_block()?;
@@ -84,16 +107,29 @@ impl<'a> Parser<'a> {
             self.parse_block()?
         } else { Vec::new() };
 
-        return Ok(Statement {
-            at: *start.position(),
-            inner: Box::new(Stmt::If(
-                left,
-                yes,
-                no
-            )),
-            file: Arc::clone(&self.filename),
-            notes: String::new(),
-        })
+        if unless {
+            return Ok(Statement {
+                at: *start.position(),
+                inner: Box::new(Stmt::If(
+                    left,
+                    no,  // swap no and yes locations
+                    yes,
+                )),
+                file: Arc::clone(&self.filename),
+                notes: String::new(),
+            })
+        } else {
+            return Ok(Statement {
+                at: *start.position(),
+                inner: Box::new(Stmt::If(
+                    left,
+                    yes,  // do not swap
+                    no
+                )),
+                file: Arc::clone(&self.filename),
+                notes: String::new(),
+            })
+        }
     }
 
     pub fn parse_loop(&mut self) -> Res<Statement> {

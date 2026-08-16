@@ -72,14 +72,16 @@ pub enum Stmt {
     Return(Expression),
     Break,
     Continue,
+
     If(Expression, Vec<Statement>, Vec<Statement>),
     TypeIf {
         lhs: Expression,
         typ: UType,
         id: String,
         yes: Vec<Statement>,
-        no: Vec<Statement>
+        no: Vec<Statement>,
     },
+
     Loop(Vec<Statement>),
     ReturnScope,
     AssignOp(AssignOp),
