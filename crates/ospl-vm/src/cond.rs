@@ -63,7 +63,7 @@ impl VM {
         match self.run_all(code) {
             Control::Break => {
                 self.stack.end();
-                return Control::Default
+                return Control::Break
             }
             Control::Continue => {
                 self.stack.end();
@@ -84,11 +84,14 @@ impl VM {
     ) -> Control {
         loop {
             match self.run_in_parental(code) {
+                Control::Break => break,
                 Control::Continue => {
                     continue;
                 },
                 _ => {}
             }
         }
+
+        return Control::Default;
     }
 }

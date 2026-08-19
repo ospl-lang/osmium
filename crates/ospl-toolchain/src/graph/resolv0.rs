@@ -54,9 +54,6 @@ pub struct FinalPackageSetup {
 
 #[derive(Clone, Debug, Default)]
 pub struct VersionDefinition {
-    /// Rules before your rules
-    pub prerules: Vec<VersionTag>,
-
     /// Your rules
     pub rules: Vec<VersionRule>
 }
@@ -112,6 +109,9 @@ pub enum VersionTag {
 
         /// Indicates this version is vulnerabile or has other security problems
         Vulnerable(String),
+
+        /// Reloads package.kdl from a file
+        Reload(String),
 }
 
 pub fn default_entry() -> String {

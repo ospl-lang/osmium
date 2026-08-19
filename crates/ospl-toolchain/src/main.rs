@@ -64,7 +64,6 @@ impl ToString for ProjTyp {
 
 pub fn ensure_build_folder() {
     let pb = PathBuf::from(ospl_toolchain::BUILD_FOLDER);
-    let _ = std::fs::remove_file(pb.with_file_name("dist.ospb"));
 
     std::fs::DirBuilder::new()
         .recursive(true)

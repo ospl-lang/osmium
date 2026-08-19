@@ -174,27 +174,39 @@ fn do_folder<P: AsRef<Path>>(l: &P, q: &mut HighGraph, rq: &UnresolvedRequiremen
     Log!(Entering, "{pat:?}");
 
     pat.push("package.kdl");
-    let p = load_package_cfg(&pat).finalize();
+    let mut p = load_package_cfg(&pat).finalize();
 
     // we need to change the CWD into the current folder and back
     let old_wd = std::env::current_dir().unwrap();
     std::env::set_current_dir(next_re.current_folder.clone()).unwrap();
-    let Some(version_data) = p.version.get(&rq.ver.name)
-    else { panic!("failed to get version {} of package {:?}. There exists: {:?}", rq.ver.name, p.name, p.version.keys())};
+    let version_data = p.version.get(&rq.ver.name)
+        .cloned()
+        .unwrap_or_else(|| panic!("failed to get version {} of package {:?}. There exists: {:?}", rq.ver.name, p.name, p.version.keys()));
 
-    for rule in &version_data.prerules {
-        apply_rule_to_cwd(rule);
-    }
+    // whether a `reload` rule asked us to re-read package.kdl after the
+    // version rules (e.g. a git checkout) have been applied to the working tree
+    let mut reload_with: Option<String> = None;
 
     for rule in &version_data.rules {
         if rule.selector == rq.ver.selection {
             for rule in &rule.rules {
                 // this invokes `git` for various things, but it appears that it executes
                 // in the directory the build process was started in.
-                apply_rule_to_cwd(rule);
+                if let ApplyRuleToCwdCmd::ReloadKdl(file) = apply_rule_to_cwd(rule) {
+                    reload_with = Some(file);
+                }
                 break;
             }
         }
+    }
+
+    // A git checkout (or similar) may have changed package.kdl, so re-read it
+    // from the (possibly newly checked-out) folder before resolving it.
+    if let Some(file) = reload_with {
+        let mut reload_path = next_re.current_folder.clone();
+        reload_path.push(&file);
+        Log!(Reloading, "{reload_path:?}");
+        p = load_package_cfg(&reload_path).finalize();
     }
 
     Log!(Leaving, "{old_wd:?}");
@@ -208,17 +220,22 @@ fn do_folder<P: AsRef<Path>>(l: &P, q: &mut HighGraph, rq: &UnresolvedRequiremen
     Ok(())
 }
 
+pub enum ApplyRuleToCwdCmd {
+    Nothing,
+    ReloadKdl(String)
+}
+
 /// Note that this function will permanently make it's environment unusable.
-pub fn apply_rule_to_cwd(rule: &VersionTag) {
+pub fn apply_rule_to_cwd(rule: &VersionTag) -> ApplyRuleToCwdCmd {
     match rule {
         // warns
-        VersionTag::EOL => Log!(Warning, "this package is EOL!"),
-        VersionTag::Unmaintained => Log!(Warning, "This package is unmaintained!"),
-        VersionTag::Vulnerable(vuln) => Log!(Warning, "This package has a vulnerability: {vuln}"),
+        VersionTag::EOL => Log!(Warning, "this version is EOL!"),
+        VersionTag::Unmaintained => Log!(Warning, "This version is unmaintained!"),
+        VersionTag::Vulnerable(vuln) => Log!(Warning, "This version has a vulnerability: {vuln}"),
 
         // errors
         VersionTag::Gone => panic!("package version was removed"),
-        VersionTag::Error(e) => panic!("the package blocked building, it claims: {e:?}"),
+        VersionTag::Error(e) => panic!("the version blocked building, it claims: {e:?}"),
 
         // real tags
         VersionTag::Branch(b) => {
@@ -258,7 +275,12 @@ pub fn apply_rule_to_cwd(rule: &VersionTag) {
                 panic!("git reset failed, git's stderr follows\n===\n{stderr}");
             }
         },
+        VersionTag::Reload(r) => {
+            return ApplyRuleToCwdCmd::ReloadKdl(r.clone())
+        }
     }
+
+    return ApplyRuleToCwdCmd::Nothing
 }
 
 pub fn parse_file<P: AsRef<Path> + Debug>(f: P) -> Result<Vec<Statement>, ResolvErr> {

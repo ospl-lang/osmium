@@ -13,6 +13,7 @@ pub enum Action {
     Failed,
 
     Skipping,
+    Reloading,
 }
 
 pub fn log(action: Action, message: &str) {

@@ -29,6 +29,20 @@ pub fn cmd_new(name: String, kind: String) {
     writeln!(&mut f, include_str!("default_config.kdl"), name=name, kind=kind)
         .expect("failed to write default package.kdl");
 
+    // CREATE main.ospl
+    Log!(Creating, "main.ospl");
+    let mut main_path = path.clone();
+    main_path.push("main.ospl");
+
+    let mut f = fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&main_path)
+        .expect("failed to open main.ospl");
+
+    writeln!(&mut f, "def x = 1;")
+        .expect("failed to write default main.ospl");
+
     // INIT REPO
     Log!(Invoking, "git init");
 
@@ -44,13 +58,13 @@ pub fn cmd_new(name: String, kind: String) {
     // CREATE GITIGNORE
     Log!(Creating, ".gitignore");
     let mut gitignore_path = path.clone();
-    gitignore_path.push("package.kdl");
+    gitignore_path.push(".gitignore");
 
     let mut f = fs::OpenOptions::new()
         .create_new(true)
         .write(true)
-        .open(&yaml_path)
-        .expect("failed to open package.kdl");
+        .open(&gitignore_path)
+        .expect("failed to open .gitignore");
 
     writeln!(&mut f, include_str!("default.gitignore"))
         .expect("failed to write default .gitignore");

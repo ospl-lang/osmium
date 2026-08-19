@@ -1,8 +1,30 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::{Component, Path, PathBuf}};
 
 use kdl::{KdlDocument, KdlNode, KdlValue};
 
 use crate::graph::{build::UnresolvedRequirement, decl::{PackageSetup, UModDef, UModRef}, resolv0::{ModSrc, PkgRef, VersionDefinition, VersionRule, VersionRuleRef, VersionSelector, VersionTag}, resolv1::CExt};
+
+/// Rejects any path that isn't relative to the package folder (i.e. absolute
+/// paths, or paths that escape the package folder via `..`).
+fn sanitize_relative_path(what: &str, p: &str) -> String {
+    let path = Path::new(p);
+    if path.is_absolute() {
+        panic!("the {what} path `{p}` must be relative to the package folder");
+    }
+
+    for comp in path.components() {
+        match comp {
+            Component::ParentDir
+            | Component::RootDir
+            | Component::Prefix(_) => {
+                panic!("the {what} path `{p}` must stay within the package folder");
+            }
+            _ => {}
+        }
+    }
+
+    return p.to_string()
+}
 
 pub fn parse_kdl(k: KdlDocument) -> Option<PackageSetup> {
     let mut p = PackageSetup::default();
@@ -30,7 +52,7 @@ pub fn parse_kdl(k: KdlDocument) -> Option<PackageSetup> {
                 let n = child.name().value();
                 if n == "file" {
                     let path = child.get(0)?.as_string()?.to_string();
-                    src = Some(ModSrc::File(path));
+                    src = Some(ModSrc::File(sanitize_relative_path("module", &path)));
                 }
 
                 if n == "import" {
@@ -68,7 +90,7 @@ pub fn parse_kdl(k: KdlDocument) -> Option<PackageSetup> {
                     }
 
                     extensions.insert(name, CExt {
-                        file: PathBuf::from(c_file),
+                        file: PathBuf::from(sanitize_relative_path("extension", &c_file)),
                         link_with
                     });
                 }
@@ -98,7 +120,7 @@ pub fn parse_kdl(k: KdlDocument) -> Option<PackageSetup> {
             let requirement_ref = match requirement_ref_child.get(0)?.as_string()? {
                 "local" => {
                     let repo = requirement_ref_child.get(1)?.as_string()?.to_string();
-                    PkgRef::Local(repo)
+                    PkgRef::Local(sanitize_relative_path("requirement", &repo))
                 }
                 "git" => {
                     let repo = requirement_ref_child.get(1)?.as_string()?.to_string();
@@ -149,6 +171,7 @@ pub fn parse_kdl(k: KdlDocument) -> Option<PackageSetup> {
 
                         "branch" => VersionTag::Branch(e.get(0)?.as_string()?.to_string()),
                         "commit" => VersionTag::Commit(e.get(0)?.as_string()?.to_string()),
+                        "reload" => VersionTag::Reload(sanitize_relative_path("reload", &e.get(0)?.as_string()?.to_string())),
                         other => panic!("unknown version tag {other}")
                     };
                     tags.push(x);
@@ -187,4 +210,41 @@ pub fn parse_kdl(k: KdlDocument) -> Option<PackageSetup> {
     }
 
     return Some(p)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sanitize_relative_path;
+
+    #[test]
+    fn accepts_relative_paths_within_package() {
+        for (what, p) in [
+            ("module", "main.ospl"),
+            ("module", "src/lib.ospl"),
+            ("extension", "ffi/ffi.c"),
+            ("requirement", "."),
+            ("requirement", "./vendor"),
+            ("reload", "subdir/package.kdl"),
+        ] {
+            assert_eq!(sanitize_relative_path(what, p), p);
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "must be relative to the package folder")]
+    fn rejects_absolute_paths() {
+        sanitize_relative_path("module", "/etc/passwd");
+    }
+
+    #[test]
+    #[should_panic(expected = "must stay within the package folder")]
+    fn rejects_parent_traversal() {
+        sanitize_relative_path("module", "../evil.ospl");
+    }
+
+    #[test]
+    #[should_panic(expected = "must stay within the package folder")]
+    fn rejects_deep_parent_traversal() {
+        sanitize_relative_path("extension", "src/../../evil.c");
+    }
 }

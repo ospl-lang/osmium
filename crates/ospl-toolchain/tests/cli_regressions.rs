@@ -30,15 +30,12 @@ fn run(args: &[&str], cwd: &Path) -> std::process::Output {
 fn write_binary_package(dir: &Path, source: &str) {
     fs::write(
         dir.join("package.kdl"),
-        r#"name: app
-version: 1.0.0
-entry: bin
+        r#"name "app"
+entry "bin"
 
-includes:
-  bin:
-    at: !File "main.ospl"
-
-requires: []
+module "bin" {
+    file "main.ospl"
+}
 "#,
     )
     .expect("failed to write package.kdl");
@@ -82,19 +79,16 @@ fn local_module_can_be_required_by_entry_module() {
     let dir = temp_dir("local-module");
     fs::write(
         dir.join("package.kdl"),
-        r#"name: app
-version: 1.0.0
-entry: bin
+        r#"name "app"
+entry "bin"
 
-includes:
-  bin:
-    at: !File "main.ospl"
-    require:
-      lib: !Local "lib"
-  lib:
-    at: !File "lib.ospl"
-
-requires: []
+module "bin" {
+    file "main.ospl"
+    import "lib" { from "local" "lib" }
+}
+module "lib" {
+    file "lib.ospl"
+}
 "#,
     )
     .expect("failed to write package.kdl");
@@ -121,17 +115,13 @@ fn declared_c_extension_can_be_loaded_and_called() {
         .expect("failed to write ffi.c");
     fs::write(
         dir.join("package.kdl"),
-        r#"name: cext
-version: 1.0.0
-entry: bin
+        r#"name "cext"
+entry "bin"
 
-includes:
-  bin:
-    at: !File "main.ospl"
-    extensions:
-      mylib: "ffi.c"
-
-requires: []
+module "bin" {
+    file "main.ospl"
+    extension "mylib" "ffi.c"
+}
 "#,
     )
     .expect("failed to write package.kdl");
@@ -153,7 +143,6 @@ do foreign one();
 }
 
 #[test]
-#[ignore = "bug: new currently panics while creating .gitignore/package.kdl"]
 fn new_binary_package_succeeds_and_builds_without_manual_files() {
     let dir = temp_dir("new-binary-scaffold");
     let created = run(&["new", "hello", "-k", "binary"], &dir);
@@ -176,16 +165,16 @@ fn new_binary_package_succeeds_and_builds_without_manual_files() {
 }
 
 #[test]
-#[ignore = "bug: default_config.kdl does not match the current PackageSetup schema"]
 fn default_config_template_can_be_loaded_as_a_package() {
     let template = fs::read_to_string(
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/default_config.kdl"),
     )
     .expect("failed to read default config template");
     let rendered = template
-        .replacen("{}", "hello", 1)
-        .replacen("{}", "bin", 1)
-        .replace("{{}}", "{}");
+        .replace("{name}", "hello")
+        .replace("{kind}", "bin")
+        .replace("{{", "{")
+        .replace("}}", "}");
 
     let dir = temp_dir("default-config-template");
     fs::write(dir.join("package.kdl"), rendered).expect("failed to write rendered package.kdl");
@@ -229,7 +218,6 @@ fn checked_in_sample_programs_compile_as_binary_sources() {
 }
 
 #[test]
-#[ignore = "bug: foreign use only accepts declared extension ids, not system library paths"]
 fn foreign_use_can_load_system_library_path() {
     let dir = temp_dir("system-ffi");
     write_binary_package(
@@ -250,7 +238,6 @@ do foreign puts("hello from ffi");
 }
 
 #[test]
-#[ignore = "bug: build clears build/dist.ospb before validating the next build"]
 fn failed_build_preserves_last_successful_dist_file() {
     let dir = temp_dir("failed-build-preserves-output");
     write_binary_package(&dir, "def x = 1;\n");
@@ -261,15 +248,12 @@ fn failed_build_preserves_last_successful_dist_file() {
 
     fs::write(
         dir.join("package.kdl"),
-        r#"name: app
-version: 1.0.0
-entry: bin
+        r#"name "app"
+entry "bin"
 
-includes:
-  bin:
-    at: !File "missing.ospl"
-
-requires: []
+module "bin" {
+    file "missing.ospl"
+}
 "#,
     )
     .expect("failed to write invalid package.kdl");
